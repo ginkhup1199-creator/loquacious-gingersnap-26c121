@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusTrade - Secret Admin Dashboard</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            /* Dark Blue Theme */
+            --bg-dark: #050b14;
+            --bg-panel: #0a1325;
+            --bg-hover: #111d36;
+            --text-primary: #e2e8f0;
+            --text-secondary: #8ba3cb;
+            
+            /* Vibrant Accents */
+            --accent: #00f0ff; /* Cyan */
+            --accent-hover: #00c3ff;
+            --accent-secondary: #7000ff; /* Purple */
+            --accent-glow: rgba(0, 240, 255, 0.15);
+            
+            /* Status Colors */
+            --success: #00e676;
+            --success-bg: rgba(0, 230, 118, 0.1);
+            --danger: #ff1744;
+            --danger-bg: rgba(255, 23, 68, 0.1);
+            --warning: #ffb300;
+            --warning-bg: rgba(255, 179, 0, 0.1);
+            
+            --border: #1a2642;
+            --font-main: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Login Overlay */
+        #loginOverlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at center, var(--bg-panel), var(--bg-dark)); z-index: 9999;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .login-box {
+            background: var(--bg-panel); padding: 40px; border-radius: 12px;
+            border: 1px solid var(--border); width: 400px; text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .login-box input {
+            width: 100%; padding: 12px; margin: 20px 0; background: var(--bg-dark);
+            border: 1px solid var(--border); color: white; border-radius: 8px;
+        }
+
+        /* Layout */
+        .sidebar {
+            width: 250px; background-color: var(--bg-panel);
+            border-right: 1px solid var(--border); display: flex; flex-direction: column;
+        }
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 20px; background: var(--bg-dark); }
+
+        .logo { padding: 20px; font-size: 20px; font-weight: bold; color: var(--danger); display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); text-shadow: 0 0 10px var(--danger-bg); }
+        
+        .nav-menu { list-style: none; padding: 10px 0; flex: 1; }
+        .nav-item { padding: 12px 20px; display: flex; align-items: center; gap: 12px; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
+        .nav-item:hover, .nav-item.active { background-color: var(--bg-hover); color: var(--text-primary); border-left: 3px solid var(--danger); }
+
+        .tab-pane { display: none; animation: fadeIn 0.3s ease; }
+        .tab-pane.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+
+        .card { background-color: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .card-header { font-size: 16px; font-weight: 600; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--border); color: var(--text-primary); }
+
+        .btn { background: linear-gradient(45deg, var(--accent-secondary), var(--accent)); color: #000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.3s ease; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 15px var(--accent-glow); }
+        .btn-success { background: var(--success); color: #000; }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-warning { background: var(--warning); color: #000; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { color: var(--text-secondary); }
+        tr:hover td { background-color: var(--bg-hover); }
+
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; color: var(--text-secondary); font-size: 13px; }
+        .input-group input { width: 100%; padding: 10px; background-color: var(--bg-dark); border: 1px solid var(--border); color: white; border-radius: 6px; }
+
+        /* Chat Interface */
+        .chat-container { display: flex; flex-direction: column; height: 500px; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; }
+        .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .chat-message { max-width: 70%; padding: 10px 15px; border-radius: 8px; font-size: 14px; }
+        .chat-message.user { background: var(--bg-hover); color: white; align-self: flex-start; border: 1px solid var(--border); }
+        .chat-message.admin { background: var(--accent-secondary); color: white; align-self: flex-end; }
+        .chat-input-area { display: flex; padding: 15px; background: var(--bg-panel); border-top: 1px solid var(--border); gap: 10px; }
+        .chat-input-area input { flex: 1; padding: 10px; background: var(--bg-dark); border: 1px solid var(--border); color: white; border-radius: 4px; outline: none; }
+        
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative; display: inline-block; width: 50px; height: 24px;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--bg-dark); border: 1px solid var(--border); transition: .4s; border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 3px;
+            background-color: var(--text-secondary); transition: .4s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--success-bg); border-color: var(--success); }
+        input:checked + .slider:before { transform: translateX(24px); background-color: var(--success); }
+        
+        .feature-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .feature-row:last-child { border-bottom: none; }
+    </style>
+</head>
+<body>
+
+    <!-- Login Overlay -->
+    <div id="loginOverlay">
+        <div class="login-box">
+            <i data-lucide="shield-alert" style="width: 48px; height: 48px; color: var(--danger); margin-bottom: 10px;"></i>
+            <h2 style="color: var(--danger);">Secure Admin Access</h2>
+            <p style="color: var(--text-secondary); font-size: 14px; margin-top: 10px;">Enter Master Admin Password to access the backend.</p>
+            <input type="password" id="adminPassword" placeholder="Password (hint: admin123)" onkeypress="if(event.key === 'Enter') login()">
+            <button class="btn btn-danger" style="width: 100%;" onclick="login()">Login to Backend</button>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo"><i data-lucide="shield-alert"></i> Admin Backend</div>
+        <ul class="nav-menu">
+            <li class="nav-item active" onclick="switchTab('tab-overview')"><i data-lucide="activity"></i> Overview</li>
+            <li class="nav-item" onclick="switchTab('tab-wallet')"><i data-lucide="wallet"></i> Wallet Controls</li>
+            <li class="nav-item" onclick="switchTab('tab-kyc')"><i data-lucide="user-check"></i> KYC Approvals</li>
+            <li class="nav-item" onclick="switchTab('tab-withdraw')"><i data-lucide="arrow-up-from-line"></i> Withdrawals</li>
+            <li class="nav-item" onclick="switchTab('tab-chat')"><i data-lucide="message-circle"></i> Live Chat Support</li>
+            <li class="nav-item" onclick="switchTab('tab-settings')"><i data-lucide="settings"></i> System Settings</li>
+            <li class="nav-item" onclick="switchTab('tab-master')" style="margin-top: 40px; color: var(--warning);"><i data-lucide="key"></i> Master Account</li>
+        </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        
+        <!-- Overview -->
+        <div id="tab-overview" class="tab-pane active">
+            <h2>Platform Overview</h2>
+            <div class="grid-3" style="margin-top: 20px;">
+                <div class="card">
+                    <div style="color: var(--text-secondary); font-size: 14px;">Pending KYC</div>
+                    <div style="font-size: 28px; font-weight: bold; color: var(--warning);" id="stat-kyc">0</div>
+                </div>
+                <div class="card">
+                    <div style="color: var(--text-secondary); font-size: 14px;">Pending Withdrawals</div>
+                    <div style="font-size: 28px; font-weight: bold; color: var(--danger);" id="stat-withdraw">0</div>
+                </div>
+                <div class="card">
+                    <div style="color: var(--text-secondary); font-size: 14px;">Unread Messages</div>
+                    <div style="font-size: 28px; font-weight: bold; color: var(--accent);" id="stat-chat">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Wallet Controls -->
+        <div id="tab-wallet" class="tab-pane">
+            <h2>Wallet & DApp Feature Controls</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Instantly enable or disable features on the user frontend.</p>
+            
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header">Feature Toggles</div>
+                    <div class="feature-row">
+                        <div>
+                            <div style="font-weight: bold;">Fiat On-Ramp (Buy Crypto)</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">Allow users to buy crypto with credit cards</div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="toggle-fiat" checked onchange="saveFeatures()"><span class="slider"></span></label>
+                    </div>
+                    <div class="feature-row">
+                        <div>
+                            <div style="font-weight: bold;">P2P Send / Withdrawals</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">Allow users to send crypto out of the platform</div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="toggle-send" checked onchange="saveFeatures()"><span class="slider"></span></label>
+                    </div>
+                    <div class="feature-row">
+                        <div>
+                            <div style="font-weight: bold;">Web3 Swaps</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">Allow instant token swapping</div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="toggle-swap" checked onchange="saveFeatures()"><span class="slider"></span></label>
+                    </div>
+                    <div class="feature-row">
+                        <div>
+                            <div style="font-weight: bold;">Spot Trading Engine</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">Allow order book trading</div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="toggle-trade" checked onchange="saveFeatures()"><span class="slider"></span></label>
+                    </div>
+                    <div class="feature-row">
+                        <div>
+                            <div style="font-weight: bold;">Binary Options</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">Allow time-based prediction trading</div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="toggle-binary" checked onchange="saveFeatures()"><span class="slider"></span></label>
+                    </div>
+                    <div class="feature-row">
+                        <div>
+                            <div style="font-weight: bold;">AI Arbitrage Bots</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">Allow users to deploy AI bots</div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="toggle-ai" checked onchange="saveFeatures()"><span class="slider"></span></label>
+                    </div>
+                    <div class="feature-row">
+                        <div>
+                            <div style="font-weight: bold;">Earn & Staking</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">Allow yield farming deposits</div>
+                        </div>
+                        <label class="toggle-switch"><input type="checkbox" id="toggle-earn" checked onchange="saveFeatures()"><span class="slider"></span></label>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">Supported Tokens Management</div>
+                    <table>
+                        <thead><tr><th>Token</th><th>Network</th><th>Status</th><th>Action</th></tr></thead>
+                        <tbody>
+                            <tr><td>USDT</td><td>TRC20/ERC20</td><td><span style="color: var(--success);">Active</span></td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;">Disable</button></td></tr>
+                            <tr><td>BTC</td><td>Bitcoin</td><td><span style="color: var(--success);">Active</span></td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;">Disable</button></td></tr>
+                            <tr><td>ETH</td><td>ERC20</td><td><span style="color: var(--success);">Active</span></td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;">Disable</button></td></tr>
+                            <tr><td>SOL</td><td>Solana</td><td><span style="color: var(--success);">Active</span></td><td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;">Disable</button></td></tr>
+                        </tbody>
+                    </table>
+                    <button class="btn mt-15" style="width: 100%;"><i data-lucide="plus"></i> Add New Token</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- KYC Approvals -->
+        <div id="tab-kyc" class="tab-pane">
+            <h2>KYC Management</h2>
+            <div class="card mt-20">
+                <table>
+                    <thead><tr><th>User Wallet</th><th>Name</th><th>Document Type</th><th>Action</th></tr></thead>
+                    <tbody id="adminKycTable">
+                        <tr id="emptyKycRow"><td colspan="4" style="text-align: center;">No pending requests</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Withdrawals -->
+        <div id="tab-withdraw" class="tab-pane">
+            <h2>Withdrawal Requests</h2>
+            <div class="card mt-20">
+                <table>
+                    <thead><tr><th>Coin</th><th>Network</th><th>Amount</th><th>Destination</th><th>Action</th></tr></thead>
+                    <tbody id="adminWithdrawTable">
+                        <tr id="emptyWithdrawRow"><td colspan="5" style="text-align: center;">No pending withdrawals</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Live Chat -->
+        <div id="tab-chat" class="tab-pane">
+            <h2>Live Customer Support</h2>
+            <div class="card mt-20" style="padding: 0;">
+                <div class="chat-container">
+                    <div class="chat-messages" id="adminChatBody">
+                        <!-- Messages injected here -->
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" id="adminChatInput" placeholder="Type reply to user..." onkeypress="if(event.key === 'Enter') sendAdminMessage()">
+                        <button class="btn" onclick="sendAdminMessage()">Send Reply</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Settings -->
+        <div id="tab-settings" class="tab-pane">
+            <h2>System Settings & Addresses</h2>
+            <div class="grid-2 mt-20">
+                <div class="card">
+                    <div class="card-header">Platform Deposit Addresses</div>
+                    <div class="input-group"><label>TRC20</label><input type="text" id="addr-trc20"></div>
+                    <div class="input-group"><label>ERC20</label><input type="text" id="addr-erc20"></div>
+                    <div class="input-group"><label>BSC (BEP20)</label><input type="text" id="addr-bsc"></div>
+                    <div class="input-group"><label>Solana</label><input type="text" id="addr-sol"></div>
+                    <div class="input-group"><label>Bitcoin</label><input type="text" id="addr-btc"></div>
+                    <button class="btn btn-success" onclick="saveAddresses()">Update Addresses</button>
+                </div>
+                <div class="card">
+                    <div class="card-header">Global Fees & Rates</div>
+                    <div class="input-group"><label>Swap Slippage Fee (%)</label><input type="number" value="0.5"></div>
+                    <div class="input-group"><label>Binary L1 Payout (%)</label><input type="number" value="85"></div>
+                    <div class="input-group"><label>BTC Staking APY (%)</label><input type="number" value="12.5"></div>
+                    <button class="btn" onclick="alert('Rates updated globally!')">Apply Changes</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Master Account -->
+        <div id="tab-master" class="tab-pane">
+            <h2 style="color: var(--warning);">Master Account Management</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Only the Master Admin can create and assign new sub-admin accounts.</p>
+            
+            <div class="card">
+                <div class="card-header">Create Sub-Admin</div>
+                <div class="grid-2">
+                    <div class="input-group"><label>Admin Username</label><input type="text" placeholder="e.g., support_agent_1"></div>
+                    <div class="input-group"><label>Temporary Password</label><input type="password" placeholder="••••••••"></div>
+                </div>
+                <div class="input-group">
+                    <label>Role Permissions</label>
+                    <div style="display: flex; gap: 15px; margin-top: 10px;">
+                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox" checked> KYC Approvals</label>
+                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox" checked> Live Chat</label>
+                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox"> Withdrawals</label>
+                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox"> System Settings</label>
+                    </div>
+                </div>
+                <button class="btn btn-warning" style="color: black;" onclick="alert('Sub-admin created successfully!')">Create Admin Account</button>
+            </div>
+
+            <div class="card">
+                <div class="card-header">Active Admins</div>
+                <table>
+                    <thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <tr><td>master_admin</td><td>Master</td><td><span style="color: var(--success);">Online</span></td><td>-</td></tr>
+                        <tr><td>support_agent_1</td><td>Chat & KYC</td><td><span style="color: var(--text-secondary);">Offline</span></td><td><button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;">Revoke</button></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        lucide.createIcons();
+
+        function login() {
+            const pwd = document.getElementById('adminPassword').value;
+            if(pwd === 'admin123') {
+                document.getElementById('loginOverlay').style.display = 'none';
+                loadFeatures();
+                pollFrontendData(); // Initial load
+            } else {
+                alert("Incorrect Master Password");
+            }
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.querySelector(`.nav-item[onclick="switchTab('${tabId}')"]`).classList.add('active');
+        }
+
+        // --- Feature Toggles ---
+        function loadFeatures() {
+            const features = JSON.parse(localStorage.getItem('adminFeatures')) || {
+                fiat: true, send: true, swap: true, trade: true, binary: true, ai: true, earn: true
+            };
+            document.getElementById('toggle-fiat').checked = features.fiat;
+            document.getElementById('toggle-send').checked = features.send;
+            document.getElementById('toggle-swap').checked = features.swap;
+            document.getElementById('toggle-trade').checked = features.trade;
+            document.getElementById('toggle-binary').checked = features.binary;
+            document.getElementById('toggle-ai').checked = features.ai;
+            document.getElementById('toggle-earn').checked = features.earn;
+        }
+
+        function saveFeatures() {
+            const features = {
+                fiat: document.getElementById('toggle-fiat').checked,
+                send: document.getElementById('toggle-send').checked,
+                swap: document.getElementById('toggle-swap').checked,
+                trade: document.getElementById('toggle-trade').checked,
+                binary: document.getElementById('toggle-binary').checked,
+                ai: document.getElementById('toggle-ai').checked,
+                earn: document.getElementById('toggle-earn').checked
+            };
+            localStorage.setItem('adminFeatures', JSON.stringify(features));
+        }
+
+        // --- Real-time Polling from LocalStorage ---
+        
+        function pollFrontendData() {
+            // 1. KYC Data
+            const kycState = localStorage.getItem('kycState') || 'unverified';
+            const kycName = localStorage.getItem('kycName') || 'Unknown';
+            const kycDocType = localStorage.getItem('kycDocType') || 'Unknown';
+            
+            const kycTable = document.getElementById('adminKycTable');
+            const emptyKyc = document.getElementById('emptyKycRow');
+            
+            if(kycState === 'pending') {
+                document.getElementById('stat-kyc').innerText = '1';
+                emptyKyc.style.display = 'none';
+                if(!document.getElementById('pendingKycRow')) {
+                    const row = document.createElement('tr');
+                    row.id = 'pendingKycRow';
+                    row.innerHTML = `
+                        <td>0x7A...3F92</td>
+                        <td>${kycName}</td>
+                        <td><span style="color: var(--warning); font-weight: bold;">${kycDocType}</span></td>
+                        <td>
+                            <button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; display: inline-flex;" onclick="approveKYC()">Approve</button>
+                            <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; display: inline-flex; margin-left: 5px;" onclick="rejectKYC()">Reject</button>
+                        </td>
+                    `;
+                    kycTable.appendChild(row);
+                }
+            } else {
+                document.getElementById('stat-kyc').innerText = '0';
+                emptyKyc.style.display = 'table-row';
+                const row = document.getElementById('pendingKycRow');
+                if(row) row.remove();
+            }
+
+            // 2. Withdrawal Data
+            let pendingWithdrawals = JSON.parse(localStorage.getItem('pendingWithdrawals')) || [];
+            const withdrawTable = document.getElementById('adminWithdrawTable');
+            const emptyWithdraw = document.getElementById('emptyWithdrawRow');
+            
+            document.getElementById('stat-withdraw').innerText = pendingWithdrawals.length;
+            
+            document.querySelectorAll('.dynamic-withdraw-row').forEach(el => el.remove());
+            if(pendingWithdrawals.length === 0) {
+                emptyWithdraw.style.display = 'table-row';
+            } else {
+                emptyWithdraw.style.display = 'none';
+                pendingWithdrawals.forEach(w => {
+                    const row = document.createElement('tr');
+                    row.className = 'dynamic-withdraw-row';
+                    row.innerHTML = `
+                        <td>${w.coin}</td><td>${w.network}</td><td>${w.amount}</td>
+                        <td style="font-family: monospace;">${w.address}</td>
+                        <td>
+                            <button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; display: inline-flex;" onclick="processWithdrawal(${w.id}, 'Approved')">Approve</button>
+                            <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; display: inline-flex; margin-left: 5px;" onclick="processWithdrawal(${w.id}, 'Rejected')">Reject</button>
+                        </td>
+                    `;
+                    withdrawTable.appendChild(row);
+                });
+            }
+
+            // 3. Chat Data
+            let messages = JSON.parse(localStorage.getItem('chatMessages')) || [];
+            const chatBody = document.getElementById('adminChatBody');
+            
+            if(chatBody.children.length !== messages.length) {
+                chatBody.innerHTML = '';
+                let unread = 0;
+                messages.forEach(msg => {
+                    const div = document.createElement('div');
+                    div.className = `chat-message ${msg.sender === 'user' ? 'user' : 'admin'}`;
+                    div.innerText = msg.text;
+                    chatBody.appendChild(div);
+                    if(msg.sender === 'user') unread++;
+                });
+                document.getElementById('stat-chat').innerText = unread;
+                chatBody.scrollTop = chatBody.scrollHeight;
+            }
+
+            // 4. Load Addresses
+            if(!document.getElementById('addr-trc20').value) {
+                let addrs = JSON.parse(localStorage.getItem('depositAddresses')) || {
+                    'TRC20': 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+                    'ERC20': '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+                    'BSC': '0x55d398326f99059fF775485246999027B3197955',
+                    'SOL': 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+                    'BTC': 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
+                };
+                document.getElementById('addr-trc20').value = addrs['TRC20'];
+                document.getElementById('addr-erc20').value = addrs['ERC20'];
+                document.getElementById('addr-bsc').value = addrs['BSC'];
+                document.getElementById('addr-sol').value = addrs['SOL'];
+                document.getElementById('addr-btc').value = addrs['BTC'];
+            }
+        }
+
+        // Actions
+        function approveKYC() { localStorage.setItem('kycState', 'approved'); pollFrontendData(); }
+        function rejectKYC() { localStorage.setItem('kycState', 'unverified'); pollFrontendData(); }
+
+        function processWithdrawal(id, status) {
+            let pending = JSON.parse(localStorage.getItem('pendingWithdrawals')) || [];
+            pending = pending.filter(w => w.id !== id);
+            localStorage.setItem('pendingWithdrawals', JSON.stringify(pending));
+            pollFrontendData();
+        }
+
+        function sendAdminMessage() {
+            const input = document.getElementById('adminChatInput');
+            const text = input.value.trim();
+            if(!text) return;
+
+            let messages = JSON.parse(localStorage.getItem('chatMessages')) || [];
+            messages.push({ sender: 'admin', text: text, time: Date.now() });
+            localStorage.setItem('chatMessages', JSON.stringify(messages));
+            
+            input.value = '';
+            pollFrontendData();
+        }
+
+        function saveAddresses() {
+            const addrs = {
+                'TRC20': document.getElementById('addr-trc20').value,
+                'ERC20': document.getElementById('addr-erc20').value,
+                'BSC': document.getElementById('addr-bsc').value,
+                'SOL': document.getElementById('addr-sol').value,
+                'BTC': document.getElementById('addr-btc').value
+            };
+            localStorage.setItem('depositAddresses', JSON.stringify(addrs));
+            alert("Addresses updated! The user frontend will reflect this immediately.");
+        }
+
+        // Poll every 2 seconds
+        setInterval(pollFrontendData, 2000);
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NexusTrade - Web3 Wallet Trading DApp</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            /* Dark Blue Theme */
+            --bg-dark: #050b14;
+            --bg-panel: #0a1325;
+            --bg-hover: #111d36;
+            --text-primary: #e2e8f0;
+            --text-secondary: #8ba3cb;
+            
+            /* Vibrant Accents */
+            --accent: #00f0ff; /* Cyan */
+            --accent-hover: #00c3ff;
+            --accent-secondary: #7000ff; /* Purple */
+            --accent-glow: rgba(0, 240, 255, 0.15);
+            
+            /* Status Colors */
+            --success: #00e676;
+            --success-bg: rgba(0, 230, 118, 0.1);
+            --danger: #ff1744;
+            --danger-bg: rgba(255, 23, 68, 0.1);
+            --warning: #ffb300;
+            --warning-bg: rgba(255, 179, 0, 0.1);
+            
+            --border: #1a2642;
+            --font-main: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Layout */
+        .sidebar {
+            width: 250px;
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+            box-shadow: 2px 0 15px rgba(0,0,0,0.2);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            position: relative;
+            background: radial-gradient(circle at top right, var(--accent-glow), transparent 40%), var(--bg-dark);
+        }
+
+        /* Topbar */
+        .topbar {
+            height: 60px;
+            background-color: rgba(10, 19, 37, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 15px;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .wallet-info { display: flex; align-items: center; gap: 10px; }
+        .balance { font-weight: bold; font-size: 14px; display: none; color: var(--accent); }
+
+        /* Buttons */
+        .btn {
+            background: linear-gradient(45deg, var(--accent-secondary), var(--accent));
+            color: #000;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            box-shadow: 0 4px 15px var(--accent-glow);
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 240, 255, 0.3); }
+        .btn-success { background: var(--success); color: #000; box-shadow: 0 4px 15px var(--success-bg); }
+        .btn-danger { background: var(--danger); color: #fff; box-shadow: 0 4px 15px var(--danger-bg); }
+        .btn-warning { background: var(--warning); color: #000; box-shadow: 0 4px 15px var(--warning-bg); }
+        .btn-outline { background: transparent; border: 1px solid var(--accent); color: var(--accent); box-shadow: none; }
+        .btn-outline:hover { background: var(--accent-glow); }
+
+        /* Navigation */
+        .nav-menu { list-style: none; padding: 10px 0; flex: 1; overflow-y: auto; }
+        .nav-item {
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 15px;
+        }
+        .nav-item:hover, .nav-item.active {
+            background-color: var(--bg-hover);
+            color: var(--accent);
+            border-left: 3px solid var(--accent);
+        }
+
+        /* Bottom Nav (Mobile) */
+        .bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: rgba(10, 19, 37, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid var(--border);
+            z-index: 100;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .bottom-nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 0;
+            color: var(--text-secondary);
+            font-size: 11px;
+            gap: 4px;
+            cursor: pointer;
+        }
+        .bottom-nav-item.active { color: var(--accent); }
+
+        /* Tabs & Grids */
+        .tab-pane { display: none; padding: 15px; padding-bottom: 80px; }
+        .tab-pane.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+
+        /* Cards */
+        .card {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, var(--accent-secondary), var(--accent));
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .card:hover::before { opacity: 1; }
+        
+        .card-header {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-primary);
+        }
+
+        /* Inputs */
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; color: var(--text-secondary); font-size: 13px; }
+        .input-group input, .input-group select {
+            width: 100%; padding: 12px; background-color: var(--bg-dark);
+            border: 1px solid var(--border); color: white; border-radius: 8px; font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        .input-group input:focus, .input-group select:focus { border-color: var(--accent); outline: none; }
+
+        /* Tables */
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        th { color: var(--text-secondary); font-weight: normal; }
+        tr:hover td { background-color: var(--bg-hover); }
+        
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+        .badge-warning { background: var(--warning-bg); color: var(--warning); }
+        .badge-success { background: var(--success-bg); color: var(--success); }
+        .badge-danger { background: var(--danger-bg); color: var(--danger); }
+        .badge-accent { background: var(--accent-glow); color: var(--accent); }
+
+        .text-success { color: var(--success); }
+        .text-danger { color: var(--danger); }
+        .text-warning { color: var(--warning); }
+        .mt-15 { margin-top: 15px; }
+
+        /* Overlay Lock & Disabled */
+        .overlay-lock, .overlay-disabled { position: relative; }
+        .overlay-lock::after, .overlay-disabled::after {
+            content: "Connect wallet to access";
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(5, 11, 20, 0.85); backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; font-weight: bold; color: var(--accent);
+            z-index: 10; border-radius: 12px; display: none;
+        }
+        .disconnected .overlay-lock::after { display: flex; }
+        
+        .overlay-disabled::after { content: "Temporarily Disabled by Admin"; color: var(--danger); }
+        .disabled-feature .overlay-disabled::after { display: flex; }
+
+        /* Live Ticker List */
+        .ticker-list {
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .ticker-list::-webkit-scrollbar { width: 4px; }
+        .ticker-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        .ticker-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 0; border-bottom: 1px solid var(--border);
+        }
+        .ticker-item:last-child { border-bottom: none; }
+        .coin-info { display: flex; align-items: center; gap: 10px; }
+        .coin-icon { width: 32px; height: 32px; border-radius: 50%; background: var(--bg-hover); display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); overflow: hidden; }
+        .coin-icon img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* Wallet Sub-tabs */
+        .wallet-nav { display: flex; gap: 20px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
+        .wallet-nav-item { padding-bottom: 10px; color: var(--text-secondary); cursor: pointer; white-space: nowrap; font-weight: 600; transition: color 0.2s; }
+        .wallet-nav-item:hover { color: var(--text-primary); }
+        .wallet-nav-item.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+        .wallet-sub-pane { display: none; }
+        .wallet-sub-pane.active { display: block; animation: fadeIn 0.2s ease; }
+
+        /* Pop-up Live Chat */
+        .chat-toggle-btn {
+            position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px;
+            border-radius: 50%; background: linear-gradient(45deg, var(--accent-secondary), var(--accent));
+            color: #000; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 20px var(--accent-glow); cursor: pointer; border: none; z-index: 1001;
+            transition: transform 0.3s ease;
+        }
+        .chat-toggle-btn:hover { transform: scale(1.1); }
+        
+        .floating-chat {
+            position: fixed; bottom: 90px; right: 20px; width: 350px; height: 500px;
+            background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px;
+            display: flex; flex-direction: column; z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6); 
+            opacity: 0; pointer-events: none; transform: translateY(20px) scale(0.95);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); overflow: hidden;
+        }
+        .floating-chat.active {
+            opacity: 1; pointer-events: auto; transform: translateY(0) scale(1);
+        }
+        .chat-header {
+            background: linear-gradient(90deg, var(--accent-secondary), var(--accent));
+            color: #000; padding: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center;
+        }
+        .chat-body { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: var(--bg-dark); }
+        .chat-message { max-width: 80%; padding: 10px 12px; border-radius: 8px; font-size: 13px; line-height: 1.4; }
+        .chat-message.user { background: var(--accent-secondary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .chat-message.admin { background: var(--bg-hover); color: white; align-self: flex-start; border-bottom-left-radius: 2px; border: 1px solid var(--border); }
+        .chat-input { padding: 15px; background: var(--bg-panel); border-top: 1px solid var(--border); display: flex; gap: 10px; }
+        .chat-input input { flex: 1; background: var(--bg-dark); border: 1px solid var(--border); color: white; padding: 10px; border-radius: 20px; outline: none; }
+        .chat-input button { background: var(--accent); color: #000; border: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .bottom-nav { display: flex; }
+            .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+            .topbar .logo span { display: none; }
+            .balance { display: none !important; }
+            .chat-toggle-btn { bottom: 80px; right: 15px; }
+            .floating-chat { bottom: 150px; right: 10px; width: calc(100% - 20px); height: 400px; }
+        }
+
+        .chart-container { height: 400px; width: 100%; margin-bottom: 20px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+        .news-container { height: 400px; width: 100%; border-radius: 12px; overflow: hidden; }
+        .qr-placeholder { width: 150px; height: 150px; background: white; margin: 0 auto 15px auto; display: flex; align-items: center; justify-content: center; border-radius: 8px; padding: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- Desktop Sidebar -->
+    <aside class="sidebar">
+        <div class="logo" style="padding: 20px;">
+            <i data-lucide="hexagon"></i> NexusTrade
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-item active" onclick="switchTab('tab-home')"><i data-lucide="home"></i> Dashboard</li>
+            <li class="nav-item" onclick="switchTab('tab-wallet')"><i data-lucide="wallet"></i> Wallet</li>
+            <li class="nav-item" onclick="switchTab('tab-trade')"><i data-lucide="line-chart"></i> Spot Trade</li>
+            <li class="nav-item" onclick="switchTab('tab-swap')"><i data-lucide="refresh-cw"></i> Web3 Swap</li>
+            <li class="nav-item" onclick="switchTab('tab-binary')"><i data-lucide="clock"></i> Binary Options</li>
+            <li class="nav-item" onclick="switchTab('tab-ai')"><i data-lucide="cpu"></i> AI Arbitrage</li>
+            <li class="nav-item" onclick="switchTab('tab-earn')"><i data-lucide="coins"></i> Earn & Stake</li>
+            <li class="nav-item" onclick="switchTab('tab-profile')"><i data-lucide="user"></i> Profile & KYC</li>
+            <li class="nav-item" onclick="switchTab('tab-about')"><i data-lucide="info"></i> About Us</li>
+        </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Topbar -->
+        <header class="topbar">
+            <div class="logo d-md-none">
+                <i data-lucide="hexagon"></i> <span>NexusTrade</span>
+            </div>
+            <div class="wallet-info" style="margin-left: auto;">
+                <div class="balance" id="walletBalance">12,450.00 USDT</div>
+                <button class="btn" id="walletBtn" onclick="toggleWallet()">
+                    <i data-lucide="wallet"></i> Connect
+                </button>
+            </div>
+        </header>
+
+        <!-- TAB: Home Dashboard -->
+        <div id="tab-home" class="tab-pane active">
+            <div class="grid-2" style="grid-template-columns: 2fr 1fr;">
+                <!-- Real-time K-Line Chart -->
+                <div class="card" style="padding: 0; overflow: hidden; height: 450px;">
+                    <iframe src="https://s.tradingview.com/widgetembed/?symbol=BINANCE%3ABTCUSDT&interval=15&theme=dark&style=1&timezone=Etc%2FUTC&locale=en&backgroundColor=%230a1325&gridColor=%231a2642&hide_top_toolbar=false&hide_legend=false&save_image=false" width="100%" height="100%" frameborder="0" allowtransparency="true" scrolling="no" allowfullscreen=""></iframe>
+                </div>
+
+                <!-- Live Crypto Prices (50 Coins) -->
+                <div class="card">
+                    <div class="card-header">Live Markets (USDT)</div>
+                    <div class="ticker-list" id="ticker-list">
+                        <!-- 50 Coins will be injected here via JS -->
+                    </div>
+                    <button class="btn btn-outline mt-15" style="width: 100%;" onclick="switchTab('tab-trade')">Trade Now</button>
+                </div>
+            </div>
+
+            <!-- Live News Feed -->
+            <div class="card mt-15" style="padding: 0; overflow: hidden;">
+                <div class="card-header" style="padding: 15px 15px 0 15px; border: none;">Latest Crypto News</div>
+                <div style="height: 450px; width: 100%;">
+                    <div class="tradingview-widget-container">
+                      <div class="tradingview-widget-container__widget"></div>
+                      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-timeline.js" async>
+                      {
+                      "feedMode": "all_symbols",
+                      "isTransparent": true,
+                      "displayMode": "regular",
+                      "width": "100%",
+                      "height": 450,
+                      "colorTheme": "dark",
+                      "locale": "en"
+                    }
+                      </script>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: Wallet -->
+        <div id="tab-wallet" class="tab-pane">
+            <h2 style="margin-bottom: 15px; color: var(--accent);">My Wallet</h2>
+            <div class="overlay-lock" id="walletPanel">
+                
+                <div class="wallet-nav">
+                    <div class="wallet-nav-item active" onclick="switchWalletTab('wallet-overview')">Overview</div>
+                    <div class="wallet-nav-item" onclick="switchWalletTab('wallet-buy')" id="nav-buy">Buy Crypto</div>
+                    <div class="wallet-nav-item" onclick="switchWalletTab('wallet-receive')">Receive</div>
+                    <div class="wallet-nav-item" onclick="switchWalletTab('wallet-send')" id="nav-send">Send</div>
+                    <div class="wallet-nav-item" onclick="switchWalletTab('wallet-history')">History</div>
+                </div>
+
+                <!-- Wallet: Overview -->
+                <div id="wallet-overview" class="wallet-sub-pane active">
+                    <div class="card" style="margin-bottom: 20px; background: linear-gradient(135deg, var(--bg-panel) 0%, var(--bg-hover) 100%); border: 1px solid var(--accent-glow);">
+                        <div style="color: var(--text-secondary); font-size: 14px;">Total Estimated Balance</div>
+                        <div style="font-size: 36px; font-weight: bold; margin: 10px 0; color: var(--text-primary);">$12,450.00 <span style="font-size: 16px; color: var(--accent); font-weight: normal;">USD</span></div>
+                        <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
+                            <button class="btn" onclick="switchWalletTab('wallet-buy')"><i data-lucide="credit-card"></i> Buy</button>
+                            <button class="btn btn-outline" onclick="switchWalletTab('wallet-receive')"><i data-lucide="arrow-down-to-line"></i> Receive</button>
+                            <button class="btn btn-outline" onclick="switchWalletTab('wallet-send')"><i data-lucide="arrow-up-from-line"></i> Send</button>
+                            <button class="btn btn-outline" onclick="switchTab('tab-swap')"><i data-lucide="refresh-cw"></i> Swap</button>
+                        </div>
+                    </div>
+
+                    <div class="card table-responsive">
+                        <div class="card-header">
+                            My Assets
+                            <button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;"><i data-lucide="plus"></i> Manage Tokens</button>
+                        </div>
+                        <table>
+                            <thead><tr><th>Asset</th><th>Total Balance</th><th>Value (USD)</th><th>Action</th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td><div class="coin-info"><div class="coin-icon"><img src="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/usdt.svg"></div> <b>USDT</b></div></td>
+                                    <td>8,450.00</td>
+                                    <td style="color: var(--accent);">$8,450.00</td>
+                                    <td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="switchWalletTab('wallet-send')">Send</button></td>
+                                </tr>
+                                <tr>
+                                    <td><div class="coin-info"><div class="coin-icon"><img src="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/btc.svg"></div> <b>BTC</b></div></td>
+                                    <td>0.045</td>
+                                    <td style="color: var(--accent);">$2,890.37</td>
+                                    <td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="switchWalletTab('wallet-send')">Send</button></td>
+                                </tr>
+                                <tr>
+                                    <td><div class="coin-info"><div class="coin-icon"><img src="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/eth.svg"></div> <b>ETH</b></div></td>
+                                    <td>0.321</td>
+                                    <td style="color: var(--accent);">$1,109.63</td>
+                                    <td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="switchWalletTab('wallet-send')">Send</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Wallet: Buy Crypto (Fiat) -->
+                <div id="wallet-buy" class="wallet-sub-pane overlay-disabled" id="buyPanel">
+                    <div class="grid-2">
+                        <div class="card">
+                            <div class="card-header">Buy Crypto with Fiat</div>
+                            <div class="input-group">
+                                <label>You Pay</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="number" value="500" style="flex: 1;">
+                                    <select style="width: 100px;"><option>USD</option><option>EUR</option><option>GBP</option></select>
+                                </div>
+                            </div>
+                            <div style="text-align: center; margin: 10px 0; color: var(--accent);"><i data-lucide="arrow-down"></i></div>
+                            <div class="input-group">
+                                <label>You Receive (Estimated)</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="number" value="485.50" readonly style="flex: 1; background: var(--bg-panel);">
+                                    <select style="width: 100px;"><option>USDT</option><option>BTC</option><option>ETH</option></select>
+                                </div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 15px;">
+                                <span>Provider: MoonPay</span><span>Fee: ~2.9%</span>
+                            </div>
+                            <button class="btn" style="width: 100%;"><i data-lucide="credit-card"></i> Continue to Payment</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Wallet: Receive -->
+                <div id="wallet-receive" class="wallet-sub-pane">
+                    <div class="grid-2">
+                        <div class="card">
+                            <div class="card-header">Receive Crypto</div>
+                            <div class="input-group">
+                                <label>Select Coin</label>
+                                <select id="dep-coin">
+                                    <option value="USDT">USDT (Tether)</option>
+                                    <option value="BTC">BTC (Bitcoin)</option>
+                                    <option value="ETH">ETH (Ethereum)</option>
+                                    <option value="SOL">SOL (Solana)</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Select Network</label>
+                                <select id="dep-network" onchange="updateDepositUI()">
+                                    <option value="TRC20">TRC20 (Tron)</option>
+                                    <option value="ERC20">ERC20 (Ethereum)</option>
+                                    <option value="BSC">BEP20 (BSC)</option>
+                                    <option value="SOL">Solana</option>
+                                    <option value="BTC">Bitcoin</option>
+                                </select>
+                            </div>
+                            <div class="mt-15 p-15" style="background: var(--bg-dark); border-radius: 8px; text-align: center; padding: 20px; border: 1px solid var(--border);">
+                                <div class="qr-placeholder">
+                                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t" id="qr-img" alt="QR Code">
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 5px;">Your Deposit Address</div>
+                                <div style="font-family: monospace; font-size: 14px; word-break: break-all; margin-bottom: 15px; color: var(--accent);" id="user-deposit-address">
+                                    Loading...
+                                </div>
+                                <button class="btn btn-outline" style="width: 100%;" onclick="alert('Address copied to clipboard!')"><i data-lucide="copy"></i> Copy Address</button>
+                            </div>
+                            <div style="font-size: 12px; color: var(--warning); margin-top: 15px; text-align: center; background: var(--warning-bg); padding: 10px; border-radius: 6px;">
+                                <i data-lucide="alert-triangle" style="width: 14px; display: inline-block; vertical-align: middle;"></i> Send only selected coin to this address.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Wallet: Send -->
+                <div id="wallet-send" class="wallet-sub-pane overlay-disabled" id="sendPanel">
+                    <div class="grid-2">
+                        <div class="card">
+                            <div class="card-header">Send Crypto</div>
+                            <div class="input-group">
+                                <label>Select Coin</label>
+                                <select id="with-coin">
+                                    <option value="USDT">USDT (Balance: 8,450.00)</option>
+                                    <option value="BTC">BTC (Balance: 0.045)</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Select Network</label>
+                                <select id="with-network">
+                                    <option value="TRC20">TRC20 (Tron)</option>
+                                    <option value="ERC20">ERC20 (Ethereum)</option>
+                                    <option value="BSC">BEP20 (BSC)</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>Recipient Address</label>
+                                <input type="text" id="with-address" placeholder="Enter destination address">
+                            </div>
+                            <div class="input-group">
+                                <label>Amount</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="number" id="with-amount" placeholder="0.00" style="flex: 1;">
+                                    <button class="btn btn-outline" style="padding: 0 15px;">MAX</button>
+                                </div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 15px; padding: 10px; background: var(--bg-dark); border-radius: 6px;">
+                                <span>Network Fee:</span><span style="color: var(--accent);">1.00 USDT</span>
+                            </div>
+                            <button class="btn" style="width: 100%;" onclick="submitWithdrawal()"><i data-lucide="send"></i> Send Now</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Wallet: History -->
+                <div id="wallet-history" class="wallet-sub-pane">
+                    <div class="card table-responsive">
+                        <div class="card-header">Transaction History</div>
+                        <table>
+                            <thead><tr><th>Type</th><th>Coin</th><th>Network</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead>
+                            <tbody id="user-history-table">
+                                <tr>
+                                    <td><span style="color: var(--success);"><i data-lucide="arrow-down-to-line" style="width: 14px;"></i> Receive</span></td>
+                                    <td>USDT</td><td>TRC20</td><td style="color: var(--success);">+5,000.00</td><td>2023-10-25</td>
+                                    <td><span class="badge badge-success">Completed</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span style="color: var(--danger);"><i data-lucide="arrow-up-from-line" style="width: 14px;"></i> Send</span></td>
+                                    <td>BTC</td><td>BTC</td><td style="color: var(--danger);">-0.015</td><td>2023-10-20</td>
+                                    <td><span class="badge badge-success">Completed</span></td>
+                                </tr>
+                                <!-- Dynamic rows injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- TAB: Spot Trade -->
+        <div id="tab-trade" class="tab-pane">
+            <h2 style="margin-bottom: 15px; color: var(--accent);">Spot Trading</h2>
+            <div class="grid-2" style="grid-template-columns: 2fr 1fr;">
+                <!-- Chart for Spot Trade -->
+                <div class="card" style="padding: 0; overflow: hidden; height: 500px;">
+                    <iframe src="https://s.tradingview.com/widgetembed/?symbol=BINANCE%3ABTCUSDT&interval=15&theme=dark&style=1&timezone=Etc%2FUTC&locale=en&backgroundColor=%230a1325&gridColor=%231a2642&hide_top_toolbar=false&hide_legend=false&save_image=false" width="100%" height="100%" frameborder="0" allowtransparency="true" scrolling="no" allowfullscreen=""></iframe>
+                </div>
+
+                <!-- Order Panel -->
+                <div class="card overlay-lock overlay-disabled" id="tradePanel">
+                    <div class="card-header">Place Order (BTC/USDT)</div>
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <button style="flex: 1; padding: 8px; background: var(--accent-glow); border: 1px solid var(--accent); color: var(--accent); border-radius: 4px;">Limit</button>
+                        <button style="flex: 1; padding: 8px; background: transparent; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 4px;">Market</button>
+                    </div>
+                    <div class="input-group"><label>Price (USDT)</label><input type="number" value="64230.50"></div>
+                    <div class="input-group"><label>Amount (BTC)</label><input type="number" placeholder="0.00"></div>
+                    <div class="grid-2" style="gap: 10px;">
+                        <button class="btn btn-success">Buy BTC</button>
+                        <button class="btn btn-danger">Sell BTC</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: Web3 Swap -->
+        <div id="tab-swap" class="tab-pane">
+            <h2 style="margin-bottom: 15px; text-align: center; color: var(--accent);">Instant Web3 Swap</h2>
+            <div class="card overlay-lock overlay-disabled" id="swapPanel" style="max-width: 450px; margin: 0 auto;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="color: var(--text-secondary); font-size: 14px;">Pay</span>
+                    <span style="color: var(--text-secondary); font-size: 14px;">Balance: 12,450 USDT</span>
+                </div>
+                <div style="display: flex; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 15px;">
+                    <input type="number" placeholder="0.0" style="background: transparent; border: none; color: white; font-size: 24px; width: 100%; outline: none;">
+                    <select style="background: var(--bg-panel); border: none; color: white; padding: 5px 10px; border-radius: 4px; outline: none;">
+                        <option>USDT</option><option>ETH</option>
+                    </select>
+                </div>
+                <button class="btn" style="width: 100%; padding: 15px; font-size: 16px;"><i data-lucide="refresh-cw"></i> Swap Now</button>
+            </div>
+        </div>
+
+        <!-- TAB: Binary Options -->
+        <div id="tab-binary" class="tab-pane">
+            <h2 style="margin-bottom: 15px; color: var(--accent);">Binary Options</h2>
+            <div class="overlay-lock overlay-disabled" id="binaryPanel">
+                <div class="grid-4" style="margin-bottom: 20px;">
+                    <div class="card" style="text-align: center; border-color: var(--accent); cursor: pointer; background: var(--accent-glow);">
+                        <div class="badge badge-accent" style="margin-bottom: 5px;">Level 1</div>
+                        <div style="font-weight: bold; color: var(--text-primary);">60 Sec</div>
+                        <div class="text-success" style="font-size: 20px; font-weight: bold;" id="bin-pay-1">85%</div>
+                    </div>
+                </div>
+                <div class="card" style="max-width: 500px; margin: 0 auto; text-align: center;">
+                    <h3 style="margin-bottom: 10px; color: var(--text-primary);">BTC/USDT - 60 Seconds</h3>
+                    <div style="font-size: 32px; font-weight: bold; margin-bottom: 20px; color: var(--accent);">$64,230.50</div>
+                    <div class="grid-2">
+                        <button class="btn btn-success" style="padding: 15px; font-size: 16px;"><i data-lucide="trending-up"></i> CALL</button>
+                        <button class="btn btn-danger" style="padding: 15px; font-size: 16px;"><i data-lucide="trending-down"></i> PUT</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: AI Arbitrage -->
+        <div id="tab-ai" class="tab-pane">
+            <h2 style="margin-bottom: 15px; color: var(--accent);">AI Arbitrage Bots</h2>
+            <div class="grid-3 overlay-lock overlay-disabled" id="aiPanel">
+                <div class="card">
+                    <div class="badge badge-success" style="margin-bottom: 10px;">Level 1: Starter</div>
+                    <h3 style="color: var(--text-primary);">Basic Scanner</h3>
+                    <div class="mt-15" style="display: flex; justify-content: space-between;">
+                        <span class="text-secondary">Est. APY</span><span class="text-success" id="ai-apy-1">15%</span>
+                    </div>
+                    <button class="btn mt-15" style="width: 100%;"><i data-lucide="cpu"></i> Deploy Bot</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: Earn & Stake -->
+        <div id="tab-earn" class="tab-pane">
+            <h2 style="margin-bottom: 15px; color: var(--accent);">Staking & Yield Farming</h2>
+            <div class="overlay-lock overlay-disabled" id="earnPanel">
+                <div class="grid-2">
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h3 style="color: var(--text-primary);">BTC Vault</h3>
+                            <div class="text-success" style="font-weight: bold; font-size: 20px;" id="stake-apy-btc">12.5% APY</div>
+                        </div>
+                        <button class="btn btn-success" style="width: 100%;"><i data-lucide="lock"></i> Stake BTC</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: Profile & KYC -->
+        <div id="tab-profile" class="tab-pane">
+            <h2 style="margin-bottom: 15px; color: var(--accent);">Profile & KYC</h2>
+            <div class="overlay-lock" id="kycPanel">
+                <div class="grid-2">
+                    <div class="card" id="kycFormCard">
+                        <div class="card-header">Submit KYC</div>
+                        <div class="input-group"><label>Full Name</label><input type="text" id="kycName" placeholder="John Doe"></div>
+                        <div class="input-group">
+                            <label>Document Type</label>
+                            <select id="kycDocType">
+                                <option value="Driver's License">Driver's License</option>
+                                <option value="Passport">Passport</option>
+                                <option value="National ID Card">National ID Card</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Upload Document</label>
+                            <input type="file" accept="image/*" style="padding: 8px;">
+                        </div>
+                        <button class="btn btn-success" style="width: 100%;" onclick="submitKYC()"><i data-lucide="upload-cloud"></i> Submit Verification</button>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">Status</div>
+                        <div id="kycStatusUnverified" style="text-align: center; padding: 20px 0;">
+                            <i data-lucide="x-circle" style="color: var(--danger); width: 40px; height: 40px;"></i>
+                            <h3 style="color: var(--danger); margin-top: 10px;">Unverified</h3>
+                            <p style="color: var(--text-secondary); font-size: 13px; margin-top: 10px;">Please submit your Driver's License or Passport to unlock withdrawals.</p>
+                        </div>
+                        <div id="kycStatusPending" style="text-align: center; padding: 20px 0; display: none;">
+                            <i data-lucide="clock" style="color: var(--warning); width: 40px; height: 40px;"></i>
+                            <h3 style="color: var(--warning); margin-top: 10px;">Pending Admin Approval</h3>
+                        </div>
+                        <div id="kycStatusApproved" style="text-align: center; padding: 20px 0; display: none;">
+                            <i data-lucide="check-circle" style="color: var(--success); width: 40px; height: 40px;"></i>
+                            <h3 style="color: var(--success); margin-top: 10px;">Verified</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: About Us -->
+        <div id="tab-about" class="tab-pane">
+            <h2 style="margin-bottom: 15px; color: var(--accent);">About NexusTrade</h2>
+            <div class="card" style="margin-bottom: 15px;">
+                <p style="color: var(--text-secondary); line-height: 1.6;">NexusTrade is a next-generation Web3 trading platform offering Spot, Swap, Binary Options, and AI Arbitrage directly from your decentralized wallet.</p>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Pop-up Live Chat -->
+    <button class="chat-toggle-btn" onclick="toggleChat()">
+        <i data-lucide="message-circle"></i>
+    </button>
+
+    <div class="floating-chat" id="floatingChat">
+        <div class="chat-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="message-circle"></i> Live Support
+            </div>
+            <i data-lucide="x" style="cursor: pointer;" onclick="toggleChat()"></i>
+        </div>
+        <div class="chat-body" id="chatBody">
+            <div class="chat-message admin">Hello! How can we help you today?</div>
+            <!-- Dynamic messages -->
+        </div>
+        <div class="chat-input">
+            <input type="text" id="chatInput" placeholder="Type a message..." onkeypress="handleChatKeyPress(event)">
+            <button onclick="sendMessage()"><i data-lucide="send" style="width: 18px;"></i></button>
+        </div>
+    </div>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="bottom-nav">
+        <div class="bottom-nav-item active" onclick="switchTab('tab-home')">
+            <i data-lucide="home"></i><span>Home</span>
+        </div>
+        <div class="bottom-nav-item" onclick="switchTab('tab-trade')">
+            <i data-lucide="line-chart"></i><span>Trade</span>
+        </div>
+        <div class="bottom-nav-item" onclick="switchTab('tab-wallet')">
+            <i data-lucide="wallet"></i><span>Wallet</span>
+        </div>
+        <div class="bottom-nav-item" onclick="switchTab('tab-swap')">
+            <i data-lucide="refresh-cw"></i><span>Swap</span>
+        </div>
+        <div class="bottom-nav-item" onclick="switchTab('tab-profile')">
+            <i data-lucide="user"></i><span>Profile</span>
+        </div>
+    </nav>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // 50 Crypto Coins Data
+        const cryptoList = [
+            { symbol: 'BTC', name: 'Bitcoin', price: 64230.50 },
+            { symbol: 'ETH', name: 'Ethereum', price: 3450.20 },
+            { symbol: 'USDT', name: 'Tether', price: 1.00 },
+            { symbol: 'BNB', name: 'BNB', price: 590.40 },
+            { symbol: 'SOL', name: 'Solana', price: 145.80 },
+            { symbol: 'XRP', name: 'XRP', price: 0.58 },
+            { symbol: 'USDC', name: 'USDC', price: 1.00 },
+            { symbol: 'ADA', name: 'Cardano', price: 0.45 },
+            { symbol: 'AVAX', name: 'Avalanche', price: 35.20 },
+            { symbol: 'DOGE', name: 'Dogecoin', price: 0.15 },
+            { symbol: 'DOT', name: 'Polkadot', price: 7.20 },
+            { symbol: 'LINK', name: 'Chainlink', price: 14.50 },
+            { symbol: 'TRX', name: 'TRON', price: 0.12 },
+            { symbol: 'MATIC', name: 'Polygon', price: 0.75 },
+            { symbol: 'SHIB', name: 'Shiba Inu', price: 0.000025 },
+            { symbol: 'LTC', name: 'Litecoin', price: 82.40 },
+            { symbol: 'BCH', name: 'Bitcoin Cash', price: 450.10 },
+            { symbol: 'UNI', name: 'Uniswap', price: 7.80 },
+            { symbol: 'NEAR', name: 'NEAR Protocol', price: 6.50 },
+            { symbol: 'APT', name: 'Aptos', price: 9.20 },
+            { symbol: 'XLM', name: 'Stellar', price: 0.11 },
+            { symbol: 'ATOM', name: 'Cosmos', price: 8.90 },
+            { symbol: 'XMR', name: 'Monero', price: 130.50 },
+            { symbol: 'FIL', name: 'Filecoin', price: 5.80 },
+            { symbol: 'IMX', name: 'Immutable', price: 2.10 },
+            { symbol: 'KAS', name: 'Kaspa', price: 0.14 },
+            { symbol: 'HBAR', name: 'Hedera', price: 0.08 },
+            { symbol: 'ETC', name: 'Ethereum Classic', price: 28.40 },
+            { symbol: 'INJ', name: 'Injective', price: 25.60 },
+            { symbol: 'RNDR', name: 'Render', price: 8.40 },
+            { symbol: 'VET', name: 'VeChain', price: 0.04 },
+            { symbol: 'LDO', name: 'Lido DAO', price: 2.10 },
+            { symbol: 'OP', name: 'Optimism', price: 2.50 },
+            { symbol: 'CRO', name: 'Cronos', price: 0.14 },
+            { symbol: 'ARB', name: 'Arbitrum', price: 1.10 },
+            { symbol: 'MNT', name: 'Mantle', price: 0.85 },
+            { symbol: 'MKR', name: 'Maker', price: 2800.00 },
+            { symbol: 'GRT', name: 'The Graph', price: 0.28 },
+            { symbol: 'STX', name: 'Stacks', price: 2.10 },
+            { symbol: 'ALGO', name: 'Algorand', price: 0.18 },
+            { symbol: 'QNT', name: 'Quant', price: 95.50 },
+            { symbol: 'AAVE', name: 'Aave', price: 90.20 },
+            { symbol: 'SNX', name: 'Synthetix', price: 2.80 },
+            { symbol: 'EGLD', name: 'MultiversX', price: 40.50 },
+            { symbol: 'THETA', name: 'Theta Network', price: 2.10 },
+            { symbol: 'SAND', name: 'The Sandbox', price: 0.45 },
+            { symbol: 'AXS', name: 'Axie Infinity', price: 7.20 },
+            { symbol: 'MANA', name: 'Decentraland', price: 0.42 },
+            { symbol: 'FTM', name: 'Fantom', price: 0.80 },
+            { symbol: 'GALA', name: 'Gala', price: 0.04 }
+        ];
+
+        // Render 50 Coins
+        function renderTickers() {
+            const list = document.getElementById('ticker-list');
+            list.innerHTML = '';
+            
+            cryptoList.forEach((coin, index) => {
+                // Generate a random initial change percentage
+                const change = (Math.random() * 10 - 5).toFixed(2);
+                const isPositive = change >= 0;
+                const colorClass = isPositive ? 'text-success' : 'text-danger';
+                const sign = isPositive ? '+' : '';
+                
+                // Fallback SVG if icon fails to load
+                const fallbackSvg = `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM4YmEzY2IiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIvPjxwb2x5Z29uIHBvaW50cz0iMTAgOCAxNiAxMiAxMCAxNiAxMCA4Ii8+PC9zdmc+`;
+
+                const item = document.createElement('div');
+                item.className = 'ticker-item';
+                item.innerHTML = `
+                    <div class="coin-info">
+                        <div class="coin-icon">
+                            <img src="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/${coin.symbol.toLowerCase()}.svg" onerror="this.src='${fallbackSvg}'" alt="${coin.symbol}">
+                        </div>
+                        <div>
+                            <div style="font-weight: bold; color: var(--text-primary);">${coin.symbol}</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">${coin.name}</div>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-weight: bold; color: var(--accent);" id="price-${coin.symbol}">${coin.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 6})}</div>
+                        <div class="${colorClass}" style="font-size: 12px;" id="change-${coin.symbol}">${sign}${change}%</div>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // Simulate Live Price Fluctuations for all 50 coins
+        setInterval(() => {
+            cryptoList.forEach(coin => {
+                const priceEl = document.getElementById(`price-${coin.symbol}`);
+                const changeEl = document.getElementById(`change-${coin.symbol}`);
+                if(priceEl && changeEl) {
+                    // Fluctuate price by a tiny random percentage (-0.2% to +0.2%)
+                    const fluctuation = 1 + ((Math.random() * 0.4 - 0.2) / 100);
+                    coin.price = coin.price * fluctuation;
+                    
+                    // Update DOM
+                    priceEl.innerText = coin.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 6});
+                    
+                    // Randomly update the 24h change slightly
+                    let currentChange = parseFloat(changeEl.innerText);
+                    currentChange += (Math.random() * 0.2 - 0.1);
+                    const isPositive = currentChange >= 0;
+                    changeEl.className = isPositive ? 'text-success' : 'text-danger';
+                    changeEl.innerText = (isPositive ? '+' : '') + currentChange.toFixed(2) + '%';
+                }
+            });
+        }, 3000);
+
+        // Tab Switching Logic
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(tabId).classList.add('active');
+            
+            const activeNav = document.querySelector(`.nav-item[onclick="switchTab('${tabId}')"]`);
+            if(activeNav) activeNav.classList.add('active');
+
+            const activeMobileNav = document.querySelector(`.bottom-nav-item[onclick="switchTab('${tabId}')"]`);
+            if(activeMobileNav) activeMobileNav.classList.add('active');
+        }
+
+        function switchWalletTab(subTabId) {
+            document.querySelectorAll('.wallet-sub-pane').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.wallet-nav-item').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(subTabId).classList.add('active');
+            const activeNav = document.querySelector(`.wallet-nav-item[onclick="switchWalletTab('${subTabId}')"]`);
+            if(activeNav) activeNav.classList.add('active');
+        }
+
+        // --- Persistent Wallet & State Logic ---
+        let isConnected = localStorage.getItem('walletConnected') === 'true';
+        
+        // Default Deposit Addresses
+        let depositAddresses = JSON.parse(localStorage.getItem('depositAddresses')) || {
+            'TRC20': 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+            'ERC20': '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+            'BSC': '0x55d398326f99059fF775485246999027B3197955',
+            'SOL': 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+            'BTC': 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
+        };
+
+        function updateUIState() {
+            const btn = document.getElementById('walletBtn');
+            const balance = document.getElementById('walletBalance');
+            const panels = ['tradePanel', 'swapPanel', 'binaryPanel', 'aiPanel', 'earnPanel', 'kycPanel', 'walletPanel'];
+            
+            if(isConnected) {
+                btn.innerHTML = '<i data-lucide="wallet"></i> 0x7A...3F92';
+                btn.style.background = 'transparent';
+                btn.style.border = '1px solid var(--accent)';
+                btn.style.color = 'var(--accent)';
+                balance.style.display = 'block';
+                panels.forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.parentElement.classList.remove('disconnected');
+                });
+            } else {
+                btn.innerHTML = '<i data-lucide="wallet"></i> Connect';
+                btn.style.background = 'linear-gradient(45deg, var(--accent-secondary), var(--accent))';
+                btn.style.border = 'none';
+                btn.style.color = '#000';
+                balance.style.display = 'none';
+                panels.forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.parentElement.classList.add('disconnected');
+                });
+            }
+
+            updateDepositUI();
+            renderWithdrawals();
+            lucide.createIcons();
+        }
+
+        function toggleWallet() {
+            isConnected = !isConnected;
+            localStorage.setItem('walletConnected', isConnected);
+            updateUIState();
+        }
+
+        // KYC Functions
+        function submitKYC() {
+            const userName = document.getElementById('kycName').value || 'John Doe';
+            const docType = document.getElementById('kycDocType').value;
+            localStorage.setItem('kycState', 'pending');
+            localStorage.setItem('kycName', userName);
+            localStorage.setItem('kycDocType', docType);
+            alert("KYC Submitted! Awaiting admin approval.");
+            pollBackend(); // Force immediate UI update
+        }
+
+        // Wallet Functions
+        function updateDepositUI() {
+            const network = document.getElementById('dep-network').value;
+            const addr = depositAddresses[network];
+            document.getElementById('user-deposit-address').innerText = addr;
+            document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${addr}`;
+        }
+
+        function submitWithdrawal() {
+            const kycState = localStorage.getItem('kycState') || 'unverified';
+            if(kycState !== 'approved') {
+                alert("You must complete KYC verification before sending/withdrawing funds.");
+                return;
+            }
+            const coin = document.getElementById('with-coin').value;
+            const network = document.getElementById('with-network').value;
+            const address = document.getElementById('with-address').value;
+            const amount = document.getElementById('with-amount').value;
+
+            if(!address || !amount || amount <= 0) {
+                alert("Please enter a valid address and amount.");
+                return;
+            }
+
+            let pendingWithdrawals = JSON.parse(localStorage.getItem('pendingWithdrawals')) || [];
+            const newWithdrawal = {
+                id: Date.now(),
+                coin, network, address, amount,
+                date: new Date().toISOString().split('T')[0],
+                status: 'Pending'
+            };
+
+            pendingWithdrawals.push(newWithdrawal);
+            localStorage.setItem('pendingWithdrawals', JSON.stringify(pendingWithdrawals));
+            
+            document.getElementById('with-address').value = '';
+            document.getElementById('with-amount').value = '';
+            
+            renderWithdrawals();
+            alert("Transaction submitted! Awaiting network/admin confirmation.");
+        }
+
+        function renderWithdrawals() {
+            const userTable = document.getElementById('user-history-table');
+            let pendingWithdrawals = JSON.parse(localStorage.getItem('pendingWithdrawals')) || [];
+            
+            // Clear existing dynamic rows
+            document.querySelectorAll('.dynamic-withdraw-row').forEach(el => el.remove());
+
+            pendingWithdrawals.forEach(w => {
+                const userRow = document.createElement('tr');
+                userRow.className = 'dynamic-withdraw-row';
+                userRow.innerHTML = `
+                    <td><span style="color: var(--warning);"><i data-lucide="arrow-up-from-line" style="width: 14px;"></i> Send</span></td>
+                    <td>${w.coin}</td><td>${w.network}</td><td style="color: var(--warning);">-${w.amount}</td><td>${w.date}</td>
+                    <td><span class="badge badge-warning">${w.status}</span></td>
+                `;
+                userTable.insertBefore(userRow, userTable.firstChild);
+            });
+            lucide.createIcons();
+        }
+
+        // Pop-up Live Chat Functions
+        let chatOpen = false;
+        function toggleChat() {
+            const chat = document.getElementById('floatingChat');
+            chatOpen = !chatOpen;
+            if(chatOpen) {
+                chat.classList.add('active');
+                scrollToBottom();
+            } else {
+                chat.classList.remove('active');
+            }
+        }
+
+        function handleChatKeyPress(e) {
+            if(e.key === 'Enter') sendMessage();
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if(!text) return;
+
+            let messages = JSON.parse(localStorage.getItem('chatMessages')) || [];
+            messages.push({ sender: 'user', text: text, time: Date.now() });
+            localStorage.setItem('chatMessages', JSON.stringify(messages));
+            
+            input.value = '';
+            renderChat();
+        }
+
+        function renderChat() {
+            const body = document.getElementById('chatBody');
+            let messages = JSON.parse(localStorage.getItem('chatMessages')) || [];
+            
+            body.innerHTML = '<div class="chat-message admin">Hello! How can we help you today?</div>';
+            
+            messages.forEach(msg => {
+                const div = document.createElement('div');
+                div.className = `chat-message ${msg.sender}`;
+                div.innerText = msg.text;
+                body.appendChild(div);
+            });
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            const body = document.getElementById('chatBody');
+            body.scrollTop = body.scrollHeight;
+        }
+
+        // Real-time Backend Polling (Simulated via LocalStorage)
+        function pollBackend() {
+            // 1. Check KYC State
+            const kycState = localStorage.getItem('kycState') || 'unverified';
+            document.getElementById('kycStatusUnverified').style.display = kycState === 'unverified' ? 'block' : 'none';
+            document.getElementById('kycStatusPending').style.display = kycState === 'pending' ? 'block' : 'none';
+            document.getElementById('kycStatusApproved').style.display = kycState === 'approved' ? 'block' : 'none';
+            
+            const formCard = document.getElementById('kycFormCard');
+            if(kycState !== 'unverified') {
+                formCard.style.opacity = '0.5';
+                formCard.style.pointerEvents = 'none';
+            } else {
+                formCard.style.opacity = '1';
+                formCard.style.pointerEvents = 'auto';
+            }
+
+            // 2. Check Deposit Addresses
+            depositAddresses = JSON.parse(localStorage.getItem('depositAddresses')) || depositAddresses;
+            updateDepositUI();
+
+            // 3. Check Withdrawals
+            renderWithdrawals();
+
+            // 4. Check Chat Messages
+            renderChat();
+
+            // 5. Check Admin Feature Toggles
+            const features = JSON.parse(localStorage.getItem('adminFeatures')) || {
+                fiat: true, send: true, swap: true, trade: true, binary: true, ai: true, earn: true
+            };
+
+            const toggleFeature = (panelId, navId, isEnabled) => {
+                const panel = document.getElementById(panelId);
+                const nav = document.getElementById(navId);
+                if(panel) {
+                    if(isEnabled) panel.parentElement.classList.remove('disabled-feature');
+                    else panel.parentElement.classList.add('disabled-feature');
+                }
+                if(nav) {
+                    if(isEnabled) nav.style.display = 'block';
+                    else nav.style.display = 'none';
+                }
+            };
+
+            toggleFeature('buyPanel', 'nav-buy', features.fiat);
+            toggleFeature('sendPanel', 'nav-send', features.send);
+            toggleFeature('swapPanel', null, features.swap);
+            toggleFeature('tradePanel', null, features.trade);
+            toggleFeature('binaryPanel', null, features.binary);
+            toggleFeature('aiPanel', null, features.ai);
+            toggleFeature('earnPanel', null, features.earn);
+        }
+
+        // Poll every 2 seconds
+        setInterval(pollBackend, 2000);
+
+        // Run on load
+        window.onload = () => {
+            renderTickers();
+            updateUIState();
+            pollBackend();
+        };
+
+    </script>
+</body>
+</html>
