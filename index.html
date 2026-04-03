@@ -343,6 +343,7 @@
                 <i data-lucide="hexagon"></i> <span>NexusTrade</span>
             </div>
             <div class="wallet-info" style="margin-left: auto;">
+                <div style="font-size: 12px; color: var(--warning); display: none; margin-right: 8px;" id="userIdBadge">ID: <span id="userIdDisplay">--</span></div>
                 <div class="balance" id="walletBalance">12,450.00 USDT</div>
                 <button class="btn" id="walletBtn" onclick="toggleWallet()">
                     <i data-lucide="wallet"></i> Connect
@@ -627,21 +628,23 @@
 
         <!-- TAB: Binary Options -->
         <div id="tab-binary" class="tab-pane">
-            <h2 style="margin-bottom: 15px; color: var(--accent);">Binary Options</h2>
+            <h2 style="margin-bottom: 15px; color: var(--accent);">Binary Options Trading</h2>
             <div class="overlay-lock overlay-disabled" id="binaryPanel">
-                <div class="grid-4" style="margin-bottom: 20px;">
-                    <div class="card" style="text-align: center; border-color: var(--accent); cursor: pointer; background: var(--accent-glow);">
-                        <div class="badge badge-accent" style="margin-bottom: 5px;">Level 1</div>
-                        <div style="font-weight: bold; color: var(--text-primary);">60 Sec</div>
-                        <div class="text-success" style="font-size: 20px; font-weight: bold;" id="bin-pay-1">85%</div>
-                    </div>
+                <div id="binaryLevelsGrid" class="grid-3" style="margin-bottom: 20px;">
+                    <!-- Levels injected by JS -->
                 </div>
-                <div class="card" style="max-width: 500px; margin: 0 auto; text-align: center;">
-                    <h3 style="margin-bottom: 10px; color: var(--text-primary);">BTC/USDT - 60 Seconds</h3>
-                    <div style="font-size: 32px; font-weight: bold; margin-bottom: 20px; color: var(--accent);">$64,230.50</div>
+                <div class="card" style="max-width: 550px; margin: 0 auto; text-align: center;" id="binaryTradeCard">
+                    <h3 style="margin-bottom: 5px; color: var(--text-primary);">BTC/USDT</h3>
+                    <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 10px;" id="binSelectedInfo">Select a level above to trade</div>
+                    <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px; color: var(--accent);" id="binLivePrice">$64,230.50</div>
+                    <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 15px; font-size: 13px; color: var(--text-secondary);">
+                        <span>Capital: <b style="color: var(--warning);" id="binCapDisplay">--</b></span>
+                        <span>Time: <b style="color: var(--accent);" id="binTimeDisplay">--</b></span>
+                        <span>Profit: <b style="color: var(--success);" id="binProfitDisplay">--</b></span>
+                    </div>
                     <div class="grid-2">
-                        <button class="btn btn-success" style="padding: 15px; font-size: 16px;"><i data-lucide="trending-up"></i> CALL</button>
-                        <button class="btn btn-danger" style="padding: 15px; font-size: 16px;"><i data-lucide="trending-down"></i> PUT</button>
+                        <button class="btn btn-success" style="padding: 15px; font-size: 16px;" onclick="placeBinaryTrade('CALL')"><i data-lucide="trending-up"></i> CALL</button>
+                        <button class="btn btn-danger" style="padding: 15px; font-size: 16px;" onclick="placeBinaryTrade('PUT')"><i data-lucide="trending-down"></i> PUT</button>
                     </div>
                 </div>
             </div>
@@ -650,14 +653,9 @@
         <!-- TAB: AI Arbitrage -->
         <div id="tab-ai" class="tab-pane">
             <h2 style="margin-bottom: 15px; color: var(--accent);">AI Arbitrage Bots</h2>
-            <div class="grid-3 overlay-lock overlay-disabled" id="aiPanel">
-                <div class="card">
-                    <div class="badge badge-success" style="margin-bottom: 10px;">Level 1: Starter</div>
-                    <h3 style="color: var(--text-primary);">Basic Scanner</h3>
-                    <div class="mt-15" style="display: flex; justify-content: space-between;">
-                        <span class="text-secondary">Est. APY</span><span class="text-success" id="ai-apy-1">15%</span>
-                    </div>
-                    <button class="btn mt-15" style="width: 100%;"><i data-lucide="cpu"></i> Deploy Bot</button>
+            <div class="overlay-lock overlay-disabled" id="aiPanel">
+                <div id="aiLevelsGrid" class="grid-3">
+                    <!-- AI levels injected by JS -->
                 </div>
             </div>
         </div>
@@ -914,9 +912,19 @@
 
         // --- Persistent Wallet & State Logic ---
         let isConnected = localStorage.getItem('walletConnected') === 'true';
-        
-        // Default Deposit Addresses
-        let depositAddresses = JSON.parse(localStorage.getItem('depositAddresses')) || {
+        let currentKycState = 'unverified';
+        let cachedWithdrawals = [];
+        let cachedMessages = [];
+        let currentUserId = localStorage.getItem('userId') || null;
+        let selectedBinaryLevel = null;
+        let cachedBinaryLevels = [];
+        let cachedAiLevels = [];
+
+        // Simulated wallet address
+        const WALLET_ADDR = '0x7A9e3C12f8B4D5E6A1b2c3D4e5F67890aB1c3F92';
+
+        // Default Deposit Addresses (will be updated from server)
+        let depositAddresses = {
             'TRC20': 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
             'ERC20': '0xdAC17F958D2ee523a2206206994597C13D831ec7',
             'BSC': '0x55d398326f99059fF775485246999027B3197955',
@@ -924,17 +932,32 @@
             'BTC': 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
         };
 
+        // Helper for API calls
+        async function api(endpoint, method, body) {
+            const opts = { method: method || 'GET', headers: { 'Content-Type': 'application/json' } };
+            if(body) opts.body = JSON.stringify(body);
+            try {
+                const res = await fetch('/api/' + endpoint, opts);
+                return await res.json();
+            } catch(e) { console.error('API error:', e); return null; }
+        }
+
         function updateUIState() {
             const btn = document.getElementById('walletBtn');
             const balance = document.getElementById('walletBalance');
+            const userIdBadge = document.getElementById('userIdBadge');
             const panels = ['tradePanel', 'swapPanel', 'binaryPanel', 'aiPanel', 'earnPanel', 'kycPanel', 'walletPanel'];
-            
+
             if(isConnected) {
                 btn.innerHTML = '<i data-lucide="wallet"></i> 0x7A...3F92';
                 btn.style.background = 'transparent';
                 btn.style.border = '1px solid var(--accent)';
                 btn.style.color = 'var(--accent)';
                 balance.style.display = 'block';
+                if(currentUserId) {
+                    userIdBadge.style.display = 'block';
+                    document.getElementById('userIdDisplay').innerText = currentUserId;
+                }
                 panels.forEach(id => {
                     const el = document.getElementById(id);
                     if(el) el.parentElement.classList.remove('disconnected');
@@ -945,6 +968,7 @@
                 btn.style.border = 'none';
                 btn.style.color = '#000';
                 balance.style.display = 'none';
+                userIdBadge.style.display = 'none';
                 panels.forEach(id => {
                     const el = document.getElementById(id);
                     if(el) el.parentElement.classList.add('disconnected');
@@ -956,21 +980,26 @@
             lucide.createIcons();
         }
 
-        function toggleWallet() {
+        async function toggleWallet() {
             isConnected = !isConnected;
             localStorage.setItem('walletConnected', isConnected);
+            if(isConnected) {
+                const user = await api('users', 'POST', { wallet: WALLET_ADDR });
+                if(user && user.userId) {
+                    currentUserId = user.userId;
+                    localStorage.setItem('userId', currentUserId);
+                }
+            }
             updateUIState();
         }
 
         // KYC Functions
-        function submitKYC() {
+        async function submitKYC() {
             const userName = document.getElementById('kycName').value || 'John Doe';
             const docType = document.getElementById('kycDocType').value;
-            localStorage.setItem('kycState', 'pending');
-            localStorage.setItem('kycName', userName);
-            localStorage.setItem('kycDocType', docType);
+            await api('kyc', 'POST', { state: 'pending', name: userName, docType: docType });
             alert("KYC Submitted! Awaiting admin approval.");
-            pollBackend(); // Force immediate UI update
+            pollBackend();
         }
 
         // Wallet Functions
@@ -981,9 +1010,8 @@
             document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${addr}`;
         }
 
-        function submitWithdrawal() {
-            const kycState = localStorage.getItem('kycState') || 'unverified';
-            if(kycState !== 'approved') {
+        async function submitWithdrawal() {
+            if(currentKycState !== 'approved') {
                 alert("You must complete KYC verification before sending/withdrawing funds.");
                 return;
             }
@@ -997,32 +1025,22 @@
                 return;
             }
 
-            let pendingWithdrawals = JSON.parse(localStorage.getItem('pendingWithdrawals')) || [];
-            const newWithdrawal = {
-                id: Date.now(),
-                coin, network, address, amount,
-                date: new Date().toISOString().split('T')[0],
-                status: 'Pending'
-            };
+            await api('withdrawals', 'POST', { action: 'add', coin, network, address, amount });
 
-            pendingWithdrawals.push(newWithdrawal);
-            localStorage.setItem('pendingWithdrawals', JSON.stringify(pendingWithdrawals));
-            
             document.getElementById('with-address').value = '';
             document.getElementById('with-amount').value = '';
-            
-            renderWithdrawals();
+
+            pollBackend();
             alert("Transaction submitted! Awaiting network/admin confirmation.");
         }
 
         function renderWithdrawals() {
             const userTable = document.getElementById('user-history-table');
-            let pendingWithdrawals = JSON.parse(localStorage.getItem('pendingWithdrawals')) || [];
-            
+
             // Clear existing dynamic rows
             document.querySelectorAll('.dynamic-withdraw-row').forEach(el => el.remove());
 
-            pendingWithdrawals.forEach(w => {
+            cachedWithdrawals.forEach(w => {
                 const userRow = document.createElement('tr');
                 userRow.className = 'dynamic-withdraw-row';
                 userRow.innerHTML = `
@@ -1052,26 +1070,22 @@
             if(e.key === 'Enter') sendMessage();
         }
 
-        function sendMessage() {
+        async function sendMessage() {
             const input = document.getElementById('chatInput');
             const text = input.value.trim();
             if(!text) return;
 
-            let messages = JSON.parse(localStorage.getItem('chatMessages')) || [];
-            messages.push({ sender: 'user', text: text, time: Date.now() });
-            localStorage.setItem('chatMessages', JSON.stringify(messages));
-            
+            await api('chat', 'POST', { sender: 'user', text: text });
             input.value = '';
-            renderChat();
+            pollBackend();
         }
 
         function renderChat() {
             const body = document.getElementById('chatBody');
-            let messages = JSON.parse(localStorage.getItem('chatMessages')) || [];
-            
+
             body.innerHTML = '<div class="chat-message admin">Hello! How can we help you today?</div>';
-            
-            messages.forEach(msg => {
+
+            cachedMessages.forEach(msg => {
                 const div = document.createElement('div');
                 div.className = `chat-message ${msg.sender}`;
                 div.innerText = msg.text;
@@ -1085,62 +1099,184 @@
             body.scrollTop = body.scrollHeight;
         }
 
-        // Real-time Backend Polling (Simulated via LocalStorage)
-        function pollBackend() {
-            // 1. Check KYC State
-            const kycState = localStorage.getItem('kycState') || 'unverified';
-            document.getElementById('kycStatusUnverified').style.display = kycState === 'unverified' ? 'block' : 'none';
-            document.getElementById('kycStatusPending').style.display = kycState === 'pending' ? 'block' : 'none';
-            document.getElementById('kycStatusApproved').style.display = kycState === 'approved' ? 'block' : 'none';
-            
-            const formCard = document.getElementById('kycFormCard');
-            if(kycState !== 'unverified') {
-                formCard.style.opacity = '0.5';
-                formCard.style.pointerEvents = 'none';
-            } else {
-                formCard.style.opacity = '1';
-                formCard.style.pointerEvents = 'auto';
-            }
-
-            // 2. Check Deposit Addresses
-            depositAddresses = JSON.parse(localStorage.getItem('depositAddresses')) || depositAddresses;
-            updateDepositUI();
-
-            // 3. Check Withdrawals
-            renderWithdrawals();
-
-            // 4. Check Chat Messages
-            renderChat();
-
-            // 5. Check Admin Feature Toggles
-            const features = JSON.parse(localStorage.getItem('adminFeatures')) || {
-                fiat: true, send: true, swap: true, trade: true, binary: true, ai: true, earn: true
-            };
-
-            const toggleFeature = (panelId, navId, isEnabled) => {
-                const panel = document.getElementById(panelId);
-                const nav = document.getElementById(navId);
-                if(panel) {
-                    if(isEnabled) panel.parentElement.classList.remove('disabled-feature');
-                    else panel.parentElement.classList.add('disabled-feature');
+        // --- Binary Options Level Rendering ---
+        function renderBinaryLevels(levels) {
+            cachedBinaryLevels = levels;
+            const grid = document.getElementById('binaryLevelsGrid');
+            grid.innerHTML = '';
+            const colors = ['var(--accent)', 'var(--success)', 'var(--warning)', '#ff6b35', 'var(--danger)'];
+            const badgeClasses = ['badge-accent', 'badge-success', 'badge-warning', 'badge-accent', 'badge-danger'];
+            levels.forEach((lvl, i) => {
+                const isSelected = selectedBinaryLevel === lvl.id;
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.textAlign = 'center';
+                card.style.cursor = 'pointer';
+                card.style.transition = 'all 0.3s';
+                if(isSelected) {
+                    card.style.borderColor = colors[i];
+                    card.style.background = 'rgba(0,240,255,0.05)';
+                    card.style.boxShadow = '0 0 15px rgba(0,240,255,0.15)';
                 }
-                if(nav) {
-                    if(isEnabled) nav.style.display = 'block';
-                    else nav.style.display = 'none';
-                }
-            };
-
-            toggleFeature('buyPanel', 'nav-buy', features.fiat);
-            toggleFeature('sendPanel', 'nav-send', features.send);
-            toggleFeature('swapPanel', null, features.swap);
-            toggleFeature('tradePanel', null, features.trade);
-            toggleFeature('binaryPanel', null, features.binary);
-            toggleFeature('aiPanel', null, features.ai);
-            toggleFeature('earnPanel', null, features.earn);
+                card.onclick = () => selectBinaryLevel(lvl);
+                card.innerHTML = `
+                    <div class="badge ${badgeClasses[i]}" style="margin-bottom: 8px;">Level ${lvl.id}</div>
+                    <div style="font-weight: bold; font-size: 15px; color: var(--text-primary); margin-bottom: 4px;">${lvl.name}</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">Capital: $${lvl.capital.toLocaleString()}</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">${lvl.tradingTime}s</div>
+                    <div class="text-success" style="font-size: 22px; font-weight: bold; margin-top: 5px;">${lvl.profitPercent}%</div>
+                `;
+                grid.appendChild(card);
+            });
         }
 
-        // Poll every 2 seconds
-        setInterval(pollBackend, 2000);
+        function selectBinaryLevel(lvl) {
+            selectedBinaryLevel = lvl.id;
+            document.getElementById('binSelectedInfo').innerText = `${lvl.name} - ${lvl.tradingTime}s trade | ${lvl.profitPercent}% payout`;
+            document.getElementById('binCapDisplay').innerText = '$' + lvl.capital.toLocaleString();
+            document.getElementById('binTimeDisplay').innerText = lvl.tradingTime + 's';
+            document.getElementById('binProfitDisplay').innerText = lvl.profitPercent + '%';
+            renderBinaryLevels(cachedBinaryLevels);
+        }
+
+        function placeBinaryTrade(direction) {
+            if(!selectedBinaryLevel) {
+                alert('Please select a trading level first.');
+                return;
+            }
+            const lvl = cachedBinaryLevels.find(l => l.id === selectedBinaryLevel);
+            alert(`${direction} trade placed!\nLevel: ${lvl.name}\nCapital: $${lvl.capital}\nTime: ${lvl.tradingTime}s\nPotential profit: ${lvl.profitPercent}%`);
+        }
+
+        // --- AI Arbitrage Level Rendering ---
+        function renderAiLevels(levels) {
+            cachedAiLevels = levels;
+            const grid = document.getElementById('aiLevelsGrid');
+            grid.innerHTML = '';
+            const badgeClasses = ['badge-success', 'badge-accent', 'badge-warning', 'badge-accent', 'badge-danger'];
+            const icons = ['cpu', 'zap', 'target', 'rocket', 'diamond'];
+            levels.forEach((lvl, i) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="badge ${badgeClasses[i]}" style="margin-bottom: 10px;">Level ${lvl.id}: ${lvl.name}</div>
+                    <h3 style="color: var(--text-primary); margin-bottom: 12px;">${lvl.name} Bot</h3>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                        <span style="color: var(--text-secondary);">Min Capital</span>
+                        <span style="color: var(--warning); font-weight: bold;">$${lvl.capital.toLocaleString()}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                        <span style="color: var(--text-secondary);">Daily Profit</span>
+                        <span class="text-success" style="font-weight: bold;">${lvl.dailyProfit}%</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                        <span style="color: var(--text-secondary);">Duration</span>
+                        <span style="color: var(--accent);">${lvl.duration} days</span>
+                    </div>
+                    <div style="margin-top: 12px; padding: 10px; background: var(--bg-dark); border-radius: 8px; text-align: center;">
+                        <div style="font-size: 12px; color: var(--text-secondary);">Est. Total Return</div>
+                        <div style="font-size: 18px; font-weight: bold; color: var(--success);">${(lvl.dailyProfit * lvl.duration).toFixed(1)}%</div>
+                    </div>
+                    <button class="btn mt-15" style="width: 100%;" onclick="deployAiBot(${lvl.id})"><i data-lucide="${icons[i]}"></i> Deploy Bot</button>
+                `;
+                grid.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        function deployAiBot(levelId) {
+            const lvl = cachedAiLevels.find(l => l.id === levelId);
+            alert(`AI Bot Deployed!\nLevel: ${lvl.name}\nCapital: $${lvl.capital.toLocaleString()}\nDaily Profit: ${lvl.dailyProfit}%\nDuration: ${lvl.duration} days`);
+        }
+
+        // Real-time Backend Polling via API
+        async function pollBackend() {
+            try {
+                const [kycData, addresses, withdrawals, messages, features, settings, levels] = await Promise.all([
+                    api('kyc'),
+                    api('addresses'),
+                    api('withdrawals'),
+                    api('chat'),
+                    api('features'),
+                    api('settings'),
+                    api('levels')
+                ]);
+
+                // 1. KYC State
+                if(kycData) {
+                    currentKycState = kycData.state || 'unverified';
+                    document.getElementById('kycStatusUnverified').style.display = currentKycState === 'unverified' ? 'block' : 'none';
+                    document.getElementById('kycStatusPending').style.display = currentKycState === 'pending' ? 'block' : 'none';
+                    document.getElementById('kycStatusApproved').style.display = currentKycState === 'approved' ? 'block' : 'none';
+
+                    const formCard = document.getElementById('kycFormCard');
+                    if(currentKycState !== 'unverified') {
+                        formCard.style.opacity = '0.5';
+                        formCard.style.pointerEvents = 'none';
+                    } else {
+                        formCard.style.opacity = '1';
+                        formCard.style.pointerEvents = 'auto';
+                    }
+                }
+
+                // 2. Deposit Addresses
+                if(addresses) {
+                    depositAddresses = addresses;
+                    updateDepositUI();
+                }
+
+                // 3. Withdrawals
+                if(withdrawals) {
+                    cachedWithdrawals = withdrawals;
+                    renderWithdrawals();
+                }
+
+                // 4. Chat Messages
+                if(messages) {
+                    cachedMessages = messages;
+                    renderChat();
+                }
+
+                // 5. Feature Toggles
+                if(features) {
+                    const toggleFeature = (panelId, navId, isEnabled) => {
+                        const panel = document.getElementById(panelId);
+                        const nav = document.getElementById(navId);
+                        if(panel) {
+                            if(isEnabled) panel.parentElement.classList.remove('disabled-feature');
+                            else panel.parentElement.classList.add('disabled-feature');
+                        }
+                        if(nav) {
+                            if(isEnabled) nav.style.display = 'block';
+                            else nav.style.display = 'none';
+                        }
+                    };
+
+                    toggleFeature('buyPanel', 'nav-buy', features.fiat);
+                    toggleFeature('sendPanel', 'nav-send', features.send);
+                    toggleFeature('swapPanel', null, features.swap);
+                    toggleFeature('tradePanel', null, features.trade);
+                    toggleFeature('binaryPanel', null, features.binary);
+                    toggleFeature('aiPanel', null, features.ai);
+                    toggleFeature('earnPanel', null, features.earn);
+                }
+
+                // 6. Settings (rates from admin)
+                if(settings) {
+                    const stakeApy = document.getElementById('stake-apy-btc');
+                    if(stakeApy) stakeApy.innerText = settings.btcStakingApy + '% APY';
+                }
+
+                // 7. Levels (Binary Options + AI Arbitrage)
+                if(levels) {
+                    if(levels.binaryLevels) renderBinaryLevels(levels.binaryLevels);
+                    if(levels.aiLevels) renderAiLevels(levels.aiLevels);
+                }
+            } catch(e) { console.error('Poll error:', e); }
+        }
+
+        // Poll every 5 seconds
+        setInterval(pollBackend, 5000);
 
         // Run on load
         window.onload = () => {

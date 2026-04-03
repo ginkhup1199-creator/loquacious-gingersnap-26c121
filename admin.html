@@ -124,6 +124,8 @@
         
         .feature-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
         .feature-row:last-child { border-bottom: none; }
+        .mt-15 { margin-top: 15px; }
+        .mt-20 { margin-top: 20px; }
     </style>
 </head>
 <body>
@@ -135,6 +137,10 @@
             <h2 style="color: var(--danger);">Secure Admin Access</h2>
             <p style="color: var(--text-secondary); font-size: 14px; margin-top: 10px;">Enter Master Admin Password to access the backend.</p>
             <input type="password" id="adminPassword" placeholder="Password (hint: admin123)" onkeypress="if(event.key === 'Enter') login()">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px;">
+                <input type="checkbox" id="rememberMe" style="width: auto; margin: 0;">
+                <label for="rememberMe" style="color: var(--text-secondary); font-size: 13px; cursor: pointer;">Remember me (stay logged in)</label>
+            </div>
             <button class="btn btn-danger" style="width: 100%;" onclick="login()">Login to Backend</button>
         </div>
     </div>
@@ -144,12 +150,16 @@
         <div class="logo"><i data-lucide="shield-alert"></i> Admin Backend</div>
         <ul class="nav-menu">
             <li class="nav-item active" onclick="switchTab('tab-overview')"><i data-lucide="activity"></i> Overview</li>
+            <li class="nav-item" onclick="switchTab('tab-users')"><i data-lucide="users"></i> Users</li>
             <li class="nav-item" onclick="switchTab('tab-wallet')"><i data-lucide="wallet"></i> Wallet Controls</li>
+            <li class="nav-item" onclick="switchTab('tab-levels')"><i data-lucide="layers"></i> Binary Levels</li>
+            <li class="nav-item" onclick="switchTab('tab-ailevels')"><i data-lucide="cpu"></i> AI Arbitrage</li>
             <li class="nav-item" onclick="switchTab('tab-kyc')"><i data-lucide="user-check"></i> KYC Approvals</li>
             <li class="nav-item" onclick="switchTab('tab-withdraw')"><i data-lucide="arrow-up-from-line"></i> Withdrawals</li>
             <li class="nav-item" onclick="switchTab('tab-chat')"><i data-lucide="message-circle"></i> Live Chat Support</li>
             <li class="nav-item" onclick="switchTab('tab-settings')"><i data-lucide="settings"></i> System Settings</li>
             <li class="nav-item" onclick="switchTab('tab-master')" style="margin-top: 40px; color: var(--warning);"><i data-lucide="key"></i> Master Account</li>
+            <li class="nav-item" onclick="logout()" style="color: var(--danger);"><i data-lucide="log-out"></i> Logout</li>
         </ul>
     </aside>
 
@@ -160,6 +170,10 @@
         <div id="tab-overview" class="tab-pane active">
             <h2>Platform Overview</h2>
             <div class="grid-3" style="margin-top: 20px;">
+                <div class="card">
+                    <div style="color: var(--text-secondary); font-size: 14px;">Registered Users</div>
+                    <div style="font-size: 28px; font-weight: bold; color: var(--accent);" id="stat-users">0</div>
+                </div>
                 <div class="card">
                     <div style="color: var(--text-secondary); font-size: 14px;">Pending KYC</div>
                     <div style="font-size: 28px; font-weight: bold; color: var(--warning);" id="stat-kyc">0</div>
@@ -172,6 +186,20 @@
                     <div style="color: var(--text-secondary); font-size: 14px;">Unread Messages</div>
                     <div style="font-size: 28px; font-weight: bold; color: var(--accent);" id="stat-chat">0</div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Users -->
+        <div id="tab-users" class="tab-pane">
+            <h2>Registered Users</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">All users who connected their wallet. Each user receives a unique 5-digit ID.</p>
+            <div class="card">
+                <table>
+                    <thead><tr><th>User ID</th><th>Wallet Address</th><th>Registered At</th></tr></thead>
+                    <tbody id="adminUsersTable">
+                        <tr id="emptyUsersRow"><td colspan="3" style="text-align: center;">No registered users yet</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -250,6 +278,26 @@
             </div>
         </div>
 
+        <!-- Binary Options Levels -->
+        <div id="tab-levels" class="tab-pane">
+            <h2>Binary Options - Level Management</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Configure the 5 trading levels. Changes are reflected on the user frontend immediately.</p>
+            <div id="binaryLevelsAdmin">
+                <!-- Injected by JS -->
+            </div>
+            <button class="btn btn-success mt-15" onclick="saveBinaryLevels()" style="width: 200px;"><i data-lucide="save"></i> Save All Levels</button>
+        </div>
+
+        <!-- AI Arbitrage Levels -->
+        <div id="tab-ailevels" class="tab-pane">
+            <h2>AI Arbitrage - Level Management</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Configure the 5 AI bot tiers. Changes are reflected on the user frontend immediately.</p>
+            <div id="aiLevelsAdmin">
+                <!-- Injected by JS -->
+            </div>
+            <button class="btn btn-success mt-15" onclick="saveAiLevels()" style="width: 200px;"><i data-lucide="save"></i> Save All Levels</button>
+        </div>
+
         <!-- KYC Approvals -->
         <div id="tab-kyc" class="tab-pane">
             <h2>KYC Management</h2>
@@ -307,10 +355,10 @@
                 </div>
                 <div class="card">
                     <div class="card-header">Global Fees & Rates</div>
-                    <div class="input-group"><label>Swap Slippage Fee (%)</label><input type="number" value="0.5"></div>
-                    <div class="input-group"><label>Binary L1 Payout (%)</label><input type="number" value="85"></div>
-                    <div class="input-group"><label>BTC Staking APY (%)</label><input type="number" value="12.5"></div>
-                    <button class="btn" onclick="alert('Rates updated globally!')">Apply Changes</button>
+                    <div class="input-group"><label>Swap Slippage Fee (%)</label><input type="number" value="0.5" id="setting-swapFee"></div>
+                    <div class="input-group"><label>Binary L1 Payout (%)</label><input type="number" value="85" id="setting-binaryPayout"></div>
+                    <div class="input-group"><label>BTC Staking APY (%)</label><input type="number" value="12.5" id="setting-btcStakingApy"></div>
+                    <button class="btn" onclick="saveSettings()">Apply Changes</button>
                 </div>
             </div>
         </div>
@@ -355,15 +403,56 @@
     <script>
         lucide.createIcons();
 
+        // Helper for API calls
+        async function api(endpoint, method, body) {
+            const opts = { method: method || 'GET', headers: { 'Content-Type': 'application/json' } };
+            if(body) opts.body = JSON.stringify(body);
+            try {
+                const res = await fetch('/api/' + endpoint, opts);
+                return await res.json();
+            } catch(e) { console.error('API error:', e); return null; }
+        }
+
+        let addressesLoaded = false;
+        let cachedBinaryLevels = [];
+        let cachedAiLevels = [];
+
         function login() {
             const pwd = document.getElementById('adminPassword').value;
             if(pwd === 'admin123') {
                 document.getElementById('loginOverlay').style.display = 'none';
-                loadFeatures();
-                pollFrontendData(); // Initial load
+                if(document.getElementById('rememberMe') && document.getElementById('rememberMe').checked) {
+                    localStorage.setItem('adminLoggedIn', 'true');
+                } else {
+                    sessionStorage.setItem('adminLoggedIn', 'true');
+                }
+                initDashboard();
             } else {
                 alert("Incorrect Master Password");
             }
+        }
+
+        function initDashboard() {
+            loadFeatures();
+            loadSettings();
+            loadLevels();
+            loadUsers();
+            pollFrontendData();
+        }
+
+        // Auto-login if session/remember-me is active
+        (function autoLogin() {
+            if(localStorage.getItem('adminLoggedIn') === 'true' || sessionStorage.getItem('adminLoggedIn') === 'true') {
+                document.getElementById('loginOverlay').style.display = 'none';
+                initDashboard();
+            }
+        })();
+
+        function logout() {
+            localStorage.removeItem('adminLoggedIn');
+            sessionStorage.removeItem('adminLoggedIn');
+            document.getElementById('loginOverlay').style.display = 'flex';
+            document.getElementById('adminPassword').value = '';
         }
 
         function switchTab(tabId) {
@@ -374,8 +463,8 @@
         }
 
         // --- Feature Toggles ---
-        function loadFeatures() {
-            const features = JSON.parse(localStorage.getItem('adminFeatures')) || {
+        async function loadFeatures() {
+            const features = await api('features') || {
                 fiat: true, send: true, swap: true, trade: true, binary: true, ai: true, earn: true
             };
             document.getElementById('toggle-fiat').checked = features.fiat;
@@ -387,7 +476,7 @@
             document.getElementById('toggle-earn').checked = features.earn;
         }
 
-        function saveFeatures() {
+        async function saveFeatures() {
             const features = {
                 fiat: document.getElementById('toggle-fiat').checked,
                 send: document.getElementById('toggle-send').checked,
@@ -397,131 +486,267 @@
                 ai: document.getElementById('toggle-ai').checked,
                 earn: document.getElementById('toggle-earn').checked
             };
-            localStorage.setItem('adminFeatures', JSON.stringify(features));
+            await api('features', 'POST', features);
         }
 
-        // --- Real-time Polling from LocalStorage ---
-        
-        function pollFrontendData() {
-            // 1. KYC Data
-            const kycState = localStorage.getItem('kycState') || 'unverified';
-            const kycName = localStorage.getItem('kycName') || 'Unknown';
-            const kycDocType = localStorage.getItem('kycDocType') || 'Unknown';
-            
-            const kycTable = document.getElementById('adminKycTable');
-            const emptyKyc = document.getElementById('emptyKycRow');
-            
-            if(kycState === 'pending') {
-                document.getElementById('stat-kyc').innerText = '1';
-                emptyKyc.style.display = 'none';
-                if(!document.getElementById('pendingKycRow')) {
+        // --- Binary Options Levels ---
+        async function loadLevels() {
+            const data = await api('levels');
+            if(data) {
+                cachedBinaryLevels = data.binaryLevels || [];
+                cachedAiLevels = data.aiLevels || [];
+                renderBinaryLevelsAdmin();
+                renderAiLevelsAdmin();
+            }
+        }
+
+        function renderBinaryLevelsAdmin() {
+            const container = document.getElementById('binaryLevelsAdmin');
+            container.innerHTML = '';
+            cachedBinaryLevels.forEach((lvl, i) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.marginBottom = '15px';
+                card.innerHTML = `
+                    <div class="card-header" style="color: var(--accent);">Level ${lvl.id}: ${lvl.name}</div>
+                    <div class="grid-2" style="gap: 15px;">
+                        <div class="input-group">
+                            <label>Level Name</label>
+                            <input type="text" value="${lvl.name}" id="bin-name-${i}">
+                        </div>
+                        <div class="input-group">
+                            <label>Capital Required ($)</label>
+                            <input type="number" value="${lvl.capital}" id="bin-cap-${i}">
+                        </div>
+                        <div class="input-group">
+                            <label>Trading Time (seconds)</label>
+                            <input type="number" value="${lvl.tradingTime}" id="bin-time-${i}">
+                        </div>
+                        <div class="input-group">
+                            <label>Profit Percentage (%)</label>
+                            <input type="number" value="${lvl.profitPercent}" id="bin-profit-${i}" step="0.1">
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        async function saveBinaryLevels() {
+            const levels = cachedBinaryLevels.map((lvl, i) => ({
+                id: lvl.id,
+                name: document.getElementById(`bin-name-${i}`).value,
+                capital: parseFloat(document.getElementById(`bin-cap-${i}`).value),
+                tradingTime: parseInt(document.getElementById(`bin-time-${i}`).value),
+                profitPercent: parseFloat(document.getElementById(`bin-profit-${i}`).value)
+            }));
+            await api('levels', 'POST', { binaryLevels: levels });
+            cachedBinaryLevels = levels;
+            alert('Binary Options levels updated!');
+        }
+
+        // --- AI Arbitrage Levels ---
+        function renderAiLevelsAdmin() {
+            const container = document.getElementById('aiLevelsAdmin');
+            container.innerHTML = '';
+            cachedAiLevels.forEach((lvl, i) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.marginBottom = '15px';
+                card.innerHTML = `
+                    <div class="card-header" style="color: var(--accent);">Level ${lvl.id}: ${lvl.name}</div>
+                    <div class="grid-2" style="gap: 15px;">
+                        <div class="input-group">
+                            <label>Level Name</label>
+                            <input type="text" value="${lvl.name}" id="ai-name-${i}">
+                        </div>
+                        <div class="input-group">
+                            <label>Capital Required ($)</label>
+                            <input type="number" value="${lvl.capital}" id="ai-cap-${i}">
+                        </div>
+                        <div class="input-group">
+                            <label>Daily Profit (%)</label>
+                            <input type="number" value="${lvl.dailyProfit}" id="ai-profit-${i}" step="0.1">
+                        </div>
+                        <div class="input-group">
+                            <label>Duration (days)</label>
+                            <input type="number" value="${lvl.duration}" id="ai-dur-${i}">
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        async function saveAiLevels() {
+            const levels = cachedAiLevels.map((lvl, i) => ({
+                id: lvl.id,
+                name: document.getElementById(`ai-name-${i}`).value,
+                capital: parseFloat(document.getElementById(`ai-cap-${i}`).value),
+                dailyProfit: parseFloat(document.getElementById(`ai-profit-${i}`).value),
+                duration: parseInt(document.getElementById(`ai-dur-${i}`).value)
+            }));
+            await api('levels', 'POST', { aiLevels: levels });
+            cachedAiLevels = levels;
+            alert('AI Arbitrage levels updated!');
+        }
+
+        // --- Users ---
+        async function loadUsers() {
+            const users = await api('users');
+            const table = document.getElementById('adminUsersTable');
+            const emptyRow = document.getElementById('emptyUsersRow');
+
+            document.querySelectorAll('.dynamic-user-row').forEach(el => el.remove());
+
+            if(users && users.length > 0) {
+                emptyRow.style.display = 'none';
+                document.getElementById('stat-users').innerText = users.length;
+                users.forEach(u => {
                     const row = document.createElement('tr');
-                    row.id = 'pendingKycRow';
+                    row.className = 'dynamic-user-row';
                     row.innerHTML = `
-                        <td>0x7A...3F92</td>
-                        <td>${kycName}</td>
-                        <td><span style="color: var(--warning); font-weight: bold;">${kycDocType}</span></td>
-                        <td>
-                            <button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; display: inline-flex;" onclick="approveKYC()">Approve</button>
-                            <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; display: inline-flex; margin-left: 5px;" onclick="rejectKYC()">Reject</button>
-                        </td>
+                        <td><span style="color: var(--accent); font-weight: bold; font-size: 16px;">${u.userId}</span></td>
+                        <td style="font-family: monospace;">${u.wallet}</td>
+                        <td>${new Date(u.createdAt).toLocaleString()}</td>
                     `;
-                    kycTable.appendChild(row);
+                    table.appendChild(row);
+                });
+            } else {
+                emptyRow.style.display = 'table-row';
+                document.getElementById('stat-users').innerText = '0';
+            }
+        }
+
+        // --- Real-time Polling via API ---
+        async function pollFrontendData() {
+            try {
+                const [kycData, withdrawals, messages, addresses] = await Promise.all([
+                    api('kyc'),
+                    api('withdrawals'),
+                    api('chat'),
+                    api('addresses')
+                ]);
+
+                // 1. KYC Data
+                if(kycData) {
+                    const kycState = kycData.state || 'unverified';
+                    const kycName = kycData.name || 'Unknown';
+                    const kycDocType = kycData.docType || 'Unknown';
+
+                    const kycTable = document.getElementById('adminKycTable');
+                    const emptyKyc = document.getElementById('emptyKycRow');
+
+                    if(kycState === 'pending') {
+                        document.getElementById('stat-kyc').innerText = '1';
+                        emptyKyc.style.display = 'none';
+                        if(!document.getElementById('pendingKycRow')) {
+                            const row = document.createElement('tr');
+                            row.id = 'pendingKycRow';
+                            row.innerHTML = `
+                                <td>0x7A...3F92</td>
+                                <td>${kycName}</td>
+                                <td><span style="color: var(--warning); font-weight: bold;">${kycDocType}</span></td>
+                                <td>
+                                    <button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; display: inline-flex;" onclick="approveKYC()">Approve</button>
+                                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; display: inline-flex; margin-left: 5px;" onclick="rejectKYC()">Reject</button>
+                                </td>
+                            `;
+                            kycTable.appendChild(row);
+                        }
+                    } else {
+                        document.getElementById('stat-kyc').innerText = '0';
+                        emptyKyc.style.display = 'table-row';
+                        const row = document.getElementById('pendingKycRow');
+                        if(row) row.remove();
+                    }
                 }
-            } else {
-                document.getElementById('stat-kyc').innerText = '0';
-                emptyKyc.style.display = 'table-row';
-                const row = document.getElementById('pendingKycRow');
-                if(row) row.remove();
-            }
 
-            // 2. Withdrawal Data
-            let pendingWithdrawals = JSON.parse(localStorage.getItem('pendingWithdrawals')) || [];
-            const withdrawTable = document.getElementById('adminWithdrawTable');
-            const emptyWithdraw = document.getElementById('emptyWithdrawRow');
-            
-            document.getElementById('stat-withdraw').innerText = pendingWithdrawals.length;
-            
-            document.querySelectorAll('.dynamic-withdraw-row').forEach(el => el.remove());
-            if(pendingWithdrawals.length === 0) {
-                emptyWithdraw.style.display = 'table-row';
-            } else {
-                emptyWithdraw.style.display = 'none';
-                pendingWithdrawals.forEach(w => {
-                    const row = document.createElement('tr');
-                    row.className = 'dynamic-withdraw-row';
-                    row.innerHTML = `
-                        <td>${w.coin}</td><td>${w.network}</td><td>${w.amount}</td>
-                        <td style="font-family: monospace;">${w.address}</td>
-                        <td>
-                            <button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; display: inline-flex;" onclick="processWithdrawal(${w.id}, 'Approved')">Approve</button>
-                            <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; display: inline-flex; margin-left: 5px;" onclick="processWithdrawal(${w.id}, 'Rejected')">Reject</button>
-                        </td>
-                    `;
-                    withdrawTable.appendChild(row);
-                });
-            }
+                // 2. Withdrawal Data
+                if(withdrawals) {
+                    const withdrawTable = document.getElementById('adminWithdrawTable');
+                    const emptyWithdraw = document.getElementById('emptyWithdrawRow');
 
-            // 3. Chat Data
-            let messages = JSON.parse(localStorage.getItem('chatMessages')) || [];
-            const chatBody = document.getElementById('adminChatBody');
-            
-            if(chatBody.children.length !== messages.length) {
-                chatBody.innerHTML = '';
-                let unread = 0;
-                messages.forEach(msg => {
-                    const div = document.createElement('div');
-                    div.className = `chat-message ${msg.sender === 'user' ? 'user' : 'admin'}`;
-                    div.innerText = msg.text;
-                    chatBody.appendChild(div);
-                    if(msg.sender === 'user') unread++;
-                });
-                document.getElementById('stat-chat').innerText = unread;
-                chatBody.scrollTop = chatBody.scrollHeight;
-            }
+                    document.getElementById('stat-withdraw').innerText = withdrawals.length;
 
-            // 4. Load Addresses
-            if(!document.getElementById('addr-trc20').value) {
-                let addrs = JSON.parse(localStorage.getItem('depositAddresses')) || {
-                    'TRC20': 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
-                    'ERC20': '0xdAC17F958D2ee523a2206206994597C13D831ec7',
-                    'BSC': '0x55d398326f99059fF775485246999027B3197955',
-                    'SOL': 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
-                    'BTC': 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
-                };
-                document.getElementById('addr-trc20').value = addrs['TRC20'];
-                document.getElementById('addr-erc20').value = addrs['ERC20'];
-                document.getElementById('addr-bsc').value = addrs['BSC'];
-                document.getElementById('addr-sol').value = addrs['SOL'];
-                document.getElementById('addr-btc').value = addrs['BTC'];
-            }
+                    document.querySelectorAll('.dynamic-withdraw-row').forEach(el => el.remove());
+                    if(withdrawals.length === 0) {
+                        emptyWithdraw.style.display = 'table-row';
+                    } else {
+                        emptyWithdraw.style.display = 'none';
+                        withdrawals.forEach(w => {
+                            const row = document.createElement('tr');
+                            row.className = 'dynamic-withdraw-row';
+                            row.innerHTML = `
+                                <td>${w.coin}</td><td>${w.network}</td><td>${w.amount}</td>
+                                <td style="font-family: monospace;">${w.address}</td>
+                                <td>
+                                    <button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; display: inline-flex;" onclick="processWithdrawal(${w.id}, 'Approved')">Approve</button>
+                                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; display: inline-flex; margin-left: 5px;" onclick="processWithdrawal(${w.id}, 'Rejected')">Reject</button>
+                                </td>
+                            `;
+                            withdrawTable.appendChild(row);
+                        });
+                    }
+                }
+
+                // 3. Chat Data
+                if(messages) {
+                    const chatBody = document.getElementById('adminChatBody');
+                    chatBody.innerHTML = '';
+                    let unread = 0;
+                    messages.forEach(msg => {
+                        const div = document.createElement('div');
+                        div.className = `chat-message ${msg.sender === 'user' ? 'user' : 'admin'}`;
+                        div.innerText = msg.text;
+                        chatBody.appendChild(div);
+                        if(msg.sender === 'user') unread++;
+                    });
+                    document.getElementById('stat-chat').innerText = unread;
+                    chatBody.scrollTop = chatBody.scrollHeight;
+                }
+
+                // 4. Load Addresses (once)
+                if(addresses && !addressesLoaded) {
+                    addressesLoaded = true;
+                    document.getElementById('addr-trc20').value = addresses['TRC20'] || '';
+                    document.getElementById('addr-erc20').value = addresses['ERC20'] || '';
+                    document.getElementById('addr-bsc').value = addresses['BSC'] || '';
+                    document.getElementById('addr-sol').value = addresses['SOL'] || '';
+                    document.getElementById('addr-btc').value = addresses['BTC'] || '';
+                }
+
+                // 5. Reload users count
+                loadUsers();
+            } catch(e) { console.error('Poll error:', e); }
         }
 
         // Actions
-        function approveKYC() { localStorage.setItem('kycState', 'approved'); pollFrontendData(); }
-        function rejectKYC() { localStorage.setItem('kycState', 'unverified'); pollFrontendData(); }
-
-        function processWithdrawal(id, status) {
-            let pending = JSON.parse(localStorage.getItem('pendingWithdrawals')) || [];
-            pending = pending.filter(w => w.id !== id);
-            localStorage.setItem('pendingWithdrawals', JSON.stringify(pending));
+        async function approveKYC() {
+            await api('kyc', 'POST', { state: 'approved', name: '', docType: '' });
+            pollFrontendData();
+        }
+        async function rejectKYC() {
+            await api('kyc', 'POST', { state: 'unverified', name: '', docType: '' });
             pollFrontendData();
         }
 
-        function sendAdminMessage() {
+        async function processWithdrawal(id, status) {
+            await api('withdrawals', 'POST', { action: 'process', id: id });
+            pollFrontendData();
+        }
+
+        async function sendAdminMessage() {
             const input = document.getElementById('adminChatInput');
             const text = input.value.trim();
             if(!text) return;
 
-            let messages = JSON.parse(localStorage.getItem('chatMessages')) || [];
-            messages.push({ sender: 'admin', text: text, time: Date.now() });
-            localStorage.setItem('chatMessages', JSON.stringify(messages));
-            
+            await api('chat', 'POST', { sender: 'admin', text: text });
             input.value = '';
             pollFrontendData();
         }
 
-        function saveAddresses() {
+        async function saveAddresses() {
             const addrs = {
                 'TRC20': document.getElementById('addr-trc20').value,
                 'ERC20': document.getElementById('addr-erc20').value,
@@ -529,12 +754,32 @@
                 'SOL': document.getElementById('addr-sol').value,
                 'BTC': document.getElementById('addr-btc').value
             };
-            localStorage.setItem('depositAddresses', JSON.stringify(addrs));
+            await api('addresses', 'POST', addrs);
+            addressesLoaded = false;
             alert("Addresses updated! The user frontend will reflect this immediately.");
         }
 
-        // Poll every 2 seconds
-        setInterval(pollFrontendData, 2000);
+        async function saveSettings() {
+            const settings = {
+                swapFee: parseFloat(document.getElementById('setting-swapFee').value),
+                binaryPayout: parseFloat(document.getElementById('setting-binaryPayout').value),
+                btcStakingApy: parseFloat(document.getElementById('setting-btcStakingApy').value)
+            };
+            await api('settings', 'POST', settings);
+            alert("Rates updated globally!");
+        }
+
+        async function loadSettings() {
+            const settings = await api('settings');
+            if(settings) {
+                document.getElementById('setting-swapFee').value = settings.swapFee;
+                document.getElementById('setting-binaryPayout').value = settings.binaryPayout;
+                document.getElementById('setting-btcStakingApy').value = settings.btcStakingApy;
+            }
+        }
+
+        // Poll every 5 seconds
+        setInterval(pollFrontendData, 5000);
 
     </script>
 </body>
