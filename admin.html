@@ -139,7 +139,7 @@
             <!-- Step 1: Email -->
             <div id="loginStep1">
                 <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 16px;">Enter the master admin email to receive a one-time code.</p>
-                <input type="email" id="adminEmail" placeholder="admin@gmail.com" value="jessamycab024@gmail.com" onkeypress="if(event.key==='Enter') requestOtp()">
+                <input type="email" id="adminEmail" placeholder="admin@gmail.com" onkeypress="if(event.key==='Enter') requestOtp()">
                 <button class="btn btn-danger" style="width: 100%;" id="sendCodeBtn" onclick="requestOtp()">
                     <i data-lucide="mail"></i> Send Verification Code
                 </button>

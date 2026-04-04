@@ -1,6 +1,6 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
+import { createHash, randomBytes, randomInt, timingSafeEqual } from "crypto";
 import nodemailer from "nodemailer";
 
 // ---------------------------------------------------------------------------
@@ -41,8 +41,8 @@ function generateSessionId(): string {
 }
 
 function generateOtp(): string {
-  // Cryptographically random 6-digit code
-  return String(Math.floor(100000 + (parseInt(randomBytes(3).toString("hex"), 16) % 900000)));
+  // Use randomInt for an unbiased 6-digit code (inclusive 100000..999999)
+  return String(randomInt(100000, 1000000));
 }
 
 function hashOtp(otp: string): string {
@@ -134,10 +134,14 @@ export default async (req: Request, context: Context) => {
   const ip         = getClientIp(context);
   const headers    = securityHeaders();
 
-  // Master admin email — can be overridden via env var
-  const adminEmail        = (process.env.ADMIN_EMAIL || "jessamycab024@gmail.com").toLowerCase().trim();
-  const gmailUser         = process.env.GMAIL_USER || adminEmail;
-  const gmailAppPassword  = process.env.GMAIL_APP_PASSWORD || "";
+  // Master admin email — must be set via ADMIN_EMAIL env var
+  const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim();
+  if (!adminEmail) {
+    console.error(`[AUDIT] {"event":"CONFIG_ERROR","reason":"ADMIN_EMAIL not configured","ip":"${ip}"}`);
+    return Response.json({ error: "Admin email not configured. Set ADMIN_EMAIL env var." }, { status: 503, headers });
+  }
+  const gmailUser        = process.env.GMAIL_USER || adminEmail;
+  const gmailAppPassword = process.env.GMAIL_APP_PASSWORD || "";
 
   // The ADMIN_TOKEN env var is still required so other functions know the server is configured
   if (!process.env.ADMIN_TOKEN) {
@@ -160,13 +164,19 @@ export default async (req: Request, context: Context) => {
     if (action === "request-otp") {
       const email = String(body.email ?? "").toLowerCase().trim();
 
-      // Constant-time email check to avoid user enumeration
-      const emailBuffer = Buffer.from(email);
-      const masterBuffer = Buffer.from(adminEmail);
-      const maxLen = Math.max(emailBuffer.length, masterBuffer.length);
-      const aBuf = Buffer.alloc(maxLen); emailBuffer.copy(aBuf);
-      const bBuf = Buffer.alloc(maxLen); masterBuffer.copy(bBuf);
-      const emailMatch = email.length === adminEmail.length && timingSafeEqual(aBuf, bBuf);
+      // Constant-time email comparison — fixed buffer size prevents length-based timing leaks
+      const MAX_EMAIL_LEN = 254; // RFC 5321 maximum
+      const emailMatch = (() => {
+        try {
+          const aBuf = Buffer.alloc(MAX_EMAIL_LEN);
+          const bBuf = Buffer.alloc(MAX_EMAIL_LEN);
+          Buffer.from(email).copy(aBuf);
+          Buffer.from(adminEmail).copy(bBuf);
+          return timingSafeEqual(aBuf, bBuf);
+        } catch {
+          return false;
+        }
+      })();
 
       if (!emailMatch) {
         // Respond with the same message as a valid request to prevent enumeration
