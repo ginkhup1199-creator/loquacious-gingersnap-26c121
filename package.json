@@ -5,5 +5,8 @@
   "dependencies": {
     "@netlify/blobs": "^8.1.0",
     "@netlify/functions": "^3.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
   }
 }

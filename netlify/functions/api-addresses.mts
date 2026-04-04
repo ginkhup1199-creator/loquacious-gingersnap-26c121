@@ -1,5 +1,12 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
+import {
+  validateAdminSession,
+  secureJson,
+  sanitizeString,
+  auditLog,
+  getClientIp,
+} from "../lib/security.js";
 
 const DEFAULT_ADDRESSES: Record<string, string> = {
   TRC20: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
@@ -11,24 +18,36 @@ const DEFAULT_ADDRESSES: Record<string, string> = {
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
-  const adminToken = process.env.ADMIN_TOKEN;
-  if (!adminToken) {
-    return Response.json({ error: "Admin token not configured" }, { status: 503 });
+  const ip = getClientIp(context);
+
+  if (!process.env.ADMIN_TOKEN) {
+    return secureJson({ error: "Admin token not configured" }, 503);
   }
 
   if (req.method === "GET") {
     const addresses = await store.get("deposit-addresses", { type: "json" });
-    return Response.json(addresses || DEFAULT_ADDRESSES);
+    return secureJson(addresses || DEFAULT_ADDRESSES, 200, true);
   }
 
   if (req.method === "POST") {
-    const token = req.headers.get("X-Admin-Token");
-    if (token !== adminToken) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    const sessionResult = await validateAdminSession(req, store);
+    if (!sessionResult.valid) {
+      auditLog("AUTH_FAILURE", { operation: "update-addresses", reason: sessionResult.reason, ip });
+      return secureJson({ error: "Unauthorized" }, 401);
     }
+
+    auditLog("ADMIN_WRITE", { operation: "update-addresses", ip });
+
     const body = await req.json();
-    await store.setJSON("deposit-addresses", body);
-    return Response.json(body);
+    // Sanitize all address values
+    const sanitized: Record<string, string> = {};
+    for (const [key, value] of Object.entries(body)) {
+      const safeKey = sanitizeString(key, 16);
+      const safeValue = sanitizeString(String(value ?? ""), 200);
+      if (safeKey && safeValue) sanitized[safeKey] = safeValue;
+    }
+    await store.setJSON("deposit-addresses", sanitized);
+    return secureJson(sanitized);
   }
 
   return new Response("Method not allowed", { status: 405 });

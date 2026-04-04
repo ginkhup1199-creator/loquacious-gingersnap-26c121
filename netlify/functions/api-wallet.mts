@@ -1,6 +1,12 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
-import crypto from "node:crypto";
+import {
+  validateAdminSession,
+  secureJson,
+  sanitizeString,
+  auditLog,
+  getClientIp,
+} from "../lib/security.js";
 
 const DEFAULT_ADDRESSES: Record<string, string> = {
   TRC20: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
@@ -21,56 +27,14 @@ const ADDRESS_PATTERNS: Record<string, RegExp> = {
   BTC: /^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,59}$/,
 };
 
-function auditLog(action: string, details: Record<string, unknown>): void {
-  console.log(`[AUDIT] ${JSON.stringify({ timestamp: new Date().toISOString(), action, ...details })}`);
-}
-
-function hashForLog(token: string): string {
-  if (!token) return "null";
-  return token.slice(0, 4) + "***[" + token.length + "]";
-}
-
-function getClientIp(req: Request, context: Context): string {
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    req.headers.get("x-nf-client-connection-ip") ||
-    context.ip ||
-    "unknown";
-}
-
-function validateAdminToken(req: Request): boolean {
-  const adminToken = process.env.ADMIN_TOKEN;
-  if (!adminToken) return false;
-  const provided = req.headers.get("X-Admin-Token");
-  if (!provided) return false;
-  try {
-    const a = Buffer.from(provided);
-    const b = Buffer.from(adminToken);
-    return a.length === b.length && crypto.timingSafeEqual(a, b);
-  } catch {
-    return false;
-  }
-}
-
-// Sanitize string inputs
-function sanitize(input: unknown, maxLen = 200): string {
-  if (typeof input !== "string") return "";
-  let s = input.slice(0, maxLen).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "").trim();
-  let prev: string;
-  do {
-    prev = s;
-    s = s.replace(/<[^>]*>/g, "");
-  } while (s !== prev);
-  return s.replace(/[<>]/g, "");
-}
-
 export default async (req: Request, context: Context) => {
-  const adminToken = process.env.ADMIN_TOKEN;
-  if (!adminToken) {
-    return Response.json({ error: "Admin token not configured" }, { status: 503 });
+  const ip = getClientIp(context);
+
+  if (!process.env.ADMIN_TOKEN) {
+    return secureJson({ error: "Admin token not configured" }, 503);
   }
 
   const store = getStore({ name: "app-data", consistency: "strong" });
-  const ip = getClientIp(req, context);
   const url = new URL(req.url);
 
   // ─── GET /api/wallet ─────────────────────────────────────────────────────
@@ -81,13 +45,13 @@ export default async (req: Request, context: Context) => {
     // Get deposit addresses
     if (!walletParam) {
       const addresses = await store.get("deposit-addresses", { type: "json" });
-      return Response.json(addresses || DEFAULT_ADDRESSES);
+      return secureJson(addresses || DEFAULT_ADDRESSES, 200, true);
     }
 
     // Get wallet info for a specific wallet
-    const walletKey = sanitize(walletParam, 100).toLowerCase();
+    const walletKey = sanitizeString(walletParam, 100).toLowerCase();
     if (!walletKey) {
-      return Response.json({ error: "Invalid wallet address" }, { status: 400 });
+      return secureJson({ error: "Invalid wallet address" }, 400);
     }
 
     const [user, balance] = await Promise.all([
@@ -95,26 +59,27 @@ export default async (req: Request, context: Context) => {
       store.get(`balance-${walletKey}`, { type: "json" }),
     ]);
 
-    return Response.json({
+    return secureJson({
       wallet: walletKey,
       user: user || null,
       balance: balance || { usdt: 0 },
-    });
+    }, 200, true);
   }
 
   // ─── POST /api/wallet ─────────────────────────────────────────────────────
   // Admin-only: update deposit addresses
   if (req.method === "POST") {
-    if (!validateAdminToken(req)) {
-      auditLog("UNAUTHORIZED_ACCESS", { ip, resource: "wallet/addresses" });
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    const sessionResult = await validateAdminSession(req, store);
+    if (!sessionResult.valid) {
+      auditLog("AUTH_FAILURE", { operation: "update-wallet-addresses", reason: sessionResult.reason, ip });
+      return secureJson({ error: "Unauthorized" }, 401);
     }
 
     let body: Record<string, unknown>;
     try {
       body = await req.json();
     } catch {
-      return Response.json({ error: "Invalid JSON" }, { status: 400 });
+      return secureJson({ error: "Invalid JSON" }, 400);
     }
 
     const { action } = body;
@@ -125,13 +90,13 @@ export default async (req: Request, context: Context) => {
 
       for (const network of VALID_NETWORKS) {
         const addr = body[network] as string | undefined;
-        if (addr !== undefined) {
-          const cleanAddr = sanitize(addr, 100);
+        if (addr !== undefined && addr !== "") {
+          const cleanAddr = sanitizeString(addr, 100);
           const pattern = ADDRESS_PATTERNS[network];
           if (pattern && !pattern.test(cleanAddr)) {
-            return Response.json(
+            return secureJson(
               { error: `Invalid address format for network ${network}` },
-              { status: 400 }
+              400
             );
           }
           newAddresses[network] = cleanAddr;
@@ -143,11 +108,11 @@ export default async (req: Request, context: Context) => {
       const updated = { ...existing, ...newAddresses };
       await store.setJSON("deposit-addresses", updated);
 
-      auditLog("WALLET_ADDRESS_UPDATED", { ip, networks: Object.keys(newAddresses) });
-      return Response.json(updated);
+      auditLog("ADMIN_WRITE", { operation: "update-wallet-addresses", networks: Object.keys(newAddresses), ip });
+      return secureJson(updated);
     }
 
-    return Response.json({ error: "Invalid action" }, { status: 400 });
+    return secureJson({ error: "Invalid action" }, 400);
   }
 
   return new Response("Method not allowed", { status: 405 });

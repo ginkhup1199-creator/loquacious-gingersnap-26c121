@@ -421,102 +421,53 @@
     <script>
         lucide.createIcons();
 
-        // ─── Session-based authentication state ────────────────────────────────────
-        // Admin must authenticate each session - no persistent token storage.
-        // Each write operation requires a fresh one-time token from the server.
-        let adminSessionId = sessionStorage.getItem('adminSessionId') || '';
-        let adminToken = ''; // Never persisted - only valid for current API call
+        // Helper for API calls — uses session token, never the raw admin password
+        let sessionToken = sessionStorage.getItem('adminSessionToken') || '';
 
-        // Request a fresh one-time token before each write operation
-        async function getOneTimeToken() {
-            if (!adminSessionId) { handleSessionExpired(); return null; }
-            try {
-                const res = await fetch('/api/admin?action=issue-token', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sessionId: adminSessionId })
-                });
-                if (res.status === 401) { handleSessionExpired(); return null; }
-                const data = await res.json();
-                return data.token || null;
-            } catch(e) { console.error('Token error:', e); return null; }
-        }
-
-        // Helper for API calls - write operations get a fresh one-time token each time
         async function api(endpoint, method, body) {
             const headers = { 'Content-Type': 'application/json' };
+            if(sessionToken) headers['X-Session-Token'] = sessionToken;
             const opts = { method: method || 'GET', headers };
-
-            if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
-                // Each write operation requires a fresh one-time token
-                const token = await getOneTimeToken();
-                if (!token) return null;
-                headers['X-Admin-Token'] = token;
-            }
-
             if(body) opts.body = JSON.stringify(body);
             try {
                 const res = await fetch('/api/' + endpoint, opts);
                 if(res.status === 401) {
-                    if (method !== 'GET') handleSessionExpired();
+                    console.warn('Session rejected for', endpoint, '— please log in again.');
+                    sessionToken = '';
+                    sessionStorage.removeItem('adminSessionToken');
+                    document.getElementById('loginOverlay').style.display = 'flex';
                     return null;
                 }
-                if(res.status === 429) { alert('Rate limit exceeded. Please wait a moment.'); return null; }
                 return await res.json();
             } catch(e) { console.error('API error:', e); return null; }
-        }
-
-        function handleSessionExpired() {
-            adminSessionId = '';
-            sessionStorage.removeItem('adminSessionId');
-            alert('Session expired or invalid. Please log in again.');
-            document.getElementById('loginOverlay').style.display = 'flex';
-            document.getElementById('adminPassword').value = '';
         }
 
         let addressesLoaded = false;
         let cachedBinaryLevels = [];
         let cachedAiLevels = [];
 
-        async function login() {
+        function login() {
             const pwd = document.getElementById('adminPassword').value;
             if(!pwd) { alert('Please enter the admin password.'); return; }
-
-            try {
-                // Authenticate and create a server-side session
-                const res = await fetch('/api/admin?action=login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token: pwd })
-                });
-
-                if (res.status === 503) {
-                    alert('Admin token not configured on server. Set ADMIN_TOKEN env var.');
-                    return;
+            // Exchange ADMIN_TOKEN for a session token — the raw password is never stored
+            fetch('/api/admin/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Admin-Token': pwd }
+            }).then(r => {
+                if(r.status === 401 || r.status === 503) {
+                    alert(r.status === 503 ? 'Admin token not configured on server. Set ADMIN_TOKEN env var.' : 'Incorrect password.');
+                    return null;
                 }
-                if (res.status === 401 || res.status === 429) {
-                    alert(res.status === 429 ? 'Too many login attempts. Please wait.' : 'Incorrect password.');
-                    return;
-                }
-                if (!res.ok) {
-                    alert('Login failed. Check server configuration.');
-                    return;
-                }
-
-                const data = await res.json();
-                if (!data.sessionId) { alert('Login failed. Invalid response.'); return; }
-
-                adminSessionId = data.sessionId;
-                // Store sessionId only for this browser session (not localStorage)
-                sessionStorage.setItem('adminSessionId', adminSessionId);
-
+                return r.json();
+            }).then(data => {
+                if(!data || !data.sessionId) return;
+                sessionToken = data.sessionId;
+                // Store session token in sessionStorage only (expires with browser tab)
+                sessionStorage.setItem('adminSessionToken', sessionToken);
+                document.getElementById('adminPassword').value = '';
                 document.getElementById('loginOverlay').style.display = 'none';
                 initDashboard();
-            } catch(e) {
-                alert('Connection error. Check server.');
-                console.error(e);
-            }
-        }
+            }).catch(() => { alert('Connection error. Check server.'); });
 
         function initDashboard() {
             loadFeatures();
@@ -526,39 +477,37 @@
             pollFrontendData();
         }
 
-        // Auto-resume session if sessionId is still valid
-        (async function autoLogin() {
-            if (!adminSessionId) return;
-            try {
-                const res = await fetch(`/api/admin?action=validate-session&sessionId=${encodeURIComponent(adminSessionId)}`);
-                const data = await res.json();
-                if (data.valid) {
-                    document.getElementById('loginOverlay').style.display = 'none';
-                    initDashboard();
-                } else {
-                    adminSessionId = '';
-                    sessionStorage.removeItem('adminSessionId');
-                }
-            } catch(e) {
-                adminSessionId = '';
-                sessionStorage.removeItem('adminSessionId');
+        // Auto-login if session token is still in sessionStorage
+        (function autoLogin() {
+            if(sessionToken) {
+                document.getElementById('loginOverlay').style.display = 'none';
+                initDashboard();
             }
         })();
 
-        async function logout() {
-            if (adminSessionId) {
-                try {
-                    await fetch('/api/admin?action=logout', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ sessionId: adminSessionId })
-                    });
-                } catch(e) {}
+        function logout() {
+            // Destroy the session server-side
+            if(sessionToken) {
+                fetch('/api/admin/session', {
+                    method: 'DELETE',
+                    headers: { 'X-Session-Token': sessionToken }
+                }).catch(() => {});
             }
-            adminSessionId = '';
-            sessionStorage.removeItem('adminSessionId');
+            sessionToken = '';
+            sessionStorage.removeItem('adminSessionToken');
+            // Clean up any legacy storage keys from previous auth implementation
+            localStorage.removeItem('adminLoggedIn');
+            localStorage.removeItem('adminToken');
+            sessionStorage.removeItem('adminLoggedIn');
             document.getElementById('loginOverlay').style.display = 'flex';
             document.getElementById('adminPassword').value = '';
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.querySelector(`.nav-item[onclick="switchTab('${tabId}')"]`).classList.add('active');
         }
 
         // HTML escape helper to prevent XSS in dynamic HTML construction
@@ -569,13 +518,6 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#x27;');
-        }
-
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            document.querySelector(`.nav-item[onclick="switchTab('${tabId}')"]`).classList.add('active');
         }
 
         // --- Feature Toggles ---
@@ -807,7 +749,7 @@
                     }
                 }
 
-                // 3. Load Addresses (once)
+                // 3. Load Addresses via wallet API (once)
                 if(addresses && !addressesLoaded) {
                     addressesLoaded = true;
                     document.getElementById('addr-trc20').value = addresses['TRC20'] || '';
@@ -838,7 +780,7 @@
         }
 
         async function sendAdminMessage() {
-            // Chat functionality removed - use external support tool
+            // Chat functionality removed - use external enterprise support channel
             alert('Live chat has been removed. Please use your enterprise support channel.');
         }
 
@@ -852,7 +794,6 @@
                 'BTC': document.getElementById('addr-btc').value
             };
             const result = await api('wallet', 'POST', addrs);
-            if (result && result.error) { alert('Error: ' + result.error); return; }
             addressesLoaded = false;
             alert("Addresses updated! The user frontend will reflect this immediately.");
         }
