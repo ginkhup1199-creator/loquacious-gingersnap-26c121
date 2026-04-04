@@ -81,6 +81,13 @@ export default async (req: Request, context: Context) => {
     return Response.json({ error: "Admin token not configured" }, { status: 503 });
   }
 
+  // Log a warning if ENTERPRISE_SECRET is not separately configured
+  if (!process.env.ENTERPRISE_SECRET) {
+    console.warn("[SECURITY] ENTERPRISE_SECRET not set - falling back to ADMIN_TOKEN for session auth. Set ENTERPRISE_SECRET for defense-in-depth.");
+  }
+    return Response.json({ error: "Admin token not configured" }, { status: 503 });
+  }
+
   const url = new URL(req.url);
   const action = url.searchParams.get("action") || "";
 

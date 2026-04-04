@@ -65,7 +65,8 @@ function checkForInjection(input) {
 
 /**
  * Sanitizes a string by removing or encoding potentially dangerous content.
- * Strips HTML tags, control characters, and truncates to max length.
+ * Strips HTML tags using multi-pass removal to prevent nested tag bypass,
+ * removes control characters, and truncates to max length.
  * @param {string} input - The string to sanitize.
  * @param {number} [maxLength=500] - Maximum allowed length.
  * @returns {string} The sanitized string.
@@ -75,13 +76,20 @@ function sanitizeString(input, maxLength = 500) {
     return "";
   }
 
-  return input
-    .slice(0, maxLength)
-    // Remove HTML/script tags
-    .replace(/<[^>]*>/g, "")
+  let s = input.slice(0, maxLength)
     // Remove null bytes and other control characters (except newline/tab)
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
     .trim();
+
+  // Multi-pass HTML tag removal to prevent nested tag bypass (e.g. <scr<script>ipt>)
+  let prev;
+  do {
+    prev = s;
+    s = s.replace(/<[^>]*>/g, "");
+  } while (s !== prev);
+
+  // Remove any remaining angle brackets to fully prevent HTML injection
+  return s.replace(/[<>]/g, "");
 }
 
 /**

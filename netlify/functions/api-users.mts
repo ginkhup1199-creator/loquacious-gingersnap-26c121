@@ -15,7 +15,13 @@ function isSafeInput(input: string): boolean {
 
 function sanitize(input: unknown, maxLen = 200): string {
   if (typeof input !== "string") return "";
-  return input.replace(/<[^>]*>/g, "").replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "").trim().slice(0, maxLen);
+  let s = input.slice(0, maxLen).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "").trim();
+  let prev: string;
+  do {
+    prev = s;
+    s = s.replace(/<[^>]*>/g, "");
+  } while (s !== prev);
+  return s.replace(/[<>]/g, "");
 }
 
 function auditLog(action: string, details: Record<string, unknown>): void {
