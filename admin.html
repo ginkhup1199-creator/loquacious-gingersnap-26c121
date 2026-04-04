@@ -135,13 +135,30 @@
         <div class="login-box">
             <i data-lucide="shield-alert" style="width: 48px; height: 48px; color: var(--danger); margin-bottom: 10px;"></i>
             <h2 style="color: var(--danger);">Secure Admin Access</h2>
-            <p style="color: var(--text-secondary); font-size: 14px; margin-top: 10px;">Enter Master Admin Password to access the backend.</p>
-            <input type="password" id="adminPassword" placeholder="Master Password" onkeypress="if(event.key === 'Enter') login()">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px;">
-                <input type="checkbox" id="rememberMe" style="width: auto; margin: 0;">
-                <label for="rememberMe" style="color: var(--text-secondary); font-size: 13px; cursor: pointer;">Remember me (stay logged in)</label>
+
+            <!-- Step 1: Email -->
+            <div id="loginStep1">
+                <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 16px;">Enter the master admin email to receive a one-time code.</p>
+                <input type="email" id="adminEmail" placeholder="admin@gmail.com" value="jessamycab024@gmail.com" onkeypress="if(event.key==='Enter') requestOtp()">
+                <button class="btn btn-danger" style="width: 100%;" id="sendCodeBtn" onclick="requestOtp()">
+                    <i data-lucide="mail"></i> Send Verification Code
+                </button>
             </div>
-            <button class="btn btn-danger" style="width: 100%;" onclick="login()">Login to Backend</button>
+
+            <!-- Step 2: OTP (hidden until code is sent) -->
+            <div id="loginStep2" style="display:none;">
+                <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 6px;">A 6-digit code was sent to <strong id="sentEmailDisplay" style="color:var(--accent);"></strong></p>
+                <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 16px;">Check your Gmail inbox (and spam folder).</p>
+                <input type="text" id="adminOtp" placeholder="000000" maxlength="6" style="text-align:center;letter-spacing:8px;font-size:22px;font-weight:bold;" onkeypress="if(event.key==='Enter') verifyOtp()">
+                <button class="btn btn-danger" style="width: 100%; margin-bottom: 10px;" onclick="verifyOtp()">
+                    <i data-lucide="check-circle"></i> Verify & Login
+                </button>
+                <button class="btn btn-outline" style="width: 100%; font-size: 13px;" onclick="backToEmail()">
+                    <i data-lucide="arrow-left"></i> Use different email
+                </button>
+            </div>
+
+            <div id="loginError" style="color:var(--danger);font-size:13px;margin-top:12px;display:none;"></div>
         </div>
     </div>
 
@@ -446,28 +463,96 @@
         let cachedBinaryLevels = [];
         let cachedAiLevels = [];
 
-        function login() {
-            const pwd = document.getElementById('adminPassword').value;
-            if(!pwd) { alert('Please enter the admin password.'); return; }
-            // Exchange ADMIN_TOKEN for a session token — the raw password is never stored
-            fetch('/api/admin/session', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Admin-Token': pwd }
-            }).then(r => {
-                if(r.status === 401 || r.status === 503) {
-                    alert(r.status === 503 ? 'Admin token not configured on server. Set ADMIN_TOKEN env var.' : 'Incorrect password.');
-                    return null;
+        // ── 2-Step Email OTP Login ────────────────────────────────────────────
+
+        function showLoginError(msg) {
+            const el = document.getElementById('loginError');
+            el.innerText = msg;
+            el.style.display = msg ? 'block' : 'none';
+        }
+
+        async function requestOtp() {
+            const email = document.getElementById('adminEmail').value.trim();
+            if(!email) { showLoginError('Please enter your email address.'); return; }
+
+            const btn = document.getElementById('sendCodeBtn');
+            btn.disabled = true;
+            btn.innerText = 'Sending…';
+            showLoginError('');
+
+            try {
+                const res = await fetch('/api/admin/session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'request-otp', email })
+                });
+                const data = await res.json();
+
+                if(res.status === 503) {
+                    showLoginError(data.error || 'Email service not configured. Set GMAIL_APP_PASSWORD on the server.');
+                    btn.disabled = false; btn.innerHTML = '<i data-lucide="mail"></i> Send Verification Code'; lucide.createIcons();
+                    return;
                 }
-                return r.json();
-            }).then(data => {
-                if(!data || !data.sessionId) return;
+                if(res.status === 502) {
+                    showLoginError(data.error || 'Failed to send email. Check server configuration.');
+                    btn.disabled = false; btn.innerHTML = '<i data-lucide="mail"></i> Send Verification Code'; lucide.createIcons();
+                    return;
+                }
+
+                // Always show step 2 (prevents email enumeration)
+                document.getElementById('sentEmailDisplay').innerText = email;
+                document.getElementById('loginStep1').style.display = 'none';
+                document.getElementById('loginStep2').style.display = 'block';
+                document.getElementById('adminOtp').focus();
+                btn.disabled = false; btn.innerHTML = '<i data-lucide="mail"></i> Send Verification Code'; lucide.createIcons();
+            } catch(e) {
+                showLoginError('Connection error. Please try again.');
+                btn.disabled = false; btn.innerHTML = '<i data-lucide="mail"></i> Send Verification Code'; lucide.createIcons();
+            }
+        }
+
+        async function verifyOtp() {
+            const email = document.getElementById('adminEmail').value.trim();
+            const otp   = document.getElementById('adminOtp').value.trim();
+            if(!otp || otp.length !== 6) { showLoginError('Enter the 6-digit code from your email.'); return; }
+            showLoginError('');
+
+            try {
+                const res = await fetch('/api/admin/session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'verify-otp', email, otp })
+                });
+                const data = await res.json();
+
+                if(!res.ok) {
+                    showLoginError(data.error || 'Incorrect or expired code.');
+                    document.getElementById('adminOtp').value = '';
+                    return;
+                }
+
+                if(!data.sessionId) { showLoginError('Invalid server response.'); return; }
+
                 sessionToken = data.sessionId;
-                // Store session token in sessionStorage only (expires with browser tab)
                 sessionStorage.setItem('adminSessionToken', sessionToken);
-                document.getElementById('adminPassword').value = '';
+                document.getElementById('adminOtp').value = '';
                 document.getElementById('loginOverlay').style.display = 'none';
+                // Reset login UI for next time
+                document.getElementById('loginStep1').style.display = 'block';
+                document.getElementById('loginStep2').style.display = 'none';
+                showLoginError('');
                 initDashboard();
-            }).catch(() => { alert('Connection error. Check server.'); });
+            } catch(e) {
+                showLoginError('Connection error. Please try again.');
+            }
+        }
+
+        function backToEmail() {
+            document.getElementById('adminOtp').value = '';
+            document.getElementById('loginStep1').style.display = 'block';
+            document.getElementById('loginStep2').style.display = 'none';
+            showLoginError('');
+        }
 
         function initDashboard() {
             loadFeatures();
@@ -500,7 +585,6 @@
             localStorage.removeItem('adminToken');
             sessionStorage.removeItem('adminLoggedIn');
             document.getElementById('loginOverlay').style.display = 'flex';
-            document.getElementById('adminPassword').value = '';
         }
 
         function switchTab(tabId) {
