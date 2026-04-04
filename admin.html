@@ -561,6 +561,16 @@
             document.getElementById('adminPassword').value = '';
         }
 
+        // HTML escape helper to prevent XSS in dynamic HTML construction
+        function esc(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#x27;');
+        }
+
         function switchTab(tabId) {
             document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -712,9 +722,9 @@
                     const row = document.createElement('tr');
                     row.className = 'dynamic-user-row';
                     row.innerHTML = `
-                        <td><span style="color: var(--accent); font-weight: bold; font-size: 16px;">${u.userId}</span></td>
-                        <td style="font-family: monospace;">${u.wallet}</td>
-                        <td>${new Date(u.createdAt).toLocaleString()}</td>
+                        <td><span style="color: var(--accent); font-weight: bold; font-size: 16px;">${esc(u.userId)}</span></td>
+                        <td style="font-family: monospace;">${esc(u.wallet)}</td>
+                        <td>${esc(new Date(u.createdAt).toLocaleString())}</td>
                     `;
                     table.appendChild(row);
                 });
@@ -750,8 +760,8 @@
                             row.id = 'pendingKycRow';
                             row.innerHTML = `
                                 <td>0x7A...3F92</td>
-                                <td>${kycName.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td>
-                                <td><span style="color: var(--warning); font-weight: bold;">${kycDocType.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span></td>
+                                <td>${esc(kycName)}</td>
+                                <td><span style="color: var(--warning); font-weight: bold;">${esc(kycDocType)}</span></td>
                                 <td>
                                     <button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; display: inline-flex;" onclick="approveKYC()">Approve</button>
                                     <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; display: inline-flex; margin-left: 5px;" onclick="rejectKYC()">Reject</button>
@@ -780,14 +790,13 @@
                     } else {
                         emptyWithdraw.style.display = 'none';
                         withdrawals.forEach(w => {
-                            const safeAddr = String(w.address).replace(/</g,'&lt;').replace(/>/g,'&gt;');
                             const row = document.createElement('tr');
                             row.className = 'dynamic-withdraw-row';
                             row.innerHTML = `
-                                <td>${String(w.coin).replace(/</g,'&lt;')}</td>
-                                <td>${String(w.network).replace(/</g,'&lt;')}</td>
+                                <td>${esc(w.coin)}</td>
+                                <td>${esc(w.network)}</td>
                                 <td>${Number(w.amount).toLocaleString()}</td>
-                                <td style="font-family: monospace;">${safeAddr}</td>
+                                <td style="font-family: monospace;">${esc(w.address)}</td>
                                 <td>
                                     <button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; display: inline-flex;" onclick="processWithdrawal(${JSON.stringify(String(w.id))}, 'Completed')">Approve</button>
                                     <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; display: inline-flex; margin-left: 5px;" onclick="processWithdrawal(${JSON.stringify(String(w.id))}, 'Rejected')">Reject</button>

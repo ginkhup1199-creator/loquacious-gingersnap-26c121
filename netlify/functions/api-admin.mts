@@ -77,15 +77,13 @@ export default async (req: Request, context: Context) => {
   const adminToken = process.env.ADMIN_TOKEN;
   const enterpriseSecret = process.env.ENTERPRISE_SECRET || adminToken;
 
-  if (!adminToken) {
+  if (!adminToken || !enterpriseSecret) {
     return Response.json({ error: "Admin token not configured" }, { status: 503 });
   }
 
   // Log a warning if ENTERPRISE_SECRET is not separately configured
   if (!process.env.ENTERPRISE_SECRET) {
     console.warn("[SECURITY] ENTERPRISE_SECRET not set - falling back to ADMIN_TOKEN for session auth. Set ENTERPRISE_SECRET for defense-in-depth.");
-  }
-    return Response.json({ error: "Admin token not configured" }, { status: 503 });
   }
 
   const url = new URL(req.url);
@@ -111,7 +109,7 @@ export default async (req: Request, context: Context) => {
     let match = false;
     try {
       const a = Buffer.from(providedToken);
-      const b = Buffer.from(enterpriseSecret!);
+      const b = Buffer.from(enterpriseSecret);
       match = a.length === b.length && crypto.timingSafeEqual(a, b);
     } catch {
       match = false;
