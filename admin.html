@@ -421,17 +421,23 @@
     <script>
         lucide.createIcons();
 
-        // Helper for API calls
-        let adminToken = sessionStorage.getItem('adminToken') || localStorage.getItem('adminToken') || '';
+        // Helper for API calls — uses session token, never the raw admin password
+        let sessionToken = sessionStorage.getItem('adminSessionToken') || '';
 
         async function api(endpoint, method, body) {
             const headers = { 'Content-Type': 'application/json' };
-            if(adminToken) headers['X-Admin-Token'] = adminToken;
+            if(sessionToken) headers['X-Session-Token'] = sessionToken;
             const opts = { method: method || 'GET', headers };
             if(body) opts.body = JSON.stringify(body);
             try {
                 const res = await fetch('/api/' + endpoint, opts);
-                if(res.status === 401) { console.warn('Admin token rejected for', endpoint); return null; }
+                if(res.status === 401) {
+                    console.warn('Session rejected for', endpoint, '— please log in again.');
+                    sessionToken = '';
+                    sessionStorage.removeItem('adminSessionToken');
+                    document.getElementById('loginOverlay').style.display = 'flex';
+                    return null;
+                }
                 return await res.json();
             } catch(e) { console.error('API error:', e); return null; }
         }
@@ -443,28 +449,25 @@
         function login() {
             const pwd = document.getElementById('adminPassword').value;
             if(!pwd) { alert('Please enter the admin password.'); return; }
-            // Verify token server-side by fetching features (will return 503 if ADMIN_TOKEN not set)
-            adminToken = pwd;
-            fetch('/api/features').then(r => r.json()).then(features => {
-                // Now try saving them back to verify token is accepted
-                const opts = { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Token': pwd }, body: JSON.stringify(features) };
-                return fetch('/api/features', opts);
+            // Exchange ADMIN_TOKEN for a session token — the raw password is never stored
+            fetch('/api/admin/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Admin-Token': pwd }
             }).then(r => {
                 if(r.status === 401 || r.status === 503) {
-                    adminToken = '';
                     alert(r.status === 503 ? 'Admin token not configured on server. Set ADMIN_TOKEN env var.' : 'Incorrect password.');
-                    return;
+                    return null;
                 }
+                return r.json();
+            }).then(data => {
+                if(!data || !data.sessionId) return;
+                sessionToken = data.sessionId;
+                // Store session token in sessionStorage only (expires with browser tab)
+                sessionStorage.setItem('adminSessionToken', sessionToken);
+                document.getElementById('adminPassword').value = '';
                 document.getElementById('loginOverlay').style.display = 'none';
-                if(document.getElementById('rememberMe') && document.getElementById('rememberMe').checked) {
-                    localStorage.setItem('adminLoggedIn', 'true');
-                    localStorage.setItem('adminToken', pwd);
-                } else {
-                    sessionStorage.setItem('adminLoggedIn', 'true');
-                    sessionStorage.setItem('adminToken', pwd);
-                }
                 initDashboard();
-            }).catch(() => { adminToken = ''; alert('Connection error. Check server.'); });
+            }).catch(() => { alert('Connection error. Check server.'); });
 
         function initDashboard() {
             loadFeatures();
@@ -474,17 +477,26 @@
             pollFrontendData();
         }
 
-        // Auto-login if session/remember-me is active
+        // Auto-login if session token is still in sessionStorage
         (function autoLogin() {
-            if(localStorage.getItem('adminLoggedIn') === 'true' || sessionStorage.getItem('adminLoggedIn') === 'true') {
-                adminToken = localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken') || '';
+            if(sessionToken) {
                 document.getElementById('loginOverlay').style.display = 'none';
                 initDashboard();
             }
         })();
 
         function logout() {
+            // Destroy the session server-side
+            if(sessionToken) {
+                fetch('/api/admin/session', {
+                    method: 'DELETE',
+                    headers: { 'X-Session-Token': sessionToken }
+                }).catch(() => {});
+            }
+            sessionToken = '';
+            sessionStorage.removeItem('adminSessionToken');
             localStorage.removeItem('adminLoggedIn');
+            localStorage.removeItem('adminToken');
             sessionStorage.removeItem('adminLoggedIn');
             document.getElementById('loginOverlay').style.display = 'flex';
             document.getElementById('adminPassword').value = '';

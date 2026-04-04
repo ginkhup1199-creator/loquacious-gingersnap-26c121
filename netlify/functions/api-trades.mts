@@ -1,5 +1,6 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
+import { secureJson, sanitizeString } from "../lib/security.js";
 
 const DEMO_RATES: Record<string, number> = {
   USDT: 1, USDC: 1, ETH: 3200, BTC: 65000, BNB: 600, SOL: 145,
@@ -13,10 +14,10 @@ export default async (req: Request, context: Context) => {
     const url = new URL(req.url);
     const wallet = url.searchParams.get("wallet");
     if (!wallet) {
-      return Response.json({ error: "Wallet address required" }, { status: 400 });
+      return secureJson({ error: "Wallet address required" }, 400);
     }
     const trades = (await store.get(`trades-${wallet.toLowerCase()}`, { type: "json" })) as any[] || [];
-    return Response.json(trades);
+    return secureJson(trades, 200, true);
   }
 
   if (req.method === "POST") {
@@ -24,44 +25,51 @@ export default async (req: Request, context: Context) => {
     const { type, wallet } = body;
 
     if (!wallet) {
-      return Response.json({ error: "Wallet address required" }, { status: 400 });
+      return secureJson({ error: "Wallet address required" }, 400);
     }
 
-    const walletKey = wallet.toLowerCase();
+    const safeWallet = sanitizeString(String(wallet), 100).toLowerCase();
+    if (!safeWallet) {
+      return secureJson({ error: "Invalid wallet address" }, 400);
+    }
 
     // Handle binary trade result (called after timer expires on client)
     if (type === "binary-result") {
       const { profit, tradeId } = body;
-      const balance = ((await store.get(`balance-${walletKey}`, { type: "json" })) || { usdt: 0 }) as { usdt: number };
+      const balance = ((await store.get(`balance-${safeWallet}`, { type: "json" })) || { usdt: 0 }) as { usdt: number };
       balance.usdt = Math.max(0, balance.usdt + parseFloat(profit));
-      await store.setJSON(`balance-${walletKey}`, balance);
+      await store.setJSON(`balance-${safeWallet}`, balance);
 
       // Update trade status
-      const trades = ((await store.get(`trades-${walletKey}`, { type: "json" })) as any[]) || [];
+      const trades = ((await store.get(`trades-${safeWallet}`, { type: "json" })) as any[]) || [];
       const tradeIdx = trades.findIndex((t: any) => t.id === tradeId);
       if (tradeIdx !== -1) {
         trades[tradeIdx].status = parseFloat(profit) >= 0 ? "won" : "lost";
         trades[tradeIdx].profit = parseFloat(profit);
-        await store.setJSON(`trades-${walletKey}`, trades);
+        await store.setJSON(`trades-${safeWallet}`, trades);
       }
 
-      return Response.json({ success: true, newBalance: balance });
+      return secureJson({ success: true, newBalance: balance });
     }
 
     // Record a new trade
-    const trades = ((await store.get(`trades-${walletKey}`, { type: "json" })) as any[]) || [];
+    const trades = ((await store.get(`trades-${safeWallet}`, { type: "json" })) as any[]) || [];
     const newTrade: Record<string, any> = {
       id: Date.now(),
-      type,
+      type: sanitizeString(String(type ?? ""), 32),
       status: "active",
       createdAt: new Date().toISOString(),
     };
 
-    // Copy allowed fields
+    // Copy allowed fields (sanitized)
     const allowed = ["direction", "levelId", "levelName", "capital", "tradingTime",
       "profitPercent", "dailyProfit", "duration", "fromCoin", "toCoin", "amount"];
     for (const field of allowed) {
-      if (body[field] !== undefined) newTrade[field] = body[field];
+      if (body[field] !== undefined) {
+        newTrade[field] = typeof body[field] === "string"
+          ? sanitizeString(body[field], 64)
+          : body[field];
+      }
     }
 
     // Swap: calculate estimated output
@@ -75,9 +83,9 @@ export default async (req: Request, context: Context) => {
 
     trades.unshift(newTrade);
     if (trades.length > 100) trades.length = 100;
-    await store.setJSON(`trades-${walletKey}`, trades);
+    await store.setJSON(`trades-${safeWallet}`, trades);
 
-    return Response.json(newTrade);
+    return secureJson(newTrade);
   }
 
   return new Response("Method not allowed", { status: 405 });

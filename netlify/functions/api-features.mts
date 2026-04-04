@@ -1,5 +1,11 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
+import {
+  validateAdminSession,
+  secureJson,
+  auditLog,
+  getClientIp,
+} from "../lib/security.js";
 
 const DEFAULTS = {
   fiat: true,
@@ -13,24 +19,34 @@ const DEFAULTS = {
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
-  const adminToken = process.env.ADMIN_TOKEN;
-  if (!adminToken) {
-    return Response.json({ error: "Admin token not configured" }, { status: 503 });
+  const ip = getClientIp(context);
+
+  if (!process.env.ADMIN_TOKEN) {
+    return secureJson({ error: "Admin token not configured" }, 503);
   }
 
   if (req.method === "GET") {
     const features = await store.get("features", { type: "json" });
-    return Response.json(features || DEFAULTS);
+    return secureJson(features || DEFAULTS, 200, true);
   }
 
   if (req.method === "POST") {
-    const token = req.headers.get("X-Admin-Token");
-    if (token !== adminToken) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    const sessionResult = await validateAdminSession(req, store);
+    if (!sessionResult.valid) {
+      auditLog("AUTH_FAILURE", { operation: "update-features", reason: sessionResult.reason, ip });
+      return secureJson({ error: "Unauthorized" }, 401);
     }
+
+    auditLog("ADMIN_WRITE", { operation: "update-features", ip });
+
     const body = await req.json();
-    await store.setJSON("features", body);
-    return Response.json(body);
+    // Only accept known boolean feature flags
+    const sanitized: Record<string, boolean> = {};
+    for (const key of Object.keys(DEFAULTS)) {
+      if (key in body) sanitized[key] = Boolean(body[key]);
+    }
+    await store.setJSON("features", sanitized);
+    return secureJson(sanitized);
   }
 
   return new Response("Method not allowed", { status: 405 });
