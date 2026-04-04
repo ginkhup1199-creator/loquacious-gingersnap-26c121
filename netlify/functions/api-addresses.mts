@@ -11,7 +11,10 @@ const DEFAULT_ADDRESSES: Record<string, string> = {
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
-  const adminToken = process.env.ADMIN_TOKEN || "admin123";
+  const adminToken = process.env.ADMIN_TOKEN;
+  if (!adminToken) {
+    return Response.json({ error: "Admin token not configured" }, { status: 503 });
+  }
 
   if (req.method === "GET") {
     const addresses = await store.get("deposit-addresses", { type: "json" });

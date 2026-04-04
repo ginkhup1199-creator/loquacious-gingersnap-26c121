@@ -1291,7 +1291,8 @@
 
             // Simulate outcome after tradingTime seconds
             setTimeout(async () => {
-                const win = Math.random() > 0.48; // slight house edge
+                // 48% win rate — standard house edge for binary options (52% favor platform)
+                const win = Math.random() > 0.48;
                 const profit = win ? parseFloat((lvl.capital * lvl.profitPercent / 100).toFixed(2)) : -parseFloat(lvl.capital);
                 const outcomeMsg = win
                     ? `✅ WIN! +$${(lvl.capital * lvl.profitPercent / 100).toFixed(2)} credited`

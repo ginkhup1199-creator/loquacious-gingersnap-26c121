@@ -33,7 +33,7 @@ export default async (req: Request, context: Context) => {
     if (type === "binary-result") {
       const { profit, tradeId } = body;
       const balance = ((await store.get(`balance-${walletKey}`, { type: "json" })) || { usdt: 0 }) as { usdt: number };
-      balance.usdt = Math.max(0, (balance.usdt || 0) + parseFloat(profit));
+      balance.usdt = Math.max(0, balance.usdt + parseFloat(profit));
       await store.setJSON(`balance-${walletKey}`, balance);
 
       // Update trade status
