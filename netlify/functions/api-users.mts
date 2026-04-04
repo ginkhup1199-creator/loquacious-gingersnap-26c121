@@ -35,12 +35,17 @@ export default async (req: Request, context: Context) => {
     }
 
     let userId = generate5DigitId();
-    let attempts = 0;
-    while (attempts < 50) {
+    let idAvailable = false;
+    for (let attempts = 0; attempts < 50; attempts++) {
       const taken = await store.get(`userid-${userId}`, { type: "json" });
-      if (!taken) break;
+      if (!taken) {
+        idAvailable = true;
+        break;
+      }
       userId = generate5DigitId();
-      attempts++;
+    }
+    if (!idAvailable) {
+      return Response.json({ error: "Could not generate a unique user ID. Please try again." }, { status: 503 });
     }
 
     const user = {

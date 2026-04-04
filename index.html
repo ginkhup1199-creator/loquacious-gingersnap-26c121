@@ -938,7 +938,12 @@
             if(body) opts.body = JSON.stringify(body);
             try {
                 const res = await fetch('/api/' + endpoint, opts);
-                return await res.json();
+                const data = await res.json();
+                if(!res.ok) {
+                    console.error('API error ' + res.status + ':', data);
+                    return null;
+                }
+                return data;
             } catch(e) { console.error('API error:', e); return null; }
         }
 

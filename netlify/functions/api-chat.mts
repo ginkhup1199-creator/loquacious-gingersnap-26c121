@@ -11,11 +11,23 @@ export default async (req: Request, context: Context) => {
 
   if (req.method === "POST") {
     const body = await req.json();
+    const { sender, text } = body;
+
+    if (!sender || typeof sender !== "string" || sender.trim().length === 0) {
+      return Response.json({ error: "sender is required" }, { status: 400 });
+    }
+    if (!text || typeof text !== "string" || text.trim().length === 0) {
+      return Response.json({ error: "text is required" }, { status: 400 });
+    }
+    if (text.length > 2000) {
+      return Response.json({ error: "text exceeds maximum length of 2000 characters" }, { status: 400 });
+    }
+
     const existing =
       (await store.get("chat-messages", { type: "json" })) || [];
     existing.push({
-      sender: body.sender,
-      text: body.text,
+      sender: sender.trim().slice(0, 64),
+      text: text.trim(),
       time: Date.now(),
     });
     await store.setJSON("chat-messages", existing);
