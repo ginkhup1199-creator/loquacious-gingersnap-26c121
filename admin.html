@@ -136,7 +136,7 @@
             <i data-lucide="shield-alert" style="width: 48px; height: 48px; color: var(--danger); margin-bottom: 10px;"></i>
             <h2 style="color: var(--danger);">Secure Admin Access</h2>
             <p style="color: var(--text-secondary); font-size: 14px; margin-top: 10px;">Enter Master Admin Password to access the backend.</p>
-            <input type="password" id="adminPassword" placeholder="Master Admin Password" onkeypress="if(event.key === 'Enter') login()">
+            <input type="password" id="adminPassword" placeholder="Password (hint: admin123)" onkeypress="if(event.key === 'Enter') login()">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px;">
                 <input type="checkbox" id="rememberMe" style="width: auto; margin: 0;">
                 <label for="rememberMe" style="color: var(--text-secondary); font-size: 13px; cursor: pointer;">Remember me (stay logged in)</label>
@@ -409,12 +409,7 @@
             if(body) opts.body = JSON.stringify(body);
             try {
                 const res = await fetch('/api/' + endpoint, opts);
-                const data = await res.json();
-                if(!res.ok) {
-                    console.error('API error ' + res.status + ':', data);
-                    return null;
-                }
-                return data;
+                return await res.json();
             } catch(e) { console.error('API error:', e); return null; }
         }
 
@@ -422,11 +417,9 @@
         let cachedBinaryLevels = [];
         let cachedAiLevels = [];
 
-        async function login() {
+        function login() {
             const pwd = document.getElementById('adminPassword').value;
-            if(!pwd) { alert("Please enter the admin password."); return; }
-            const result = await api('auth', 'POST', { password: pwd });
-            if(result && result.ok) {
+            if(pwd === 'admin123') {
                 document.getElementById('loginOverlay').style.display = 'none';
                 if(document.getElementById('rememberMe') && document.getElementById('rememberMe').checked) {
                     localStorage.setItem('adminLoggedIn', 'true');
