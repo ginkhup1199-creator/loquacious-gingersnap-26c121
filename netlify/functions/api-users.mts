@@ -1,19 +1,71 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
 
+// LLM injection patterns
+const INJECTION_PATTERNS = [
+  /ignore\s+(all\s+)?(previous|prior)\s+(instructions?|prompts?)/i,
+  /system\s*:\s*(ignore|override|forget)/i,
+  /<\|system\|>|<\|user\|>|\[INST\]/i,
+  /reveal\s+(all|your|the)\s+(secret|hidden|api|admin)\s+(key|token|password)/i,
+];
+
+function isSafeInput(input: string): boolean {
+  return !INJECTION_PATTERNS.some((p) => p.test(input));
+}
+
+function sanitize(input: unknown, maxLen = 200): string {
+  if (typeof input !== "string") return "";
+  return input.replace(/<[^>]*>/g, "").replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "").trim().slice(0, maxLen);
+}
+
+function auditLog(action: string, details: Record<string, unknown>): void {
+  console.log(`[AUDIT] ${JSON.stringify({ timestamp: new Date().toISOString(), action, ...details })}`);
+}
+
+function getClientIp(req: Request, context: Context): string {
+  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-nf-client-connection-ip") ||
+    context.ip ||
+    "unknown";
+}
+
 function generate5DigitId(): string {
   return String(Math.floor(10000 + Math.random() * 90000));
 }
 
+// Rate limiter
+const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  for (const [k, v] of rateLimitMap.entries()) {
+    if (now - v.windowStart > 60000) rateLimitMap.delete(k);
+  }
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now - entry.windowStart > 60000) {
+    rateLimitMap.set(ip, { count: 1, windowStart: now });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > 20;
+}
+
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
+  const ip = getClientIp(req, context);
+
+  if (isRateLimited(ip)) {
+    auditLog("RATE_LIMIT_EXCEEDED", { ip, path: "/api/users" });
+    return Response.json({ error: "Too many requests" }, { status: 429 });
+  }
 
   if (req.method === "GET") {
     const url = new URL(req.url);
     const wallet = url.searchParams.get("wallet");
 
     if (wallet) {
-      const user = await store.get(`user-${wallet}`, { type: "json" });
+      const walletKey = sanitize(wallet, 100).toLowerCase();
+      if (!walletKey) return Response.json({ error: "Invalid wallet address" }, { status: 400 });
+      const user = await store.get(`user-${walletKey}`, { type: "json" });
       return Response.json(user || null);
     }
 
@@ -22,11 +74,27 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "POST") {
-    const body = await req.json();
-    const { wallet } = body;
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return Response.json({ error: "Invalid JSON" }, { status: 400 });
+    }
 
-    if (!wallet) {
+    const rawWallet = body.wallet as string;
+    if (!rawWallet || typeof rawWallet !== "string") {
       return Response.json({ error: "Wallet address required" }, { status: 400 });
+    }
+
+    const wallet = sanitize(rawWallet, 100).toLowerCase();
+    if (!wallet) {
+      return Response.json({ error: "Invalid wallet address" }, { status: 400 });
+    }
+
+    // Scan for injection
+    if (!isSafeInput(wallet)) {
+      auditLog("INJECTION_BLOCKED", { ip, path: "/api/users" });
+      return Response.json({ error: "Invalid input detected" }, { status: 400 });
     }
 
     const existing = await store.get(`user-${wallet}`, { type: "json" });
@@ -47,15 +115,17 @@ export default async (req: Request, context: Context) => {
       userId,
       wallet,
       createdAt: new Date().toISOString(),
+      kycStatus: "pending",
     };
 
     await store.setJSON(`user-${wallet}`, user);
     await store.setJSON(`userid-${userId}`, { wallet });
 
-    const allUsers = (await store.get("all-users", { type: "json" })) as any[] || [];
-    allUsers.push(user);
+    const allUsers = ((await store.get("all-users", { type: "json" })) as unknown[]) || [];
+    (allUsers as typeof user[]).push(user);
     await store.setJSON("all-users", allUsers);
 
+    auditLog("USER_REGISTERED", { ip, userId, wallet });
     return Response.json(user);
   }
 

@@ -421,50 +421,102 @@
     <script>
         lucide.createIcons();
 
-        // Helper for API calls
-        let adminToken = sessionStorage.getItem('adminToken') || localStorage.getItem('adminToken') || '';
+        // ─── Session-based authentication state ────────────────────────────────────
+        // Admin must authenticate each session - no persistent token storage.
+        // Each write operation requires a fresh one-time token from the server.
+        let adminSessionId = sessionStorage.getItem('adminSessionId') || '';
+        let adminToken = ''; // Never persisted - only valid for current API call
 
+        // Request a fresh one-time token before each write operation
+        async function getOneTimeToken() {
+            if (!adminSessionId) { handleSessionExpired(); return null; }
+            try {
+                const res = await fetch('/api/admin?action=issue-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId: adminSessionId })
+                });
+                if (res.status === 401) { handleSessionExpired(); return null; }
+                const data = await res.json();
+                return data.token || null;
+            } catch(e) { console.error('Token error:', e); return null; }
+        }
+
+        // Helper for API calls - write operations get a fresh one-time token each time
         async function api(endpoint, method, body) {
             const headers = { 'Content-Type': 'application/json' };
-            if(adminToken) headers['X-Admin-Token'] = adminToken;
             const opts = { method: method || 'GET', headers };
+
+            if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
+                // Each write operation requires a fresh one-time token
+                const token = await getOneTimeToken();
+                if (!token) return null;
+                headers['X-Admin-Token'] = token;
+            }
+
             if(body) opts.body = JSON.stringify(body);
             try {
                 const res = await fetch('/api/' + endpoint, opts);
-                if(res.status === 401) { console.warn('Admin token rejected for', endpoint); return null; }
+                if(res.status === 401) {
+                    if (method !== 'GET') handleSessionExpired();
+                    return null;
+                }
+                if(res.status === 429) { alert('Rate limit exceeded. Please wait a moment.'); return null; }
                 return await res.json();
             } catch(e) { console.error('API error:', e); return null; }
+        }
+
+        function handleSessionExpired() {
+            adminSessionId = '';
+            sessionStorage.removeItem('adminSessionId');
+            alert('Session expired or invalid. Please log in again.');
+            document.getElementById('loginOverlay').style.display = 'flex';
+            document.getElementById('adminPassword').value = '';
         }
 
         let addressesLoaded = false;
         let cachedBinaryLevels = [];
         let cachedAiLevels = [];
 
-        function login() {
+        async function login() {
             const pwd = document.getElementById('adminPassword').value;
             if(!pwd) { alert('Please enter the admin password.'); return; }
-            // Verify token server-side by fetching features (will return 503 if ADMIN_TOKEN not set)
-            adminToken = pwd;
-            fetch('/api/features').then(r => r.json()).then(features => {
-                // Now try saving them back to verify token is accepted
-                const opts = { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Token': pwd }, body: JSON.stringify(features) };
-                return fetch('/api/features', opts);
-            }).then(r => {
-                if(r.status === 401 || r.status === 503) {
-                    adminToken = '';
-                    alert(r.status === 503 ? 'Admin token not configured on server. Set ADMIN_TOKEN env var.' : 'Incorrect password.');
+
+            try {
+                // Authenticate and create a server-side session
+                const res = await fetch('/api/admin?action=login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: pwd })
+                });
+
+                if (res.status === 503) {
+                    alert('Admin token not configured on server. Set ADMIN_TOKEN env var.');
                     return;
                 }
-                document.getElementById('loginOverlay').style.display = 'none';
-                if(document.getElementById('rememberMe') && document.getElementById('rememberMe').checked) {
-                    localStorage.setItem('adminLoggedIn', 'true');
-                    localStorage.setItem('adminToken', pwd);
-                } else {
-                    sessionStorage.setItem('adminLoggedIn', 'true');
-                    sessionStorage.setItem('adminToken', pwd);
+                if (res.status === 401 || res.status === 429) {
+                    alert(res.status === 429 ? 'Too many login attempts. Please wait.' : 'Incorrect password.');
+                    return;
                 }
+                if (!res.ok) {
+                    alert('Login failed. Check server configuration.');
+                    return;
+                }
+
+                const data = await res.json();
+                if (!data.sessionId) { alert('Login failed. Invalid response.'); return; }
+
+                adminSessionId = data.sessionId;
+                // Store sessionId only for this browser session (not localStorage)
+                sessionStorage.setItem('adminSessionId', adminSessionId);
+
+                document.getElementById('loginOverlay').style.display = 'none';
                 initDashboard();
-            }).catch(() => { adminToken = ''; alert('Connection error. Check server.'); });
+            } catch(e) {
+                alert('Connection error. Check server.');
+                console.error(e);
+            }
+        }
 
         function initDashboard() {
             loadFeatures();
@@ -474,18 +526,37 @@
             pollFrontendData();
         }
 
-        // Auto-login if session/remember-me is active
-        (function autoLogin() {
-            if(localStorage.getItem('adminLoggedIn') === 'true' || sessionStorage.getItem('adminLoggedIn') === 'true') {
-                adminToken = localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken') || '';
-                document.getElementById('loginOverlay').style.display = 'none';
-                initDashboard();
+        // Auto-resume session if sessionId is still valid
+        (async function autoLogin() {
+            if (!adminSessionId) return;
+            try {
+                const res = await fetch(`/api/admin?action=validate-session&sessionId=${encodeURIComponent(adminSessionId)}`);
+                const data = await res.json();
+                if (data.valid) {
+                    document.getElementById('loginOverlay').style.display = 'none';
+                    initDashboard();
+                } else {
+                    adminSessionId = '';
+                    sessionStorage.removeItem('adminSessionId');
+                }
+            } catch(e) {
+                adminSessionId = '';
+                sessionStorage.removeItem('adminSessionId');
             }
         })();
 
-        function logout() {
-            localStorage.removeItem('adminLoggedIn');
-            sessionStorage.removeItem('adminLoggedIn');
+        async function logout() {
+            if (adminSessionId) {
+                try {
+                    await fetch('/api/admin?action=logout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sessionId: adminSessionId })
+                    });
+                } catch(e) {}
+            }
+            adminSessionId = '';
+            sessionStorage.removeItem('adminSessionId');
             document.getElementById('loginOverlay').style.display = 'flex';
             document.getElementById('adminPassword').value = '';
         }
@@ -656,11 +727,10 @@
         // --- Real-time Polling via API ---
         async function pollFrontendData() {
             try {
-                const [kycData, withdrawals, messages, addresses] = await Promise.all([
+                const [kycData, withdrawals, addresses] = await Promise.all([
                     api('kyc'),
                     api('withdrawals'),
-                    api('chat'),
-                    api('addresses')
+                    api('wallet')
                 ]);
 
                 // 1. KYC Data
@@ -672,7 +742,7 @@
                     const kycTable = document.getElementById('adminKycTable');
                     const emptyKyc = document.getElementById('emptyKycRow');
 
-                    if(kycState === 'pending') {
+                    if(kycState === 'pending' || kycState === 'submitted') {
                         document.getElementById('stat-kyc').innerText = '1';
                         emptyKyc.style.display = 'none';
                         if(!document.getElementById('pendingKycRow')) {
@@ -680,8 +750,8 @@
                             row.id = 'pendingKycRow';
                             row.innerHTML = `
                                 <td>0x7A...3F92</td>
-                                <td>${kycName}</td>
-                                <td><span style="color: var(--warning); font-weight: bold;">${kycDocType}</span></td>
+                                <td>${kycName.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td>
+                                <td><span style="color: var(--warning); font-weight: bold;">${kycDocType.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span></td>
                                 <td>
                                     <button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; display: inline-flex;" onclick="approveKYC()">Approve</button>
                                     <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; display: inline-flex; margin-left: 5px;" onclick="rejectKYC()">Reject</button>
@@ -710,14 +780,17 @@
                     } else {
                         emptyWithdraw.style.display = 'none';
                         withdrawals.forEach(w => {
+                            const safeAddr = String(w.address).replace(/</g,'&lt;').replace(/>/g,'&gt;');
                             const row = document.createElement('tr');
                             row.className = 'dynamic-withdraw-row';
                             row.innerHTML = `
-                                <td>${w.coin}</td><td>${w.network}</td><td>${w.amount}</td>
-                                <td style="font-family: monospace;">${w.address}</td>
+                                <td>${String(w.coin).replace(/</g,'&lt;')}</td>
+                                <td>${String(w.network).replace(/</g,'&lt;')}</td>
+                                <td>${Number(w.amount).toLocaleString()}</td>
+                                <td style="font-family: monospace;">${safeAddr}</td>
                                 <td>
-                                    <button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; display: inline-flex;" onclick="processWithdrawal(${w.id}, 'Approved')">Approve</button>
-                                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; display: inline-flex; margin-left: 5px;" onclick="processWithdrawal(${w.id}, 'Rejected')">Reject</button>
+                                    <button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; display: inline-flex;" onclick="processWithdrawal(${JSON.stringify(String(w.id))}, 'Completed')">Approve</button>
+                                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; display: inline-flex; margin-left: 5px;" onclick="processWithdrawal(${JSON.stringify(String(w.id))}, 'Rejected')">Reject</button>
                                 </td>
                             `;
                             withdrawTable.appendChild(row);
@@ -725,23 +798,7 @@
                     }
                 }
 
-                // 3. Chat Data
-                if(messages) {
-                    const chatBody = document.getElementById('adminChatBody');
-                    chatBody.innerHTML = '';
-                    let unread = 0;
-                    messages.forEach(msg => {
-                        const div = document.createElement('div');
-                        div.className = `chat-message ${msg.sender === 'user' ? 'user' : 'admin'}`;
-                        div.innerText = msg.text;
-                        chatBody.appendChild(div);
-                        if(msg.sender === 'user') unread++;
-                    });
-                    document.getElementById('stat-chat').innerText = unread;
-                    chatBody.scrollTop = chatBody.scrollHeight;
-                }
-
-                // 4. Load Addresses (once)
+                // 3. Load Addresses (once)
                 if(addresses && !addressesLoaded) {
                     addressesLoaded = true;
                     document.getElementById('addr-trc20').value = addresses['TRC20'] || '';
@@ -751,7 +808,7 @@
                     document.getElementById('addr-btc').value = addresses['BTC'] || '';
                 }
 
-                // 5. Reload users count
+                // 4. Reload users count
                 await loadUsers();
             } catch(e) { console.error('Poll error:', e); }
         }
@@ -767,29 +824,26 @@
         }
 
         async function processWithdrawal(id, status) {
-            await api('withdrawals', 'POST', { action: 'process', id: id });
+            await api('withdrawals', 'POST', { action: 'process', id: id, status: status });
             pollFrontendData();
         }
 
         async function sendAdminMessage() {
-            const input = document.getElementById('adminChatInput');
-            const text = input.value.trim();
-            if(!text) return;
-
-            await api('chat', 'POST', { sender: 'admin', text: text });
-            input.value = '';
-            pollFrontendData();
+            // Chat functionality removed - use external support tool
+            alert('Live chat has been removed. Please use your enterprise support channel.');
         }
 
         async function saveAddresses() {
             const addrs = {
+                action: 'update-addresses',
                 'TRC20': document.getElementById('addr-trc20').value,
                 'ERC20': document.getElementById('addr-erc20').value,
                 'BSC': document.getElementById('addr-bsc').value,
                 'SOL': document.getElementById('addr-sol').value,
                 'BTC': document.getElementById('addr-btc').value
             };
-            await api('addresses', 'POST', addrs);
+            const result = await api('wallet', 'POST', addrs);
+            if (result && result.error) { alert('Error: ' + result.error); return; }
             addressesLoaded = false;
             alert("Addresses updated! The user frontend will reflect this immediately.");
         }
