@@ -595,14 +595,14 @@
                 <div class="card overlay-lock overlay-disabled" id="tradePanel">
                     <div class="card-header">Place Order (BTC/USDT)</div>
                     <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                        <button style="flex: 1; padding: 8px; background: var(--accent-glow); border: 1px solid var(--accent); color: var(--accent); border-radius: 4px;">Limit</button>
-                        <button style="flex: 1; padding: 8px; background: transparent; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 4px;">Market</button>
+                        <button id="tradeTypeLimitBtn" style="flex: 1; padding: 8px; background: var(--accent-glow); border: 1px solid var(--accent); color: var(--accent); border-radius: 4px;" onclick="setTradeType('limit')">Limit</button>
+                        <button id="tradeTypeMarketBtn" style="flex: 1; padding: 8px; background: transparent; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 4px;" onclick="setTradeType('market')">Market</button>
                     </div>
-                    <div class="input-group"><label>Price (USDT)</label><input type="number" value="64230.50"></div>
-                    <div class="input-group"><label>Amount (BTC)</label><input type="number" placeholder="0.00"></div>
+                    <div class="input-group"><label>Price (USDT)</label><input type="number" id="tradePrice" value="64230.50"></div>
+                    <div class="input-group"><label>Amount (BTC)</label><input type="number" id="tradeAmount" placeholder="0.00" step="0.0001"></div>
                     <div class="grid-2" style="gap: 10px;">
-                        <button class="btn btn-success">Buy BTC</button>
-                        <button class="btn btn-danger">Sell BTC</button>
+                        <button class="btn btn-success" onclick="placeSpotOrder('buy')">Buy BTC</button>
+                        <button class="btn btn-danger" onclick="placeSpotOrder('sell')">Sell BTC</button>
                     </div>
                 </div>
             </div>
@@ -1150,12 +1150,13 @@
             document.querySelectorAll('.dynamic-withdraw-row').forEach(el => el.remove());
 
             cachedWithdrawals.forEach(w => {
+                const statusColor = w.status === 'Completed' ? 'var(--success)' : w.status === 'Rejected' ? 'var(--danger)' : 'var(--warning)';
                 const userRow = document.createElement('tr');
                 userRow.className = 'dynamic-withdraw-row';
                 userRow.innerHTML = `
                     <td><span style="color: var(--warning);"><i data-lucide="arrow-up-from-line" style="width: 14px;"></i> Send</span></td>
-                    <td>${w.coin}</td><td>${w.network}</td><td style="color: var(--warning);">-${w.amount}</td><td>${w.date}</td>
-                    <td><span class="badge badge-warning">${w.status}</span></td>
+                    <td>${w.coin}</td><td>${w.network}</td><td style="color: var(--warning);">-${Number(w.amount).toLocaleString()}</td><td>${w.date}</td>
+                    <td><span style="color:${statusColor};font-weight:bold;font-size:12px;">${w.status}</span></td>
                 `;
                 userTable.insertBefore(userRow, userTable.firstChild);
             });
@@ -1164,6 +1165,21 @@
 
         // Swap Functions
         const SWAP_RATES = { USDT: 1, USDC: 1, ETH: 3200, BTC: 65000, BNB: 600, SOL: 145 };
+
+        // Fetch live swap rates from market-data API
+        async function refreshSwapRates() {
+            try {
+                const data = await api('market-data?type=prices');
+                if(data && data.prices) {
+                    Object.keys(data.prices).forEach(sym => {
+                        if(data.prices[sym] && data.prices[sym].price) {
+                            SWAP_RATES[sym] = data.prices[sym].price;
+                        }
+                    });
+                }
+            } catch(e) { /* use fallback rates */ }
+        }
+
         function updateSwapEstimate() {
             const fromAmt = parseFloat(document.getElementById('swap-from-amount')?.value) || 0;
             const fromCoin = document.getElementById('swap-from-coin')?.value || 'USDT';
@@ -1352,7 +1368,43 @@
             pollBackend();
         }
 
-        // --- Live BTC Price via Binance WebSocket ---
+        // --- Spot Trade Order Functions ---
+        let spotTradeType = 'limit';
+        function setTradeType(type) {
+            spotTradeType = type;
+            const limitBtn = document.getElementById('tradeTypeLimitBtn');
+            const marketBtn = document.getElementById('tradeTypeMarketBtn');
+            const priceInput = document.getElementById('tradePrice');
+            if(type === 'market') {
+                limitBtn.style.background = 'transparent'; limitBtn.style.borderColor = 'var(--border)'; limitBtn.style.color = 'var(--text-secondary)';
+                marketBtn.style.background = 'var(--accent-glow)'; marketBtn.style.borderColor = 'var(--accent)'; marketBtn.style.color = 'var(--accent)';
+                priceInput.value = liveBtcPrice.toFixed(2); priceInput.readOnly = true;
+            } else {
+                limitBtn.style.background = 'var(--accent-glow)'; limitBtn.style.borderColor = 'var(--accent)'; limitBtn.style.color = 'var(--accent)';
+                marketBtn.style.background = 'transparent'; marketBtn.style.borderColor = 'var(--border)'; marketBtn.style.color = 'var(--text-secondary)';
+                priceInput.readOnly = false;
+            }
+        }
+
+        async function placeSpotOrder(direction) {
+            if(!isConnected) { showToast('Connect your wallet first.', 'warning'); return; }
+            const price = parseFloat(document.getElementById('tradePrice').value);
+            const amount = parseFloat(document.getElementById('tradeAmount').value);
+            if(!price || price <= 0) { showToast('Enter a valid price.', 'warning'); return; }
+            if(!amount || amount <= 0) { showToast('Enter a valid amount.', 'warning'); return; }
+            const result = await api('trades', 'POST', {
+                type: 'spot', wallet: walletAddr, direction,
+                fromCoin: direction === 'buy' ? 'USDT' : 'BTC',
+                toCoin: direction === 'buy' ? 'BTC' : 'USDT',
+                amount, price, orderType: spotTradeType
+            });
+            if(!result || result.error) { showToast(result?.error || 'Order failed.', 'error'); return; }
+            document.getElementById('tradeAmount').value = '';
+            showToast(`${direction.toUpperCase()} order placed! ${amount} BTC @ $${price.toLocaleString()}`, direction === 'buy' ? null : 'warning');
+            pollBackend();
+        }
+
+        // --- Live BTC Price via Binance WebSocket with market-data fallback ---
         let liveBtcPrice = 64230.50;
         function connectPriceFeed() {
             try {
@@ -1362,7 +1414,11 @@
                     liveBtcPrice = parseFloat(data.c);
                     const priceEl = document.getElementById('binLivePrice');
                     if(priceEl) priceEl.innerText = '$' + liveBtcPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                    // Also update ticker price for BTC
+                    // Keep market order price and spot trade price input in sync
+                    if(spotTradeType === 'market') {
+                        const tp = document.getElementById('tradePrice');
+                        if(tp) tp.value = liveBtcPrice.toFixed(2);
+                    }
                     const btcTicker = cryptoList.find(c => c.symbol === 'BTC');
                     if(btcTicker) {
                         btcTicker.price = liveBtcPrice;
@@ -1370,30 +1426,57 @@
                         if(priceTickerEl) priceTickerEl.innerText = liveBtcPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                     }
                 };
-                ws.onerror = () => setTimeout(connectPriceFeed, 10000);
-                ws.onclose = () => setTimeout(connectPriceFeed, 10000);
-            } catch(e) { /* WebSocket not available in this environment */ }
+                ws.onerror = () => { fetchMarketDataPrices(); setTimeout(connectPriceFeed, 30000); };
+                ws.onclose = () => setTimeout(connectPriceFeed, 30000);
+            } catch(e) { fetchMarketDataPrices(); }
+        }
+
+        // Fetch prices from our market-data API as fallback
+        async function fetchMarketDataPrices() {
+            try {
+                const data = await api('market-data?type=prices');
+                if(data && data.prices) {
+                    const btcPrice = data.prices.BTC && data.prices.BTC.price;
+                    if(btcPrice) {
+                        liveBtcPrice = btcPrice;
+                        const priceEl = document.getElementById('binLivePrice');
+                        if(priceEl) priceEl.innerText = '$' + liveBtcPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    }
+                    // Update all tickers
+                    if(typeof cryptoList !== 'undefined') {
+                        cryptoList.forEach(c => {
+                            const priceInfo = data.prices[c.symbol];
+                            if(priceInfo) {
+                                c.price = priceInfo.price;
+                                c.change = priceInfo.change24h;
+                                const el = document.getElementById('price-' + c.symbol);
+                                if(el) el.innerText = priceInfo.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                            }
+                        });
+                    }
+                }
+            } catch(e) { /* silent fallback */ }
         }
 
         // Real-time Backend Polling via API
         async function pollBackend() {
             try {
                 const requests = [
-                    api('kyc'), api('addresses'), api('withdrawals'),
-                    api('chat'), api('features'), api('settings'), api('levels')
+                    api('kyc'), api('wallet'), api('withdrawals'),
+                    api('features'), api('settings'), api('levels'), api('chat')
                 ];
                 // Also fetch balance if wallet is connected
                 if(isConnected && walletAddr) {
                     requests.push(api('balances?wallet=' + encodeURIComponent(walletAddr)));
                 }
                 const results = await Promise.all(requests);
-                const [kycData, addresses, withdrawals, messages, features, settings, levels, balanceData] = results;
+                const [kycData, addresses, withdrawals, features, settings, levels, messages, balanceData] = results;
 
                 // 1. KYC State
                 if(kycData) {
                     currentKycState = kycData.state || 'unverified';
                     document.getElementById('kycStatusUnverified').style.display = currentKycState === 'unverified' ? 'block' : 'none';
-                    document.getElementById('kycStatusPending').style.display = currentKycState === 'pending' ? 'block' : 'none';
+                    document.getElementById('kycStatusPending').style.display = (currentKycState === 'pending' || currentKycState === 'submitted') ? 'block' : 'none';
                     document.getElementById('kycStatusApproved').style.display = currentKycState === 'approved' ? 'block' : 'none';
                     const formCard = document.getElementById('kycFormCard');
                     if(currentKycState !== 'unverified') {
@@ -1405,7 +1488,7 @@
                     }
                 }
 
-                // 2. Deposit Addresses
+                // 2. Deposit Addresses (from wallet API)
                 if(addresses) {
                     depositAddresses = addresses;
                     updateDepositUI();
@@ -1417,13 +1500,7 @@
                     renderWithdrawals();
                 }
 
-                // 4. Chat Messages
-                if(messages) {
-                    cachedMessages = messages;
-                    renderChat();
-                }
-
-                // 5. Feature Toggles
+                // 4. Feature Toggles
                 if(features) {
                     const toggleFeature = (panelId, navId, isEnabled) => {
                         const panel = document.getElementById(panelId);
@@ -1445,19 +1522,19 @@
                     toggleFeature('earnPanel', null, features.earn);
                 }
 
-                // 6. Settings (rates from admin)
+                // 5. Settings (rates from admin)
                 if(settings) {
                     const stakeApy = document.getElementById('stake-apy-btc');
                     if(stakeApy) stakeApy.innerText = settings.btcStakingApy + '% APY';
                 }
 
-                // 7. Levels (Binary Options + AI Arbitrage)
+                // 6. Levels (Binary Options + AI Arbitrage)
                 if(levels) {
                     if(levels.binaryLevels) renderBinaryLevels(levels.binaryLevels);
                     if(levels.aiLevels) renderAiLevels(levels.aiLevels);
                 }
 
-                // 8. Balance
+                // 7. Balance
                 if(balanceData && !balanceData.error) {
                     const usdt = parseFloat(balanceData.usdt || 0);
                     const fmt = usdt.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -1467,6 +1544,12 @@
                     if(balanceEl) balanceEl.innerText = fmt + ' USDT';
                     const swapBalEl = document.getElementById('swapBalanceDisplay');
                     if(swapBalEl) swapBalEl.innerText = fmt;
+                }
+
+                // 8. Chat messages (update if chat is open)
+                if(messages && Array.isArray(messages)) {
+                    cachedMessages = messages;
+                    if(chatOpen) renderChat();
                 }
             } catch(e) { console.error('Poll error:', e); }
         }
@@ -1480,6 +1563,7 @@
             updateUIState();
             pollBackend();
             connectPriceFeed();
+            refreshSwapRates();
         };
 
     </script>

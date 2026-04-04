@@ -48,14 +48,18 @@ export default async (req: Request, context: Context) => {
         return secureJson({ error: "Unauthorized" }, 401);
       }
 
-      auditLog("ADMIN_WRITE", { operation: "process-withdrawal", withdrawalId: body.id, ip });
+      const newStatus = sanitizeString(String(body.status ?? "Completed"), 20);
+      const allowedStatuses = ["Completed", "Rejected"];
+      const safeStatus = allowedStatuses.includes(newStatus) ? newStatus : "Completed";
+
+      auditLog("ADMIN_WRITE", { operation: "process-withdrawal", withdrawalId: body.id, status: safeStatus, ip });
 
       const existing = (await store.get("withdrawals", { type: "json" })) || [];
-      const updated = (existing as { id: number }[]).filter(
-        (w) => w.id !== body.id
+      const updated = (existing as { id: number; status: string }[]).map(
+        (w) => w.id === Number(body.id) ? { ...w, status: safeStatus } : w
       );
       await store.setJSON("withdrawals", updated);
-      return secureJson({ success: true });
+      return secureJson({ success: true, status: safeStatus });
     }
 
     return secureJson({ error: "Invalid action" }, 400);
