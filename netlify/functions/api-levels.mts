@@ -19,6 +19,7 @@ const DEFAULT_AI_LEVELS = [
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
+  const adminToken = process.env.ADMIN_TOKEN || "admin123";
 
   if (req.method === "GET") {
     const [binaryLevels, aiLevels] = await Promise.all([
@@ -32,6 +33,10 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "POST") {
+    const token = req.headers.get("X-Admin-Token");
+    if (token !== adminToken) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const body = await req.json();
     if (body.binaryLevels) {
       await store.setJSON("binary-levels", body.binaryLevels);
