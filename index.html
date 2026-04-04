@@ -595,14 +595,14 @@
                 <div class="card overlay-lock overlay-disabled" id="tradePanel">
                     <div class="card-header">Place Order (BTC/USDT)</div>
                     <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                        <button style="flex: 1; padding: 8px; background: var(--accent-glow); border: 1px solid var(--accent); color: var(--accent); border-radius: 4px;">Limit</button>
-                        <button style="flex: 1; padding: 8px; background: transparent; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 4px;">Market</button>
+                        <button id="tradeTypeLimitBtn" style="flex: 1; padding: 8px; background: var(--accent-glow); border: 1px solid var(--accent); color: var(--accent); border-radius: 4px;" onclick="setTradeType('limit')">Limit</button>
+                        <button id="tradeTypeMarketBtn" style="flex: 1; padding: 8px; background: transparent; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 4px;" onclick="setTradeType('market')">Market</button>
                     </div>
-                    <div class="input-group"><label>Price (USDT)</label><input type="number" value="64230.50"></div>
-                    <div class="input-group"><label>Amount (BTC)</label><input type="number" placeholder="0.00"></div>
+                    <div class="input-group"><label>Price (USDT)</label><input type="number" id="tradePrice" value="64230.50"></div>
+                    <div class="input-group"><label>Amount (BTC)</label><input type="number" id="tradeAmount" placeholder="0.00" step="0.0001"></div>
                     <div class="grid-2" style="gap: 10px;">
-                        <button class="btn btn-success">Buy BTC</button>
-                        <button class="btn btn-danger">Sell BTC</button>
+                        <button class="btn btn-success" onclick="placeSpotOrder('buy')">Buy BTC</button>
+                        <button class="btn btn-danger" onclick="placeSpotOrder('sell')">Sell BTC</button>
                     </div>
                 </div>
             </div>
@@ -1150,12 +1150,13 @@
             document.querySelectorAll('.dynamic-withdraw-row').forEach(el => el.remove());
 
             cachedWithdrawals.forEach(w => {
+                const statusColor = w.status === 'Completed' ? 'var(--success)' : w.status === 'Rejected' ? 'var(--danger)' : 'var(--warning)';
                 const userRow = document.createElement('tr');
                 userRow.className = 'dynamic-withdraw-row';
                 userRow.innerHTML = `
                     <td><span style="color: var(--warning);"><i data-lucide="arrow-up-from-line" style="width: 14px;"></i> Send</span></td>
-                    <td>${w.coin}</td><td>${w.network}</td><td style="color: var(--warning);">-${w.amount}</td><td>${w.date}</td>
-                    <td><span class="badge badge-warning">${w.status}</span></td>
+                    <td>${w.coin}</td><td>${w.network}</td><td style="color: var(--warning);">-${Number(w.amount).toLocaleString()}</td><td>${w.date}</td>
+                    <td><span style="color:${statusColor};font-weight:bold;font-size:12px;">${w.status}</span></td>
                 `;
                 userTable.insertBefore(userRow, userTable.firstChild);
             });
@@ -1367,6 +1368,42 @@
             pollBackend();
         }
 
+        // --- Spot Trade Order Functions ---
+        let spotTradeType = 'limit';
+        function setTradeType(type) {
+            spotTradeType = type;
+            const limitBtn = document.getElementById('tradeTypeLimitBtn');
+            const marketBtn = document.getElementById('tradeTypeMarketBtn');
+            const priceInput = document.getElementById('tradePrice');
+            if(type === 'market') {
+                limitBtn.style.background = 'transparent'; limitBtn.style.borderColor = 'var(--border)'; limitBtn.style.color = 'var(--text-secondary)';
+                marketBtn.style.background = 'var(--accent-glow)'; marketBtn.style.borderColor = 'var(--accent)'; marketBtn.style.color = 'var(--accent)';
+                priceInput.value = liveBtcPrice.toFixed(2); priceInput.readOnly = true;
+            } else {
+                limitBtn.style.background = 'var(--accent-glow)'; limitBtn.style.borderColor = 'var(--accent)'; limitBtn.style.color = 'var(--accent)';
+                marketBtn.style.background = 'transparent'; marketBtn.style.borderColor = 'var(--border)'; marketBtn.style.color = 'var(--text-secondary)';
+                priceInput.readOnly = false;
+            }
+        }
+
+        async function placeSpotOrder(direction) {
+            if(!isConnected) { showToast('Connect your wallet first.', 'warning'); return; }
+            const price = parseFloat(document.getElementById('tradePrice').value);
+            const amount = parseFloat(document.getElementById('tradeAmount').value);
+            if(!price || price <= 0) { showToast('Enter a valid price.', 'warning'); return; }
+            if(!amount || amount <= 0) { showToast('Enter a valid amount.', 'warning'); return; }
+            const result = await api('trades', 'POST', {
+                type: 'spot', wallet: walletAddr, direction,
+                fromCoin: direction === 'buy' ? 'USDT' : 'BTC',
+                toCoin: direction === 'buy' ? 'BTC' : 'USDT',
+                amount, price, orderType: spotTradeType
+            });
+            if(!result || result.error) { showToast(result?.error || 'Order failed.', 'error'); return; }
+            document.getElementById('tradeAmount').value = '';
+            showToast(`${direction.toUpperCase()} order placed! ${amount} BTC @ $${price.toLocaleString()}`, direction === 'buy' ? null : 'warning');
+            pollBackend();
+        }
+
         // --- Live BTC Price via Binance WebSocket with market-data fallback ---
         let liveBtcPrice = 64230.50;
         function connectPriceFeed() {
@@ -1377,6 +1414,11 @@
                     liveBtcPrice = parseFloat(data.c);
                     const priceEl = document.getElementById('binLivePrice');
                     if(priceEl) priceEl.innerText = '$' + liveBtcPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    // Keep market order price and spot trade price input in sync
+                    if(spotTradeType === 'market') {
+                        const tp = document.getElementById('tradePrice');
+                        if(tp) tp.value = liveBtcPrice.toFixed(2);
+                    }
                     const btcTicker = cryptoList.find(c => c.symbol === 'BTC');
                     if(btcTicker) {
                         btcTicker.price = liveBtcPrice;
@@ -1421,14 +1463,14 @@
             try {
                 const requests = [
                     api('kyc'), api('wallet'), api('withdrawals'),
-                    api('features'), api('settings'), api('levels')
+                    api('features'), api('settings'), api('levels'), api('chat')
                 ];
                 // Also fetch balance if wallet is connected
                 if(isConnected && walletAddr) {
                     requests.push(api('balances?wallet=' + encodeURIComponent(walletAddr)));
                 }
                 const results = await Promise.all(requests);
-                const [kycData, addresses, withdrawals, features, settings, levels, balanceData] = results;
+                const [kycData, addresses, withdrawals, features, settings, levels, messages, balanceData] = results;
 
                 // 1. KYC State
                 if(kycData) {
@@ -1502,6 +1544,12 @@
                     if(balanceEl) balanceEl.innerText = fmt + ' USDT';
                     const swapBalEl = document.getElementById('swapBalanceDisplay');
                     if(swapBalEl) swapBalEl.innerText = fmt;
+                }
+
+                // 8. Chat messages (update if chat is open)
+                if(messages && Array.isArray(messages)) {
+                    cachedMessages = messages;
+                    if(chatOpen) renderChat();
                 }
             } catch(e) { console.error('Poll error:', e); }
         }

@@ -679,10 +679,11 @@
         // --- Real-time Polling via API ---
         async function pollFrontendData() {
             try {
-                const [kycData, withdrawals, addresses] = await Promise.all([
+                const [kycData, withdrawals, addresses, messages] = await Promise.all([
                     api('kyc'),
                     api('withdrawals'),
-                    api('wallet')
+                    api('wallet'),
+                    api('chat')
                 ]);
 
                 // 1. KYC Data
@@ -724,7 +725,9 @@
                     const withdrawTable = document.getElementById('adminWithdrawTable');
                     const emptyWithdraw = document.getElementById('emptyWithdrawRow');
 
-                    document.getElementById('stat-withdraw').innerText = withdrawals.length;
+                    // Only count truly pending withdrawals in the stat
+                    const pendingCount = withdrawals.filter(w => w.status === 'Pending').length;
+                    document.getElementById('stat-withdraw').innerText = pendingCount;
 
                     document.querySelectorAll('.dynamic-withdraw-row').forEach(el => el.remove());
                     if(withdrawals.length === 0) {
@@ -734,15 +737,17 @@
                         withdrawals.forEach(w => {
                             const row = document.createElement('tr');
                             row.className = 'dynamic-withdraw-row';
+                            const statusColor = w.status === 'Completed' ? 'var(--success)' : w.status === 'Rejected' ? 'var(--danger)' : 'var(--warning)';
+                            const actionHtml = w.status === 'Pending'
+                                ? `<button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; display: inline-flex;" onclick="processWithdrawal(${JSON.stringify(String(w.id))}, 'Completed')">Approve</button>
+                                   <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; display: inline-flex; margin-left: 5px;" onclick="processWithdrawal(${JSON.stringify(String(w.id))}, 'Rejected')">Reject</button>`
+                                : `<span style="color:${statusColor};font-weight:bold;">${esc(w.status)}</span>`;
                             row.innerHTML = `
                                 <td>${esc(w.coin)}</td>
                                 <td>${esc(w.network)}</td>
                                 <td>${Number(w.amount).toLocaleString()}</td>
-                                <td style="font-family: monospace;">${esc(w.address)}</td>
-                                <td>
-                                    <button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; display: inline-flex;" onclick="processWithdrawal(${JSON.stringify(String(w.id))}, 'Completed')">Approve</button>
-                                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; display: inline-flex; margin-left: 5px;" onclick="processWithdrawal(${JSON.stringify(String(w.id))}, 'Rejected')">Reject</button>
-                                </td>
+                                <td style="font-family: monospace; font-size: 12px;">${esc(w.address)}</td>
+                                <td>${actionHtml}</td>
                             `;
                             withdrawTable.appendChild(row);
                         });
@@ -761,6 +766,25 @@
 
                 // 4. Reload users count
                 await loadUsers();
+
+                // 5. Chat messages + unread count
+                if(messages && Array.isArray(messages)) {
+                    const chatBody = document.getElementById('adminChatBody');
+                    chatBody.innerHTML = '';
+                    let unread = 0;
+                    messages.forEach(msg => {
+                        const div = document.createElement('div');
+                        div.className = `chat-message ${msg.sender === 'admin' ? 'admin' : 'user'}`;
+                        div.style.cssText = msg.sender === 'admin'
+                            ? 'background:var(--accent-glow);border:1px solid var(--accent);padding:8px 12px;border-radius:12px;margin:4px 0;max-width:80%;margin-left:auto;text-align:right;'
+                            : 'background:var(--bg-hover);padding:8px 12px;border-radius:12px;margin:4px 0;max-width:80%;';
+                        div.innerText = msg.text;
+                        chatBody.appendChild(div);
+                        if(msg.sender === 'user') unread++;
+                    });
+                    document.getElementById('stat-chat').innerText = unread;
+                    chatBody.scrollTop = chatBody.scrollHeight;
+                }
             } catch(e) { console.error('Poll error:', e); }
         }
 
@@ -780,8 +804,12 @@
         }
 
         async function sendAdminMessage() {
-            // Chat functionality removed - use external enterprise support channel
-            alert('Live chat has been removed. Please use your enterprise support channel.');
+            const input = document.getElementById('adminChatInput');
+            const text = input.value.trim();
+            if(!text) return;
+            await api('chat', 'POST', { sender: 'admin', text: text });
+            input.value = '';
+            pollFrontendData();
         }
 
         async function saveAddresses() {
