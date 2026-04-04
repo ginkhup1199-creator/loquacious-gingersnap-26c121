@@ -4,7 +4,12 @@
  * for admin-protected endpoints in Netlify Functions.
  */
 
-// Simple in-memory rate limiter (resets on function cold start)
+const crypto = require("crypto");
+
+// Simple in-memory rate limiter (resets on function cold start).
+// NOTE: Each Netlify Function instance maintains its own Map, so limits
+// are per-instance rather than global. For global rate limiting use a
+// shared store such as Redis or a Netlify KV store.
 const requestCounts = new Map();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 30;
@@ -16,6 +21,14 @@ const RATE_LIMIT_MAX_REQUESTS = 30;
  */
 function isRateLimited(ip) {
   const now = Date.now();
+
+  // Remove expired entries to prevent unbounded memory growth
+  for (const [key, entry] of requestCounts.entries()) {
+    if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+      requestCounts.delete(key);
+    }
+  }
+
   const entry = requestCounts.get(ip);
 
   if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
@@ -50,7 +63,26 @@ function validateAdminToken(req) {
   }
 
   const token = req.headers.get("X-Admin-Token");
-  if (!token || token !== adminToken) {
+  if (!token) {
+    return {
+      valid: false,
+      response: Response.json({ error: "Unauthorized" }, { status: 401 }),
+    };
+  }
+
+  // Use constant-time comparison to prevent timing attacks
+  let tokensMatch = false;
+  try {
+    const tokenBuf = Buffer.from(token);
+    const adminBuf = Buffer.from(adminToken);
+    tokensMatch =
+      tokenBuf.length === adminBuf.length &&
+      crypto.timingSafeEqual(tokenBuf, adminBuf);
+  } catch {
+    tokensMatch = false;
+  }
+
+  if (!tokensMatch) {
     return {
       valid: false,
       response: Response.json({ error: "Unauthorized" }, { status: 401 }),

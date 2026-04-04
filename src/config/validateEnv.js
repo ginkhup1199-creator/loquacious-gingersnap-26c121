@@ -20,9 +20,9 @@ function validateEnv() {
   }
 
   const adminToken = process.env.ADMIN_TOKEN;
-  if (adminToken && adminToken.length < 16) {
+  if (adminToken && adminToken.length < 32) {
     throw new Error(
-      "ADMIN_TOKEN must be at least 16 characters long for security."
+      "ADMIN_TOKEN must be at least 32 characters long for security."
     );
   }
 }
