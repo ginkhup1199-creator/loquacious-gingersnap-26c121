@@ -408,7 +408,7 @@
                 <div id="wallet-overview" class="wallet-sub-pane active">
                     <div class="card" style="margin-bottom: 20px; background: linear-gradient(135deg, var(--bg-panel) 0%, var(--bg-hover) 100%); border: 1px solid var(--accent-glow);">
                         <div style="color: var(--text-secondary); font-size: 14px;">Total Estimated Balance</div>
-                        <div style="font-size: 36px; font-weight: bold; margin: 10px 0; color: var(--text-primary);">$12,450.00 <span style="font-size: 16px; color: var(--accent); font-weight: normal;">USD</span></div>
+                        <div style="font-size: 36px; font-weight: bold; margin: 10px 0; color: var(--text-primary);" id="walletTotalBalance">$0.00 <span style="font-size: 16px; color: var(--accent); font-weight: normal;">USD</span></div>
                         <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
                             <button class="btn" onclick="switchWalletTab('wallet-buy')"><i data-lucide="credit-card"></i> Buy</button>
                             <button class="btn btn-outline" onclick="switchWalletTab('wallet-receive')"><i data-lucide="arrow-down-to-line"></i> Receive</button>
@@ -449,7 +449,7 @@
                 </div>
 
                 <!-- Wallet: Buy Crypto (Fiat) -->
-                <div id="wallet-buy" class="wallet-sub-pane overlay-disabled" id="buyPanel">
+                <div id="wallet-buy" class="wallet-sub-pane overlay-disabled">
                     <div class="grid-2">
                         <div class="card">
                             <div class="card-header">Buy Crypto with Fiat</div>
@@ -508,7 +508,7 @@
                                 <div style="font-family: monospace; font-size: 14px; word-break: break-all; margin-bottom: 15px; color: var(--accent);" id="user-deposit-address">
                                     Loading...
                                 </div>
-                                <button class="btn btn-outline" style="width: 100%;" onclick="alert('Address copied to clipboard!')"><i data-lucide="copy"></i> Copy Address</button>
+                                <button class="btn btn-outline" style="width: 100%;" onclick="copyAddress()"><i data-lucide="copy"></i> Copy Address</button>
                             </div>
                             <div style="font-size: 12px; color: var(--warning); margin-top: 15px; text-align: center; background: var(--warning-bg); padding: 10px; border-radius: 6px;">
                                 <i data-lucide="alert-triangle" style="width: 14px; display: inline-block; vertical-align: middle;"></i> Send only selected coin to this address.
@@ -518,7 +518,7 @@
                 </div>
 
                 <!-- Wallet: Send -->
-                <div id="wallet-send" class="wallet-sub-pane overlay-disabled" id="sendPanel">
+                <div id="wallet-send" class="wallet-sub-pane overlay-disabled">
                     <div class="grid-2">
                         <div class="card">
                             <div class="card-header">Send Crypto</div>
@@ -614,15 +614,26 @@
             <div class="card overlay-lock overlay-disabled" id="swapPanel" style="max-width: 450px; margin: 0 auto;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
                     <span style="color: var(--text-secondary); font-size: 14px;">Pay</span>
-                    <span style="color: var(--text-secondary); font-size: 14px;">Balance: 12,450 USDT</span>
+                    <span style="color: var(--text-secondary); font-size: 14px;">Balance: <span id="swapBalanceDisplay">0</span> USDT</span>
                 </div>
-                <div style="display: flex; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 15px;">
-                    <input type="number" placeholder="0.0" style="background: transparent; border: none; color: white; font-size: 24px; width: 100%; outline: none;">
-                    <select style="background: var(--bg-panel); border: none; color: white; padding: 5px 10px; border-radius: 4px; outline: none;">
-                        <option>USDT</option><option>ETH</option>
+                <div style="display: flex; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 10px;">
+                    <input type="number" id="swap-from-amount" placeholder="0.0" style="background: transparent; border: none; color: white; font-size: 24px; width: 100%; outline: none;" oninput="updateSwapEstimate()">
+                    <select id="swap-from-coin" style="background: var(--bg-panel); border: none; color: white; padding: 5px 10px; border-radius: 4px; outline: none;" onchange="updateSwapEstimate()">
+                        <option>USDT</option><option>ETH</option><option>BTC</option><option>BNB</option><option>SOL</option>
                     </select>
                 </div>
-                <button class="btn" style="width: 100%; padding: 15px; font-size: 16px;"><i data-lucide="refresh-cw"></i> Swap Now</button>
+                <div style="text-align: center; margin: 5px 0; color: var(--accent); cursor: pointer;" onclick="swapCoins()"><i data-lucide="arrow-up-down"></i></div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px; margin-top: 5px;">
+                    <span style="color: var(--text-secondary); font-size: 14px;">Receive (Estimated)</span>
+                    <span style="color: var(--text-secondary); font-size: 12px;">Fee: 0.5%</span>
+                </div>
+                <div style="display: flex; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 15px;">
+                    <input type="number" id="swap-to-amount" placeholder="0.0" readonly style="background: transparent; border: none; color: var(--success); font-size: 24px; width: 100%; outline: none;">
+                    <select id="swap-to-coin" style="background: var(--bg-panel); border: none; color: white; padding: 5px 10px; border-radius: 4px; outline: none;" onchange="updateSwapEstimate()">
+                        <option>ETH</option><option>BTC</option><option>BNB</option><option>SOL</option><option>USDT</option>
+                    </select>
+                </div>
+                <button class="btn" style="width: 100%; padding: 15px; font-size: 16px;" onclick="executeSwap()"><i data-lucide="refresh-cw"></i> Swap Now</button>
             </div>
         </div>
 
@@ -910,7 +921,7 @@
             if(activeNav) activeNav.classList.add('active');
         }
 
-        // --- Persistent Wallet & State Logic ---
+        // Persistent Wallet & State Logic
         let isConnected = localStorage.getItem('walletConnected') === 'true';
         let currentKycState = 'unverified';
         let cachedWithdrawals = [];
@@ -919,9 +930,7 @@
         let selectedBinaryLevel = null;
         let cachedBinaryLevels = [];
         let cachedAiLevels = [];
-
-        // Simulated wallet address
-        const WALLET_ADDR = '0x7A9e3C12f8B4D5E6A1b2c3D4e5F67890aB1c3F92';
+        let walletAddr = localStorage.getItem('walletAddr') || '';
 
         // Default Deposit Addresses (will be updated from server)
         let depositAddresses = {
@@ -942,6 +951,38 @@
             } catch(e) { console.error('API error:', e); return null; }
         }
 
+        // Toast notification helper
+        function showToast(msg, type) {
+            const toast = document.createElement('div');
+            const bg = type === 'error' ? '#ff1744' : type === 'warning' ? '#ffb300' : '#00e676';
+            toast.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:${bg};color:#000;padding:10px 20px;border-radius:20px;z-index:9999;font-weight:bold;font-size:14px;box-shadow:0 4px 15px rgba(0,0,0,0.3);white-space:nowrap;`;
+            toast.innerText = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => { if(toast.parentNode) toast.parentNode.removeChild(toast); }, 2500);
+        }
+
+        // Copy address with mobile fallback
+        function copyAddress() {
+            const addr = document.getElementById('user-deposit-address').innerText;
+            if(navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(addr)
+                    .then(() => showToast('Address copied!'))
+                    .catch(() => fallbackCopy(addr));
+            } else {
+                fallbackCopy(addr);
+            }
+        }
+        function fallbackCopy(text) {
+            const el = document.createElement('textarea');
+            el.value = text;
+            el.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+            document.body.appendChild(el);
+            el.focus(); el.select();
+            try { document.execCommand('copy'); showToast('Address copied!'); }
+            catch(e) { showToast('Copy failed - please copy manually', 'error'); }
+            document.body.removeChild(el);
+        }
+
         function updateUIState() {
             const btn = document.getElementById('walletBtn');
             const balance = document.getElementById('walletBalance');
@@ -949,7 +990,8 @@
             const panels = ['tradePanel', 'swapPanel', 'binaryPanel', 'aiPanel', 'earnPanel', 'kycPanel', 'walletPanel'];
 
             if(isConnected) {
-                btn.innerHTML = '<i data-lucide="wallet"></i> 0x7A...3F92';
+                const short = walletAddr ? walletAddr.slice(0, 6) + '...' + walletAddr.slice(-4) : 'Connected';
+                btn.innerHTML = `<i data-lucide="wallet"></i> ${short}`;
                 btn.style.background = 'transparent';
                 btn.style.border = '1px solid var(--accent)';
                 btn.style.color = 'var(--accent)';
@@ -981,16 +1023,80 @@
         }
 
         async function toggleWallet() {
-            isConnected = !isConnected;
-            localStorage.setItem('walletConnected', isConnected);
             if(isConnected) {
-                const user = await api('users', 'POST', { wallet: WALLET_ADDR });
-                if(user && user.userId) {
-                    currentUserId = user.userId;
-                    localStorage.setItem('userId', currentUserId);
+                // Disconnect
+                isConnected = false;
+                walletAddr = '';
+                currentUserId = null;
+                localStorage.removeItem('walletConnected');
+                localStorage.removeItem('walletAddr');
+                localStorage.removeItem('userId');
+                updateUIState();
+                return;
+            }
+
+            if(typeof window.ethereum !== 'undefined') {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    if(accounts && accounts.length > 0) {
+                        walletAddr = accounts[0];
+                        isConnected = true;
+                        localStorage.setItem('walletConnected', 'true');
+                        localStorage.setItem('walletAddr', walletAddr);
+                        const user = await api('users', 'POST', { wallet: walletAddr });
+                        if(user && user.userId) {
+                            currentUserId = user.userId;
+                            localStorage.setItem('userId', currentUserId);
+                        }
+                        updateUIState();
+                        pollBackend();
+                        showToast('Wallet connected!');
+                    }
+                } catch(e) {
+                    if(e.code === 4001) {
+                        showToast('Connection rejected by user.', 'warning');
+                    } else {
+                        showToast('Connection failed: ' + (e.message || 'Unknown error'), 'error');
+                    }
+                }
+            } else {
+                showToast('No Web3 wallet detected. Please install MetaMask.', 'warning');
+                // Fallback for demo/desktop without MetaMask
+                const demoAddr = '0x7A9e3C12f8B4D5E6A1b2c3D4e5F67890aB1c3F92';
+                if(confirm('MetaMask not found. Use demo wallet for testing?')) {
+                    walletAddr = demoAddr;
+                    isConnected = true;
+                    localStorage.setItem('walletConnected', 'true');
+                    localStorage.setItem('walletAddr', walletAddr);
+                    const user = await api('users', 'POST', { wallet: walletAddr });
+                    if(user && user.userId) {
+                        currentUserId = user.userId;
+                        localStorage.setItem('userId', currentUserId);
+                    }
+                    updateUIState();
+                    pollBackend();
                 }
             }
-            updateUIState();
+        }
+
+        // Listen for MetaMask account changes
+        if(typeof window.ethereum !== 'undefined') {
+            window.ethereum.on('accountsChanged', (accounts) => {
+                if(accounts.length === 0) {
+                    isConnected = false;
+                    walletAddr = '';
+                    currentUserId = null;
+                    localStorage.removeItem('walletConnected');
+                    localStorage.removeItem('walletAddr');
+                    localStorage.removeItem('userId');
+                    updateUIState();
+                    showToast('Wallet disconnected.', 'warning');
+                } else if(accounts[0] !== walletAddr) {
+                    walletAddr = accounts[0];
+                    localStorage.setItem('walletAddr', walletAddr);
+                    updateUIState();
+                }
+            });
         }
 
         // KYC Functions
@@ -998,21 +1104,23 @@
             const userName = document.getElementById('kycName').value || 'John Doe';
             const docType = document.getElementById('kycDocType').value;
             await api('kyc', 'POST', { state: 'pending', name: userName, docType: docType });
-            alert("KYC Submitted! Awaiting admin approval.");
+            showToast('KYC Submitted! Awaiting admin approval.');
             pollBackend();
         }
 
         // Wallet Functions
         function updateDepositUI() {
-            const network = document.getElementById('dep-network').value;
-            const addr = depositAddresses[network];
+            const networkEl = document.getElementById('dep-network');
+            if(!networkEl) return;
+            const network = networkEl.value;
+            const addr = depositAddresses[network] || '';
             document.getElementById('user-deposit-address').innerText = addr;
-            document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${addr}`;
+            document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(addr)}`;
         }
 
         async function submitWithdrawal() {
             if(currentKycState !== 'approved') {
-                alert("You must complete KYC verification before sending/withdrawing funds.");
+                showToast('Complete KYC verification before withdrawing.', 'warning');
                 return;
             }
             const coin = document.getElementById('with-coin').value;
@@ -1020,24 +1128,25 @@
             const address = document.getElementById('with-address').value;
             const amount = document.getElementById('with-amount').value;
 
-            if(!address || !amount || amount <= 0) {
-                alert("Please enter a valid address and amount.");
+            if(!address || !amount || parseFloat(amount) <= 0) {
+                showToast('Please enter a valid address and amount.', 'warning');
                 return;
             }
 
-            await api('withdrawals', 'POST', { action: 'add', coin, network, address, amount });
+            const result = await api('withdrawals', 'POST', { action: 'add', coin, network, address, amount });
+            if(!result || result.error) {
+                showToast(result?.error || 'Withdrawal failed. Please try again.', 'error');
+                return;
+            }
 
             document.getElementById('with-address').value = '';
             document.getElementById('with-amount').value = '';
-
             pollBackend();
-            alert("Transaction submitted! Awaiting network/admin confirmation.");
+            showToast('Transaction submitted! Awaiting confirmation.');
         }
 
         function renderWithdrawals() {
             const userTable = document.getElementById('user-history-table');
-
-            // Clear existing dynamic rows
             document.querySelectorAll('.dynamic-withdraw-row').forEach(el => el.remove());
 
             cachedWithdrawals.forEach(w => {
@@ -1053,17 +1162,49 @@
             lucide.createIcons();
         }
 
+        // Swap Functions
+        const SWAP_RATES = { USDT: 1, USDC: 1, ETH: 3200, BTC: 65000, BNB: 600, SOL: 145 };
+        function updateSwapEstimate() {
+            const fromAmt = parseFloat(document.getElementById('swap-from-amount')?.value) || 0;
+            const fromCoin = document.getElementById('swap-from-coin')?.value || 'USDT';
+            const toCoin = document.getElementById('swap-to-coin')?.value || 'ETH';
+            const fromRate = SWAP_RATES[fromCoin] || 1;
+            const toRate = SWAP_RATES[toCoin] || 1;
+            const estimated = fromAmt > 0 ? ((fromAmt * fromRate / toRate) * 0.995).toFixed(6) : '';
+            const toEl = document.getElementById('swap-to-amount');
+            if(toEl) toEl.value = estimated;
+        }
+        function swapCoins() {
+            const fromCoin = document.getElementById('swap-from-coin');
+            const toCoin = document.getElementById('swap-to-coin');
+            if(!fromCoin || !toCoin) return;
+            const tmp = fromCoin.value;
+            fromCoin.value = toCoin.value;
+            toCoin.value = tmp;
+            updateSwapEstimate();
+        }
+        async function executeSwap() {
+            if(!isConnected) { showToast('Connect your wallet first.', 'warning'); return; }
+            const amount = parseFloat(document.getElementById('swap-from-amount')?.value);
+            const fromCoin = document.getElementById('swap-from-coin')?.value || 'USDT';
+            const toCoin = document.getElementById('swap-to-coin')?.value || 'ETH';
+            if(!amount || amount <= 0) { showToast('Enter a valid amount.', 'warning'); return; }
+            if(fromCoin === toCoin) { showToast('Select different coins to swap.', 'warning'); return; }
+            const result = await api('trades', 'POST', { type: 'swap', wallet: walletAddr, fromCoin, toCoin, amount });
+            if(!result || result.error) { showToast(result?.error || 'Swap failed.', 'error'); return; }
+            showToast(`Swap submitted! You receive ~${result.estimatedOut} ${toCoin}`);
+            document.getElementById('swap-from-amount').value = '';
+            document.getElementById('swap-to-amount').value = '';
+            pollBackend();
+        }
+
         // Pop-up Live Chat Functions
         let chatOpen = false;
         function toggleChat() {
             const chat = document.getElementById('floatingChat');
             chatOpen = !chatOpen;
-            if(chatOpen) {
-                chat.classList.add('active');
-                scrollToBottom();
-            } else {
-                chat.classList.remove('active');
-            }
+            if(chatOpen) { chat.classList.add('active'); scrollToBottom(); }
+            else { chat.classList.remove('active'); }
         }
 
         function handleChatKeyPress(e) {
@@ -1074,7 +1215,6 @@
             const input = document.getElementById('chatInput');
             const text = input.value.trim();
             if(!text) return;
-
             await api('chat', 'POST', { sender: 'user', text: text });
             input.value = '';
             pollBackend();
@@ -1082,9 +1222,7 @@
 
         function renderChat() {
             const body = document.getElementById('chatBody');
-
             body.innerHTML = '<div class="chat-message admin">Hello! How can we help you today?</div>';
-
             cachedMessages.forEach(msg => {
                 const div = document.createElement('div');
                 div.className = `chat-message ${msg.sender}`;
@@ -1139,13 +1277,30 @@
             renderBinaryLevels(cachedBinaryLevels);
         }
 
-        function placeBinaryTrade(direction) {
-            if(!selectedBinaryLevel) {
-                alert('Please select a trading level first.');
-                return;
-            }
+        async function placeBinaryTrade(direction) {
+            if(!selectedBinaryLevel) { showToast('Select a trading level first.', 'warning'); return; }
+            if(!isConnected) { showToast('Connect your wallet first.', 'warning'); return; }
             const lvl = cachedBinaryLevels.find(l => l.id === selectedBinaryLevel);
-            alert(`${direction} trade placed!\nLevel: ${lvl.name}\nCapital: $${lvl.capital}\nTime: ${lvl.tradingTime}s\nPotential profit: ${lvl.profitPercent}%`);
+            const result = await api('trades', 'POST', {
+                type: 'binary', wallet: walletAddr, direction,
+                levelId: lvl.id, levelName: lvl.name,
+                capital: lvl.capital, tradingTime: lvl.tradingTime, profitPercent: lvl.profitPercent
+            });
+            if(!result || result.error) { showToast(result?.error || 'Trade failed.', 'error'); return; }
+            showToast(`${direction} trade placed! Trade #${result.id} — ${lvl.tradingTime}s timer started.`);
+
+            // Simulate outcome after tradingTime seconds
+            setTimeout(async () => {
+                // 48% win rate — standard house edge for binary options (52% favor platform)
+                const win = Math.random() > 0.48;
+                const profit = win ? parseFloat((lvl.capital * lvl.profitPercent / 100).toFixed(2)) : -parseFloat(lvl.capital);
+                const outcomeMsg = win
+                    ? `✅ WIN! +$${(lvl.capital * lvl.profitPercent / 100).toFixed(2)} credited`
+                    : `❌ LOSS! -$${lvl.capital} deducted`;
+                showToast(`Trade #${result.id}: ${outcomeMsg}`, win ? null : 'error');
+                await api('trades', 'POST', { type: 'binary-result', wallet: walletAddr, tradeId: result.id, profit });
+                pollBackend();
+            }, lvl.tradingTime * 1000);
         }
 
         // --- AI Arbitrage Level Rendering ---
@@ -1184,23 +1339,55 @@
             lucide.createIcons();
         }
 
-        function deployAiBot(levelId) {
+        async function deployAiBot(levelId) {
+            if(!isConnected) { showToast('Connect your wallet first.', 'warning'); return; }
             const lvl = cachedAiLevels.find(l => l.id === levelId);
-            alert(`AI Bot Deployed!\nLevel: ${lvl.name}\nCapital: $${lvl.capital.toLocaleString()}\nDaily Profit: ${lvl.dailyProfit}%\nDuration: ${lvl.duration} days`);
+            const result = await api('trades', 'POST', {
+                type: 'ai-bot', wallet: walletAddr,
+                levelId: lvl.id, levelName: lvl.name,
+                capital: lvl.capital, dailyProfit: lvl.dailyProfit, duration: lvl.duration
+            });
+            if(!result || result.error) { showToast(result?.error || 'Bot deployment failed.', 'error'); return; }
+            showToast(`AI Bot deployed! Level: ${lvl.name} | Est. ${(lvl.dailyProfit * lvl.duration).toFixed(1)}% total return`);
+            pollBackend();
+        }
+
+        // --- Live BTC Price via Binance WebSocket ---
+        let liveBtcPrice = 64230.50;
+        function connectPriceFeed() {
+            try {
+                const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@miniTicker');
+                ws.onmessage = (e) => {
+                    const data = JSON.parse(e.data);
+                    liveBtcPrice = parseFloat(data.c);
+                    const priceEl = document.getElementById('binLivePrice');
+                    if(priceEl) priceEl.innerText = '$' + liveBtcPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    // Also update ticker price for BTC
+                    const btcTicker = cryptoList.find(c => c.symbol === 'BTC');
+                    if(btcTicker) {
+                        btcTicker.price = liveBtcPrice;
+                        const priceTickerEl = document.getElementById('price-BTC');
+                        if(priceTickerEl) priceTickerEl.innerText = liveBtcPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    }
+                };
+                ws.onerror = () => setTimeout(connectPriceFeed, 10000);
+                ws.onclose = () => setTimeout(connectPriceFeed, 10000);
+            } catch(e) { /* WebSocket not available in this environment */ }
         }
 
         // Real-time Backend Polling via API
         async function pollBackend() {
             try {
-                const [kycData, addresses, withdrawals, messages, features, settings, levels] = await Promise.all([
-                    api('kyc'),
-                    api('addresses'),
-                    api('withdrawals'),
-                    api('chat'),
-                    api('features'),
-                    api('settings'),
-                    api('levels')
-                ]);
+                const requests = [
+                    api('kyc'), api('addresses'), api('withdrawals'),
+                    api('chat'), api('features'), api('settings'), api('levels')
+                ];
+                // Also fetch balance if wallet is connected
+                if(isConnected && walletAddr) {
+                    requests.push(api('balances?wallet=' + encodeURIComponent(walletAddr)));
+                }
+                const results = await Promise.all(requests);
+                const [kycData, addresses, withdrawals, messages, features, settings, levels, balanceData] = results;
 
                 // 1. KYC State
                 if(kycData) {
@@ -1208,7 +1395,6 @@
                     document.getElementById('kycStatusUnverified').style.display = currentKycState === 'unverified' ? 'block' : 'none';
                     document.getElementById('kycStatusPending').style.display = currentKycState === 'pending' ? 'block' : 'none';
                     document.getElementById('kycStatusApproved').style.display = currentKycState === 'approved' ? 'block' : 'none';
-
                     const formCard = document.getElementById('kycFormCard');
                     if(currentKycState !== 'unverified') {
                         formCard.style.opacity = '0.5';
@@ -1247,13 +1433,11 @@
                             else panel.parentElement.classList.add('disabled-feature');
                         }
                         if(nav) {
-                            if(isEnabled) nav.style.display = 'block';
-                            else nav.style.display = 'none';
+                            nav.style.display = isEnabled ? 'block' : 'none';
                         }
                     };
-
-                    toggleFeature('buyPanel', 'nav-buy', features.fiat);
-                    toggleFeature('sendPanel', 'nav-send', features.send);
+                    toggleFeature('wallet-buy', 'nav-buy', features.fiat);
+                    toggleFeature('wallet-send', 'nav-send', features.send);
                     toggleFeature('swapPanel', null, features.swap);
                     toggleFeature('tradePanel', null, features.trade);
                     toggleFeature('binaryPanel', null, features.binary);
@@ -1272,6 +1456,18 @@
                     if(levels.binaryLevels) renderBinaryLevels(levels.binaryLevels);
                     if(levels.aiLevels) renderAiLevels(levels.aiLevels);
                 }
+
+                // 8. Balance
+                if(balanceData && !balanceData.error) {
+                    const usdt = parseFloat(balanceData.usdt || 0);
+                    const fmt = usdt.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    const totalEl = document.getElementById('walletTotalBalance');
+                    if(totalEl) totalEl.innerHTML = `$${fmt} <span style="font-size:16px;color:var(--accent);font-weight:normal;">USD</span>`;
+                    const balanceEl = document.getElementById('walletBalance');
+                    if(balanceEl) balanceEl.innerText = fmt + ' USDT';
+                    const swapBalEl = document.getElementById('swapBalanceDisplay');
+                    if(swapBalEl) swapBalEl.innerText = fmt;
+                }
             } catch(e) { console.error('Poll error:', e); }
         }
 
@@ -1283,6 +1479,7 @@
             renderTickers();
             updateUIState();
             pollBackend();
+            connectPriceFeed();
         };
 
     </script>

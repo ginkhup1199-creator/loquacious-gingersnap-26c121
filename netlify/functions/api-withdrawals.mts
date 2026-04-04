@@ -3,6 +3,10 @@ import type { Config, Context } from "@netlify/functions";
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
+  const adminToken = process.env.ADMIN_TOKEN;
+  if (!adminToken) {
+    return Response.json({ error: "Admin token not configured" }, { status: 503 });
+  }
 
   if (req.method === "GET") {
     const withdrawals = await store.get("withdrawals", { type: "json" });
@@ -30,6 +34,10 @@ export default async (req: Request, context: Context) => {
     }
 
     if (action === "process") {
+      const token = req.headers.get("X-Admin-Token");
+      if (token !== adminToken) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
+      }
       const existing = (await store.get("withdrawals", { type: "json" })) || [];
       const updated = existing.filter(
         (w: { id: number }) => w.id !== body.id
