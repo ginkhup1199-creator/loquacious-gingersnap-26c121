@@ -121,7 +121,8 @@ function filterLLMOutput(output) {
 
   let sanitized = output;
   for (const pattern of OUTPUT_SENSITIVE_PATTERNS) {
-    sanitized = sanitized.replace(new RegExp(pattern.source, pattern.flags + "g"), REDACT_PLACEHOLDER);
+    const flags = pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g";
+    sanitized = sanitized.replace(new RegExp(pattern.source, flags), REDACT_PLACEHOLDER);
   }
   return sanitized;
 }

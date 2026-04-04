@@ -17,7 +17,6 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "GET") {
-    const balances = await store.get("balances", { type: "json" });
     const url = new URL(req.url);
     const wallet = url.searchParams.get("wallet");
     if (!wallet) {
