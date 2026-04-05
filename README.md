@@ -30,7 +30,7 @@ NexusTrade
 │   │   ├── api-health.mts          # Health check endpoint
 │   │   ├── api-kyc.mts             # KYC submission & approval
 │   │   ├── api-levels.mts          # Binary options & AI arbitrage levels
-│   │   ├── api-market-data.mts     # Live crypto price feeds
+│   │   ├── api-market-data.mts     # Simulated crypto price feeds
 │   │   ├── api-settings.mts        # Global fees & rates
 │   │   ├── api-trades.mts          # Trade execution (spot, binary, swap, AI bot)
 │   │   ├── api-transactions.mts    # Transaction history
@@ -61,12 +61,12 @@ NexusTrade
 | GET/POST | `/api/addresses` | GET: None / POST: Admin | Deposit addresses |
 | GET/POST | `/api/trades` | None | Trade history & execution |
 | GET/POST | `/api/transactions` | GET: None / POST: Admin | Transaction history |
-| GET/POST | `/api/withdrawals` | GET: Admin / POST: None | Withdrawal management |
-| GET/POST | `/api/kyc` | GET: Admin / POST: None | KYC submissions |
+| GET/POST | `/api/withdrawals` | GET: None / POST: None | Withdrawal management |
+| GET/POST | `/api/kyc` | GET: None / POST: Conditional Admin | KYC submissions |
 | GET/POST | `/api/levels` | GET: None / POST: Admin | Binary/AI level config |
 | GET/POST | `/api/settings` | GET: None / POST: Admin | Global settings |
 | GET/POST | `/api/features` | GET: None / POST: Admin | Feature flags |
-| GET | `/api/market-data` | None | Live crypto prices |
+| GET | `/api/market-data` | None | Simulated crypto prices |
 | POST | `/api/chat` | None | Chat (LLM-protected) |
 | GET | `/api/admin` | Admin | Admin statistics |
 | POST | `/api/admin/session` | None | OTP login |

@@ -48,7 +48,7 @@ To rotate the admin token:
 
 - **Write operations are admin-only**: Only requests with a valid `X-Admin-Token` can modify wallet data (addresses, features, withdrawals).
 - **Read operations are public**: Wallet data can be read without authentication.
-- **Rate limiting**: The API limits requests per IP to prevent brute force attacks.
+- **Rate limiting**: The API does not implement server-side per-IP rate limiting at the Netlify Functions layer. Operators who require rate limiting should configure it upstream (for example, via Netlify Edge Functions, a CDN, or a WAF).
 - **Input validation**: All request bodies are validated before processing.
 
 ## What Is and Isn't Committed

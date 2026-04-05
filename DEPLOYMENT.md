@@ -156,7 +156,7 @@ curl -X POST $BASE/api/chat \
 
 ### 13. Session Expiry
 
-- [ ] Admin sessions expire after 1 hour (or configured `SESSION_TTL_HOURS`)
+- [ ] Admin sessions expire after 1 hour
 - [ ] Expired sessions return 401
 
 ### 14. Rate Limiting
