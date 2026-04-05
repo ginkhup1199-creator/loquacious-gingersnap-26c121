@@ -1,6 +1,12 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
-import { secureJson, sanitizeString } from "../lib/security.js";
+import {
+  validateAdminSession,
+  secureJson,
+  sanitizeString,
+  auditLog,
+  getClientIp,
+} from "../lib/security.js";
 
 function generate5DigitId(): string {
   return String(Math.floor(10000 + Math.random() * 90000));
@@ -8,14 +14,27 @@ function generate5DigitId(): string {
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
+  const ip = getClientIp(context);
+
+  if (!process.env.ADMIN_TOKEN) {
+    return secureJson({ error: "Service not configured" }, 503);
+  }
 
   if (req.method === "GET") {
     const url = new URL(req.url);
     const wallet = url.searchParams.get("wallet");
 
     if (wallet) {
+      // Per-wallet lookup: public (used by user frontend on connect)
       const user = await store.get(`user-${wallet}`, { type: "json" });
       return secureJson(user || null, 200, true);
+    }
+
+    // List all users: admin only
+    const sessionResult = await validateAdminSession(req, store);
+    if (!sessionResult.valid) {
+      auditLog("AUTH_FAILURE", { operation: "list-users", reason: sessionResult.reason, ip });
+      return secureJson({ error: "Unauthorized" }, 401);
     }
 
     const allUsers = await store.get("all-users", { type: "json" });

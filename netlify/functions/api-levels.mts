@@ -3,7 +3,9 @@ import type { Config, Context } from "@netlify/functions";
 import {
   validateAdminSession,
   secureJson,
+  sanitizeString,
   auditLog,
+  persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
 
@@ -22,6 +24,9 @@ const DEFAULT_AI_LEVELS = [
   { id: 4, name: "Elite", capital: 10000, dailyProfit: 6.5, duration: 30 },
   { id: 5, name: "Whale", capital: 50000, dailyProfit: 8.0, duration: 30 },
 ];
+
+const MAX_BINARY_LEVELS = 10;
+const MAX_AI_LEVELS = 10;
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
@@ -49,15 +54,31 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Unauthorized" }, 401);
     }
 
-    auditLog("ADMIN_WRITE", { operation: "update-levels", ip });
-
     const body = await req.json();
-    if (body.binaryLevels) {
-      await store.setJSON("binary-levels", body.binaryLevels);
+
+    if (body.binaryLevels && Array.isArray(body.binaryLevels)) {
+      const validated = (body.binaryLevels as any[]).slice(0, MAX_BINARY_LEVELS).map((lvl: any, idx: number) => ({
+        id: Number(lvl.id) || idx + 1,
+        name: sanitizeString(String(lvl.name ?? ""), 32) || `Level ${idx + 1}`,
+        capital:       Math.max(1,   Math.min(1_000_000, parseFloat(lvl.capital)      || 100)),
+        tradingTime:   Math.max(5,   Math.min(3600,      parseInt(lvl.tradingTime)    || 60)),
+        profitPercent: Math.max(1,   Math.min(99,        parseFloat(lvl.profitPercent) || 85)),
+      }));
+      await store.setJSON("binary-levels", validated);
     }
-    if (body.aiLevels) {
-      await store.setJSON("ai-levels", body.aiLevels);
+
+    if (body.aiLevels && Array.isArray(body.aiLevels)) {
+      const validated = (body.aiLevels as any[]).slice(0, MAX_AI_LEVELS).map((lvl: any, idx: number) => ({
+        id: Number(lvl.id) || idx + 1,
+        name: sanitizeString(String(lvl.name ?? ""), 32) || `Level ${idx + 1}`,
+        capital:     Math.max(1,   Math.min(1_000_000, parseFloat(lvl.capital)     || 200)),
+        dailyProfit: Math.max(0.1, Math.min(50,        parseFloat(lvl.dailyProfit) || 2.5)),
+        duration:    Math.max(1,   Math.min(365,        parseInt(lvl.duration)     || 7)),
+      }));
+      await store.setJSON("ai-levels", validated);
     }
+
+    await persistAuditLog("ADMIN_WRITE", { operation: "update-levels", ip }, store);
     return secureJson({ success: true });
   }
 

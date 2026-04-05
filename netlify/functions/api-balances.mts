@@ -5,6 +5,7 @@ import {
   secureJson,
   sanitizeString,
   auditLog,
+  persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
 
@@ -50,7 +51,7 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Invalid balance value" }, 400);
     }
 
-    auditLog("ADMIN_WRITE", { operation: "update-balance", wallet: `${safeWallet.slice(0, 8)}…`, ip });
+    await persistAuditLog("ADMIN_WRITE", { operation: "update-balance", wallet: `${safeWallet.slice(0, 8)}…`, ip }, store);
 
     const balance = { usdt: parsedUsdt };
     await store.setJSON(`balance-${safeWallet.toLowerCase()}`, balance);

@@ -51,6 +51,7 @@ export function securityHeaders(options: { cache?: boolean } = {}): Record<strin
     "X-XSS-Protection": "1; mode=block",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
   };
 
   if (!options.cache) {
@@ -226,4 +227,52 @@ export function auditLog(event: string, details: Record<string, unknown> = {}): 
   }
 
   console.log(`[AUDIT] ${JSON.stringify({ timestamp: new Date().toISOString(), event, ...safe })}`);
+}
+
+// ---------------------------------------------------------------------------
+// Persistent Audit Logging
+// ---------------------------------------------------------------------------
+
+interface AuditEntry {
+  timestamp: string;
+  event: string;
+  [key: string]: unknown;
+}
+
+const MAX_AUDIT_LOG_ENTRIES = 500;
+
+/**
+ * Logs an audit event to console AND persists it to @netlify/blobs.
+ * Maintains a rolling window of the last MAX_AUDIT_LOG_ENTRIES entries
+ * (newest first). When the limit is exceeded, the oldest entries are dropped.
+ * Non-fatal: persistence failures do not interrupt the request.
+ */
+export async function persistAuditLog(
+  event: string,
+  details: Record<string, unknown> = {},
+  store: ReturnType<typeof getStore>
+): Promise<void> {
+  auditLog(event, details);
+
+  const safe: Record<string, unknown> = { ...details };
+  delete safe["token"];
+  delete safe["adminToken"];
+  delete safe["password"];
+  delete safe["secret"];
+  delete safe["sessionId"];
+
+  const entry: AuditEntry = {
+    timestamp: new Date().toISOString(),
+    event,
+    ...safe,
+  };
+
+  try {
+    const existing = ((await store.get("audit-log", { type: "json" })) ?? []) as AuditEntry[];
+    existing.unshift(entry);
+    if (existing.length > MAX_AUDIT_LOG_ENTRIES) existing.splice(MAX_AUDIT_LOG_ENTRIES);
+    await store.setJSON("audit-log", existing);
+  } catch {
+    // Non-fatal: persist failure must never break the operation
+  }
 }

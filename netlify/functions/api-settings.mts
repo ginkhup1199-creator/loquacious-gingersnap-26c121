@@ -5,6 +5,7 @@ import {
   secureJson,
   sanitizeString,
   auditLog,
+  persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
 
@@ -34,19 +35,25 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Unauthorized" }, 401);
     }
 
-    auditLog("ADMIN_WRITE", { operation: "update-settings", ip });
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return secureJson({ error: "Invalid JSON" }, 400);
+    }
 
-    const body = await req.json();
-    // Only accept known numeric settings
-    const sanitized: Record<string, number> = {};
+    // Load existing settings so omitted keys are not lost
+    const existing = ((await store.get("settings", { type: "json" })) || DEFAULT_SETTINGS) as Record<string, number>;
+    const merged: Record<string, number> = { ...existing };
     for (const key of Object.keys(DEFAULT_SETTINGS)) {
       if (key in body) {
-        const val = parseFloat(body[key]);
-        if (!isNaN(val) && val >= 0) sanitized[key] = val;
+        const val = parseFloat(body[key] as string);
+        if (!isNaN(val) && val >= 0) merged[key] = val;
       }
     }
-    await store.setJSON("settings", sanitized);
-    return secureJson(sanitized);
+    await store.setJSON("settings", merged);
+    await persistAuditLog("ADMIN_WRITE", { operation: "update-settings", ip }, store);
+    return secureJson(merged);
   }
 
   return new Response("Method not allowed", { status: 405 });

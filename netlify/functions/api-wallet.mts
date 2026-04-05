@@ -5,6 +5,7 @@ import {
   secureJson,
   sanitizeString,
   auditLog,
+  persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
 
@@ -108,7 +109,7 @@ export default async (req: Request, context: Context) => {
       const updated = { ...existing, ...newAddresses };
       await store.setJSON("deposit-addresses", updated);
 
-      auditLog("ADMIN_WRITE", { operation: "update-wallet-addresses", networks: Object.keys(newAddresses), ip });
+      await persistAuditLog("ADMIN_WRITE", { operation: "update-wallet-addresses", networks: Object.keys(newAddresses), ip }, store);
       return secureJson(updated);
     }
 

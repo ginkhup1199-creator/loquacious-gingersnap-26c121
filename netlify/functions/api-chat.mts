@@ -1,12 +1,15 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
 import {
+  validateAdminSession,
   secureJson,
   checkLLMInput,
   sanitizeString,
   auditLog,
   getClientIp,
 } from "../lib/security.js";
+
+const MAX_CHAT_MESSAGES = 200;
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
@@ -18,10 +21,17 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "POST") {
-    const body = await req.json();
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return secureJson({ error: "Invalid JSON" }, 400);
+    }
 
-    // Sanitize sender name
-    const sender = sanitizeString(String(body.sender ?? ""), 64);
+    // Sender is determined server-side from session validity; never trusted from client.
+    const sessionResult = await validateAdminSession(req, store);
+    const sender = sessionResult.valid ? "admin" : "user";
+
     const rawText = String(body.text ?? "");
 
     // Check for LLM prompt-injection patterns
@@ -33,18 +43,14 @@ export default async (req: Request, context: Context) => {
 
     // Sanitize the message text
     const text = sanitizeString(rawText, 2000);
-
-    if (!sender || !text) {
-      return secureJson({ error: "Sender and text are required" }, 400);
+    if (!text) {
+      return secureJson({ error: "Message text is required" }, 400);
     }
 
-    const existing =
-      (await store.get("chat-messages", { type: "json" })) || [];
-    (existing as unknown[]).push({
-      sender,
-      text,
-      time: Date.now(),
-    });
+    const existing = ((await store.get("chat-messages", { type: "json" })) || []) as unknown[];
+    existing.push({ sender, text, time: Date.now() });
+    // Keep last 200 messages to prevent unbounded growth
+    if (existing.length > MAX_CHAT_MESSAGES) existing.splice(0, existing.length - MAX_CHAT_MESSAGES);
     await store.setJSON("chat-messages", existing);
     return secureJson(existing);
   }

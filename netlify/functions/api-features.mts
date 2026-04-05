@@ -4,6 +4,7 @@ import {
   validateAdminSession,
   secureJson,
   auditLog,
+  persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
 
@@ -37,16 +38,22 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Unauthorized" }, 401);
     }
 
-    auditLog("ADMIN_WRITE", { operation: "update-features", ip });
-
-    const body = await req.json();
-    // Only accept known boolean feature flags
-    const sanitized: Record<string, boolean> = {};
-    for (const key of Object.keys(DEFAULTS)) {
-      if (key in body) sanitized[key] = Boolean(body[key]);
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return secureJson({ error: "Invalid JSON" }, 400);
     }
-    await store.setJSON("features", sanitized);
-    return secureJson(sanitized);
+
+    // Load existing so omitted flags are not lost
+    const existing = ((await store.get("features", { type: "json" })) || DEFAULTS) as Record<string, boolean>;
+    const merged: Record<string, boolean> = { ...existing };
+    for (const key of Object.keys(DEFAULTS)) {
+      if (key in body) merged[key] = Boolean(body[key]);
+    }
+    await store.setJSON("features", merged);
+    await persistAuditLog("ADMIN_WRITE", { operation: "update-features", ip }, store);
+    return secureJson(merged);
   }
 
   return new Response("Method not allowed", { status: 405 });

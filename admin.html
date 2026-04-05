@@ -206,6 +206,7 @@
             <li class="nav-item" onclick="switchTab('tab-chat')"><i data-lucide="message-circle"></i> Live Chat Support</li>
             <li class="nav-item" onclick="switchTab('tab-settings')"><i data-lucide="settings"></i> System Settings</li>
             <li class="nav-item" onclick="switchTab('tab-balances')"><i data-lucide="circle-dollar-sign"></i> User Balances</li>
+            <li class="nav-item" onclick="switchTab('tab-auditlogs'); loadAuditLogs()"><i data-lucide="shield-check"></i> Audit Logs</li>
             <li class="nav-item" onclick="switchTab('tab-master')" style="margin-top: 40px; color: var(--warning);"><i data-lucide="key"></i> Master Account</li>
             <li class="nav-item" onclick="logout()" style="color: var(--danger);"><i data-lucide="log-out"></i> Logout</li>
         </ul>
@@ -525,6 +526,23 @@
             </div>
         </div>
 
+        <!-- Audit Logs -->
+        <div id="tab-auditlogs" class="tab-pane">
+            <h2>Security Audit Logs</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 14px;">Last 500 admin operations and security events, newest first.</p>
+            <button class="btn btn-outline" onclick="loadAuditLogs()" style="margin-bottom: 20px;"><i data-lucide="refresh-cw"></i> Refresh</button>
+            <div class="card">
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>Timestamp</th><th>Event</th><th>Operation</th><th>IP</th><th>Details</th></tr></thead>
+                        <tbody id="adminAuditTable">
+                            <tr id="emptyAuditRow"><td colspan="5" style="text-align:center;">No audit events recorded yet.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <div id="tab-master" class="tab-pane">
             <h2 style="color: var(--warning);">Master Account Management</h2>
             <p style="color: var(--text-secondary); margin-bottom: 20px;">Only the Master Admin can create and assign new sub-admin accounts.</p>
@@ -717,7 +735,10 @@
             document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
-            document.querySelector(`.nav-item[onclick="switchTab('${tabId}')"]`).classList.add('active');
+            // Escape the tabId before embedding in a CSS selector (guard against special chars)
+            const safeId = tabId.replace(/['"\\]/g, '');
+            const navEl = document.querySelector(`.nav-item[onclick*="switchTab('${safeId}')"]`);
+            if(navEl) navEl.classList.add('active');
         }
 
         // HTML escape helper to prevent XSS in dynamic HTML construction
@@ -889,44 +910,45 @@
         // --- Real-time Polling via API ---
         async function pollFrontendData() {
             try {
-                const [kycData, withdrawals, addresses, messages] = await Promise.all([
-                    api('kyc'),
+                const [kycList, withdrawals, addresses, messages] = await Promise.all([
+                    api('kyc?list=true'),
                     api('withdrawals'),
                     api('wallet'),
                     api('chat')
                 ]);
 
-                // 1. KYC Data
-                if(kycData) {
-                    const kycState = kycData.state || 'unverified';
-                    const kycName = kycData.name || 'Unknown';
-                    const kycDocType = kycData.docType || 'Unknown';
+                // 1. KYC Data (array of pending submissions)
+                if(kycList !== null) {
+                    const submissions = Array.isArray(kycList) ? kycList : [];
+                    const pending = submissions.filter(k => k && (k.state === 'pending' || k.state === 'submitted'));
+                    document.getElementById('stat-kyc').innerText = pending.length;
 
                     const kycTable = document.getElementById('adminKycTable');
                     const emptyKyc = document.getElementById('emptyKycRow');
+                    document.querySelectorAll('.dynamic-kyc-row').forEach(el => el.remove());
 
-                    if(kycState === 'pending' || kycState === 'submitted') {
-                        document.getElementById('stat-kyc').innerText = '1';
+                    if(pending.length === 0) {
+                        emptyKyc.style.display = 'table-row';
+                    } else {
                         emptyKyc.style.display = 'none';
-                        if(!document.getElementById('pendingKycRow')) {
+                        pending.forEach(kyc => {
                             const row = document.createElement('tr');
-                            row.id = 'pendingKycRow';
+                            row.className = 'dynamic-kyc-row';
+                            const walletDisplay = kyc.wallet && kyc.wallet.length >= 12
+                                ? esc(kyc.wallet.slice(0,8) + '...' + kyc.wallet.slice(-4))
+                                : kyc.wallet ? esc(kyc.wallet) : '<span style="color:var(--text-secondary);">Unknown</span>';
+                            const walletJson = JSON.stringify(kyc.wallet || '');
                             row.innerHTML = `
-                                <td>0x7A...3F92</td>
-                                <td>${esc(kycName)}</td>
-                                <td><span style="color: var(--warning); font-weight: bold;">${esc(kycDocType)}</span></td>
+                                <td style="font-family:monospace;font-size:12px;">${walletDisplay}</td>
+                                <td>${esc(kyc.name || 'Unknown')}</td>
+                                <td><span style="color:var(--warning);font-weight:bold;">${esc(kyc.docType || 'Unknown')}</span></td>
                                 <td>
-                                    <button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; display: inline-flex;" onclick="approveKYC()">Approve</button>
-                                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; display: inline-flex; margin-left: 5px;" onclick="rejectKYC()">Reject</button>
+                                    <button class="btn btn-success" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick="approveKYC(${walletJson})">Approve</button>
+                                    <button class="btn btn-danger" style="padding:4px 8px;font-size:12px;display:inline-flex;margin-left:5px;" onclick="rejectKYC(${walletJson})">Reject</button>
                                 </td>
                             `;
                             kycTable.appendChild(row);
-                        }
-                    } else {
-                        document.getElementById('stat-kyc').innerText = '0';
-                        emptyKyc.style.display = 'table-row';
-                        const row = document.getElementById('pendingKycRow');
-                        if(row) row.remove();
+                        });
                     }
                 }
 
@@ -999,12 +1021,12 @@
         }
 
         // Actions
-        async function approveKYC() {
-            await api('kyc', 'POST', { state: 'approved', name: '', docType: '' });
+        async function approveKYC(wallet) {
+            await api('kyc', 'POST', { state: 'approved', name: '', docType: '', wallet: wallet || '' });
             pollFrontendData();
         }
-        async function rejectKYC() {
-            await api('kyc', 'POST', { state: 'unverified', name: '', docType: '' });
+        async function rejectKYC(wallet) {
+            await api('kyc', 'POST', { state: 'unverified', name: '', docType: '', wallet: wallet || '' });
             pollFrontendData();
         }
 
@@ -1210,6 +1232,40 @@
             } else {
                 alert('Error: ' + ((result && result.error) || 'Failed to complete bot.'));
             }
+        }
+
+        // --- Audit Logs ---
+        async function loadAuditLogs() {
+            const logs = await api('audit-logs');
+            const table = document.getElementById('adminAuditTable');
+            const emptyRow = document.getElementById('emptyAuditRow');
+            document.querySelectorAll('.dynamic-audit-row').forEach(el => el.remove());
+            if(!logs || logs.error || !Array.isArray(logs) || logs.length === 0) {
+                emptyRow.style.display = 'table-row';
+                return;
+            }
+            emptyRow.style.display = 'none';
+            logs.forEach(entry => {
+                const row = document.createElement('tr');
+                row.className = 'dynamic-audit-row';
+                const eventColor = (entry.event === 'AUTH_FAILURE' || entry.event === 'INJECTION_BLOCKED')
+                    ? 'var(--danger)'
+                    : entry.event === 'ADMIN_WRITE' ? 'var(--warning)' : 'var(--accent)';
+                const skip = new Set(['timestamp','event','operation','ip']);
+                const details = Object.entries(entry)
+                    .filter(([k]) => !skip.has(k))
+                    .map(([k, v]) => `${k}: ${v}`)
+                    .join(', ');
+                row.innerHTML = `
+                    <td style="font-size:11px;color:var(--text-secondary);white-space:nowrap;">${esc(new Date(entry.timestamp).toLocaleString())}</td>
+                    <td><span style="color:${eventColor};font-weight:bold;font-size:12px;">${esc(entry.event || '')}</span></td>
+                    <td style="font-size:12px;">${esc(entry.operation || '')}</td>
+                    <td style="font-size:11px;color:var(--text-secondary);">${esc(entry.ip || '')}</td>
+                    <td style="font-size:11px;color:var(--text-secondary);">${esc(details)}</td>
+                `;
+                table.appendChild(row);
+            });
+            lucide.createIcons();
         }
 
         // Poll every 5 seconds
