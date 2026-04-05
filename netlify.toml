@@ -5,6 +5,56 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+# ── Block direct access to source file directories ────────────────────────────
+[[redirects]]
+  from = "/netlify/*"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/src/*"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/.git/*"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/.env*"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/package*.json"
+  to = "/404"
+  status = 404
+  force = true
+
+# ── Security headers on all pages ─────────────────────────────────────────────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-XSS-Protection = "1; mode=block"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';"
+
+# ── Prevent indexing of the admin page ────────────────────────────────────────
+[[headers]]
+  for = "/admin.html"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow, noarchive, nosnippet"
+    Cache-Control = "no-store, no-cache, must-revalidate, private"
+
+# ── API route headers (keep strong cache/CORS controls) ───────────────────────
 [[headers]]
   for = "/api/*"
   [headers.values]
