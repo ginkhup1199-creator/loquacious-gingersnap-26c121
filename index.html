@@ -344,7 +344,7 @@
             </div>
             <div class="wallet-info" style="margin-left: auto;">
                 <div style="font-size: 12px; color: var(--warning); display: none; margin-right: 8px;" id="userIdBadge">ID: <span id="userIdDisplay">--</span></div>
-                <div class="balance" id="walletBalance">12,450.00 USDT</div>
+                <div class="balance" id="walletBalance">0.00 USDT</div>
                 <button class="btn" id="walletBtn" onclick="toggleWallet()">
                     <i data-lucide="wallet"></i> Connect
                 </button>
@@ -424,23 +424,23 @@
                         </div>
                         <table>
                             <thead><tr><th>Asset</th><th>Total Balance</th><th>Value (USD)</th><th>Action</th></tr></thead>
-                            <tbody>
+                            <tbody id="walletAssetsBody">
                                 <tr>
                                     <td><div class="coin-info"><div class="coin-icon"><img src="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/usdt.svg"></div> <b>USDT</b></div></td>
-                                    <td>8,450.00</td>
-                                    <td style="color: var(--accent);">$8,450.00</td>
+                                    <td id="assetBal-USDT">0.00</td>
+                                    <td style="color: var(--accent);" id="assetUsd-USDT">$0.00</td>
                                     <td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="switchWalletTab('wallet-send')">Send</button></td>
                                 </tr>
                                 <tr>
                                     <td><div class="coin-info"><div class="coin-icon"><img src="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/btc.svg"></div> <b>BTC</b></div></td>
-                                    <td>0.045</td>
-                                    <td style="color: var(--accent);">$2,890.37</td>
+                                    <td id="assetBal-BTC">0.00000000</td>
+                                    <td style="color: var(--accent);" id="assetUsd-BTC">$0.00</td>
                                     <td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="switchWalletTab('wallet-send')">Send</button></td>
                                 </tr>
                                 <tr>
                                     <td><div class="coin-info"><div class="coin-icon"><img src="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/eth.svg"></div> <b>ETH</b></div></td>
-                                    <td>0.321</td>
-                                    <td style="color: var(--accent);">$1,109.63</td>
+                                    <td id="assetBal-ETH">0.00000000</td>
+                                    <td style="color: var(--accent);" id="assetUsd-ETH">$0.00</td>
                                     <td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="switchWalletTab('wallet-send')">Send</button></td>
                                 </tr>
                             </tbody>
@@ -1173,21 +1173,6 @@
                 }
             } else {
                 showToast('No Web3 wallet detected. Please install MetaMask.', 'warning');
-                // Fallback for demo/desktop without MetaMask
-                const demoAddr = '0x7A9e3C12f8B4D5E6A1b2c3D4e5F67890aB1c3F92';
-                if(confirm('MetaMask not found. Use demo wallet for testing?')) {
-                    walletAddr = demoAddr;
-                    isConnected = true;
-                    localStorage.setItem('walletConnected', 'true');
-                    localStorage.setItem('walletAddr', walletAddr);
-                    const user = await api('users', 'POST', { wallet: walletAddr });
-                    if(user && user.userId) {
-                        currentUserId = user.userId;
-                        localStorage.setItem('userId', currentUserId);
-                    }
-                    updateUIState();
-                    pollBackend();
-                }
             }
         }
 
@@ -1656,6 +1641,11 @@
                     if(balanceEl) balanceEl.innerText = fmt + ' USDT';
                     const swapBalEl = document.getElementById('swapBalanceDisplay');
                     if(swapBalEl) swapBalEl.innerText = fmt;
+                    // Update USDT asset row in wallet overview table
+                    const usdtBal = document.getElementById('assetBal-USDT');
+                    if(usdtBal) usdtBal.innerText = fmt;
+                    const usdtUsd = document.getElementById('assetUsd-USDT');
+                    if(usdtUsd) usdtUsd.innerText = '$' + fmt;
                 }
 
                 // 8. Chat messages (update if chat is open)
