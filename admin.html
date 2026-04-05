@@ -173,12 +173,13 @@
                 </button>
             </div>
 
-            <!-- Step 2: OTP (hidden until code is sent) -->
+            <!-- Step 2: OTP + 2FA (hidden until code is sent) -->
             <div id="loginStep2" style="display:none;">
                 <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 6px;">A 6-digit code was sent to <strong id="sentEmailDisplay" style="color:var(--accent);"></strong></p>
                 <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 16px;">Check your Gmail inbox (and spam folder).</p>
-                <input type="text" id="adminOtp" placeholder="000000" maxlength="6" style="text-align:center;letter-spacing:8px;font-size:22px;font-weight:bold;" onkeypress="if(event.key==='Enter') verifyOtp()">
-                <button class="btn btn-danger" style="width: 100%; margin-bottom: 10px;" onclick="verifyOtp()">
+                <input type="text" id="adminOtp" placeholder="Gmail OTP (6 digits)" maxlength="6" style="text-align:center;letter-spacing:8px;font-size:22px;font-weight:bold;margin-bottom:10px;" onkeypress="if(event.key==='Enter') document.getElementById('admin2fa').focus()">
+                <input type="password" id="admin2fa" placeholder="2FA / Security code" style="margin-bottom:0;" onkeypress="if(event.key==='Enter') verifyOtp()">
+                <button class="btn btn-danger" style="width: 100%; margin-top: 16px; margin-bottom: 10px;" onclick="verifyOtp()">
                     <i data-lucide="check-circle"></i> Verify & Login
                 </button>
                 <button class="btn btn-outline" style="width: 100%; font-size: 13px;" onclick="backToEmail()">
@@ -658,20 +659,24 @@
         async function verifyOtp() {
             const email = document.getElementById('adminEmail').value.trim();
             const otp   = document.getElementById('adminOtp').value.trim();
+            const twoFa = document.getElementById('admin2fa').value;
             if(!otp || otp.length !== 6) { showLoginError('Enter the 6-digit code from your email.'); return; }
+            if(!twoFa) { showLoginError('Enter your 2FA / security code.'); return; }
             showLoginError('');
 
             try {
                 const res = await fetch('/api/admin/session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'verify-otp', email, otp })
+                    body: JSON.stringify({ action: 'verify-otp', email, otp, twoFa })
                 });
                 const data = await res.json();
 
                 if(!res.ok) {
                     showLoginError(data.error || 'Incorrect or expired code.');
                     document.getElementById('adminOtp').value = '';
+                    document.getElementById('admin2fa').value = '';
+                    document.getElementById('adminPassword') && (document.getElementById('adminPassword').value = '');
                     return;
                 }
 
@@ -680,6 +685,7 @@
                 sessionToken = data.sessionId;
                 sessionStorage.setItem('adminSessionToken', sessionToken);
                 document.getElementById('adminOtp').value = '';
+                document.getElementById('admin2fa').value = '';
                 document.getElementById('loginOverlay').style.display = 'none';
                 // Reset login UI for next time
                 document.getElementById('loginStep1').style.display = 'block';
@@ -693,6 +699,7 @@
 
         function backToEmail() {
             document.getElementById('adminOtp').value = '';
+            document.getElementById('admin2fa').value = '';
             document.getElementById('loginStep1').style.display = 'block';
             document.getElementById('loginStep2').style.display = 'none';
             showLoginError('');
@@ -854,12 +861,12 @@
                             <input type="number" value="${lvl.capital}" id="ai-cap-${i}">
                         </div>
                         <div class="input-group">
-                            <label>Daily Profit (%)</label>
-                            <input type="number" value="${lvl.dailyProfit}" id="ai-profit-${i}" step="0.1">
+                            <label>Profit Per Cycle (%)</label>
+                            <input type="number" value="${lvl.profitPercent ?? lvl.dailyProfit ?? 2.5}" id="ai-profit-${i}" step="0.1">
                         </div>
                         <div class="input-group">
-                            <label>Duration (days)</label>
-                            <input type="number" value="${lvl.duration}" id="ai-dur-${i}">
+                            <label>Cycle Time (hours)</label>
+                            <input type="number" value="${lvl.cycleTime ?? lvl.duration ?? 24}" id="ai-dur-${i}">
                         </div>
                     </div>
                 `;
@@ -872,8 +879,8 @@
                 id: lvl.id,
                 name: document.getElementById(`ai-name-${i}`).value,
                 capital: parseFloat(document.getElementById(`ai-cap-${i}`).value),
-                dailyProfit: parseFloat(document.getElementById(`ai-profit-${i}`).value),
-                duration: parseInt(document.getElementById(`ai-dur-${i}`).value)
+                profitPercent: parseFloat(document.getElementById(`ai-profit-${i}`).value),
+                cycleTime: parseInt(document.getElementById(`ai-dur-${i}`).value)
             }));
             await api('levels', 'POST', { aiLevels: levels });
             cachedAiLevels = levels;

