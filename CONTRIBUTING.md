@@ -85,7 +85,7 @@ security: increase OTP entropy to 6 digits
 ### Security Requirements
 
 Every API function must:
-1. Return a 503 if `ADMIN_TOKEN` is not configured (for admin-write endpoints)
+1. Return a 503 if `ADMIN_TOKEN` is not configured, **at the top of the handler** (before any method dispatch), for all endpoints that gate any operation on `ADMIN_TOKEN`. Public-only endpoints that do not use `ADMIN_TOKEN` at all may omit this check.
 2. Use `secureJson()` for all responses
 3. Sanitize all string inputs
 4. Validate admin session for any write operations that modify data

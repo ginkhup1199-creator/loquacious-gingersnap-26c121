@@ -1,0 +1,19 @@
+# Every file in this repository requires review from the repository owner
+# before any pull request can be merged.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+* @ginkhup1199-creator
+
+# Core API functions — require owner sign-off on every change
+/netlify/functions/ @ginkhup1199-creator
+/netlify/lib/        @ginkhup1199-creator
+
+# Frontend source
+/src/               @ginkhup1199-creator
+/index.html         @ginkhup1199-creator
+/admin.html         @ginkhup1199-creator
+
+# Deployment & configuration
+/netlify.toml       @ginkhup1199-creator
+/package.json       @ginkhup1199-creator
+/package-lock.json  @ginkhup1199-creator

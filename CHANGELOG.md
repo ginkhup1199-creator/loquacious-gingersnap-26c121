@@ -33,7 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `api-levels.mts` — binary options and AI arbitrage level configuration
 - `api-settings.mts` — global fees and rates
 - `api-features.mts` — feature flag management
-- `api-market-data.mts` — live crypto price feeds with Binance WebSocket fallback
+- `api-market-data.mts` — simulated crypto price feeds for market data display
 - `api-chat.mts` — live chat with LLM injection protection
 - `api-admin.mts` — admin statistics dashboard
 - `api-wallet.mts` — wallet management

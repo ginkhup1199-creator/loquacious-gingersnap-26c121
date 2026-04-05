@@ -1,7 +1,12 @@
 import type { Config } from "@netlify/functions";
 import { secureJson } from "../lib/security.js";
 
-const VERSION = "1.0.0";
+const VERSION =
+  process.env.APP_VERSION ??
+  process.env.npm_package_version ??
+  process.env.COMMIT_REF ??
+  process.env.DEPLOY_ID ??
+  "unknown";
 
 export default async (_req: Request) => {
   return secureJson(

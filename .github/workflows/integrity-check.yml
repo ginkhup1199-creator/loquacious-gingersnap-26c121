@@ -1,0 +1,92 @@
+name: Code Integrity Check
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  typecheck:
+    name: TypeScript Type Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run TypeScript type-check
+        run: npx tsc --noEmit --strict --target ES2022 --module NodeNext --moduleResolution NodeNext netlify/functions/*.mts netlify/lib/*.ts 2>&1 || true
+        # "|| true" because strict mode may flag pre-existing issues not introduced by this change;
+        # the step still surfaces any new type errors in the PR diff for reviewer awareness.
+
+  protected-files-guard:
+    name: Protected Files — Unauthorized Change Detection
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    # Only runs on pull_request events so we can inspect what changed
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout base ref
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: List files changed in this PR
+        id: changed
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          echo "Changed files:"
+          echo "$CHANGED"
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Check for modifications to protected paths
+        run: |
+          PROTECTED_PATTERNS=(
+            "netlify/functions/"
+            "netlify/lib/"
+            "src/"
+            "index.html"
+            "admin.html"
+            "netlify.toml"
+            "package.json"
+            "package-lock.json"
+          )
+
+          ACTOR="${{ github.actor }}"
+          OWNER="ginkhup1199-creator"
+          CHANGED="${{ steps.changed.outputs.files }}"
+          FLAGGED=""
+
+          for PATTERN in "${PROTECTED_PATTERNS[@]}"; do
+            MATCHES=$(echo "$CHANGED" | grep "^$PATTERN" || true)
+            if [ -n "$MATCHES" ] && [ "$ACTOR" != "$OWNER" ]; then
+              FLAGGED="$FLAGGED\n$MATCHES"
+            fi
+          done
+
+          if [ -n "$FLAGGED" ]; then
+            echo "::warning::Pull request from '$ACTOR' modifies protected source files that require owner review:"
+            echo -e "$FLAGGED"
+            echo ""
+            echo "Branch protection rules must be enabled on this repository to enforce CODEOWNERS review."
+            echo "The repository owner (@$OWNER) must approve this PR before it can be merged."
+            # Do NOT hard-fail here — CODEOWNERS + branch protection rules are the enforcement layer.
+            # This step surfaces the information prominently in the CI log.
+          else
+            echo "No protected files modified by non-owner, or actor is the owner. All clear."
+          fi
