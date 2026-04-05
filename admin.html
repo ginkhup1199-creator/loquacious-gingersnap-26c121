@@ -129,11 +129,11 @@
 
         /* ── Print protection: hide everything when printing ─────────────── */
         @media print {
-            * { display: none !important; visibility: hidden !important; }
+            /* Hide all direct children of body (avoids * selector conflict with ::after) */
+            body > * { display: none !important; }
             body::after {
                 content: "Printing this page is not permitted.";
                 display: block !important;
-                visibility: visible !important;
                 position: fixed;
                 top: 50%; left: 50%;
                 transform: translate(-50%, -50%);
@@ -1156,14 +1156,18 @@
 
         // ── Source-protection: block right-click, print shortcuts & DevTools ──
 
-        // 1. Disable right-click context menu on the whole page
+        // 1. Disable right-click context menu except on interactive form elements
         document.addEventListener('contextmenu', function(e) {
+            const tag = e.target.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
             e.preventDefault();
         });
 
         // 2. Block keyboard shortcuts that expose or copy source code
         document.addEventListener('keydown', function(e) {
             const ctrl = e.ctrlKey || e.metaKey;
+            const tag  = document.activeElement.tagName;
+            const inForm = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
 
             // Ctrl+P / Cmd+P — print
             if (ctrl && e.key === 'p') { e.preventDefault(); return; }
@@ -1179,15 +1183,10 @@
             if (ctrl && e.shiftKey && (e.key === 'J' || e.key === 'j')) { e.preventDefault(); return; }
             // Ctrl+Shift+C — DevTools Element picker
             if (ctrl && e.shiftKey && (e.key === 'C' || e.key === 'c')) { e.preventDefault(); return; }
-            // Ctrl+A — select all (blocked outside inputs)
-            if (ctrl && e.key === 'a' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+            // Ctrl+A — select all (blocked outside form inputs)
+            if (ctrl && e.key === 'a' && !inForm) {
                 e.preventDefault(); return;
             }
-        });
-
-        // 3. Block the browser's built-in beforeprint event
-        window.addEventListener('beforeprint', function(e) {
-            e.stopImmediatePropagation();
         });
 
     </script>
