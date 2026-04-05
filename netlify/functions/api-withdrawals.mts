@@ -5,6 +5,7 @@ import {
   secureJson,
   sanitizeString,
   auditLog,
+  persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
 
@@ -52,7 +53,7 @@ export default async (req: Request, context: Context) => {
       const allowedStatuses = ["Completed", "Rejected"];
       const safeStatus = allowedStatuses.includes(newStatus) ? newStatus : "Completed";
 
-      auditLog("ADMIN_WRITE", { operation: "process-withdrawal", withdrawalId: body.id, status: safeStatus, ip });
+      await persistAuditLog("ADMIN_WRITE", { operation: "process-withdrawal", withdrawalId: body.id, status: safeStatus, ip }, store);
 
       const existing = (await store.get("withdrawals", { type: "json" })) || [];
       const updated = (existing as { id: number; status: string }[]).map(

@@ -1,6 +1,7 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
 import { secureJson, sanitizeString } from "../lib/security.js";
+import { randomInt } from "crypto";
 
 const DEMO_RATES: Record<string, number> = {
   USDT: 1, USDC: 1, ETH: 3200, BTC: 65000, BNB: 600, SOL: 145,
@@ -33,26 +34,54 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Invalid wallet address" }, 400);
     }
 
-    // Handle binary trade result (called after timer expires on client)
+    // ── Handle binary trade result ────────────────────────────────────────────
+    // Outcome is calculated server-side; the client only signals that the timer
+    // has expired by sending the tradeId. Client-supplied profit is ignored.
     if (type === "binary-result") {
-      const { profit, tradeId } = body;
-      const balance = ((await store.get(`balance-${safeWallet}`, { type: "json" })) || { usdt: 0 }) as { usdt: number };
-      balance.usdt = Math.max(0, balance.usdt + parseFloat(profit));
-      await store.setJSON(`balance-${safeWallet}`, balance);
-
-      // Update trade status
-      const trades = ((await store.get(`trades-${safeWallet}`, { type: "json" })) as any[]) || [];
-      const tradeIdx = trades.findIndex((t: any) => t.id === tradeId);
-      if (tradeIdx !== -1) {
-        trades[tradeIdx].status = parseFloat(profit) >= 0 ? "won" : "lost";
-        trades[tradeIdx].profit = parseFloat(profit);
-        await store.setJSON(`trades-${safeWallet}`, trades);
+      const { tradeId } = body;
+      if (!tradeId) {
+        return secureJson({ error: "Trade ID required" }, 400);
       }
 
-      return secureJson({ success: true, newBalance: balance });
+      const trades = ((await store.get(`trades-${safeWallet}`, { type: "json" })) as any[]) || [];
+      const tradeIdx = trades.findIndex((t: any) => t.id === Number(tradeId));
+
+      if (tradeIdx === -1) {
+        return secureJson({ error: "Trade not found" }, 404);
+      }
+
+      const trade = trades[tradeIdx];
+      if (trade.type !== "binary" || trade.status !== "active") {
+        return secureJson({ error: "Trade is not an active binary trade" }, 400);
+      }
+
+      // Verify trading time has elapsed (trade.id is a Unix-ms timestamp)
+      const tradeAgeMs = Date.now() - Number(trade.id);
+      const requiredMs = (Number(trade.tradingTime) || 60) * 1000;
+      if (tradeAgeMs < requiredMs - 3000) { // 3 s buffer for network latency
+        return secureJson({ error: "Trading time has not elapsed yet" }, 400);
+      }
+
+      // Server-side outcome using cryptographic randomness (48 % win rate)
+      const win = randomInt(0, 100) < 48;
+      const capital = Math.max(0, parseFloat(String(trade.capital)) || 0);
+      const profitPct = Math.min(99, Math.max(0, parseFloat(String(trade.profitPercent)) || 85));
+      const profit = win
+        ? parseFloat((capital * profitPct / 100).toFixed(2))
+        : -capital;
+
+      const balance = ((await store.get(`balance-${safeWallet}`, { type: "json" })) || { usdt: 0 }) as { usdt: number };
+      balance.usdt = Math.max(0, balance.usdt + profit);
+      await store.setJSON(`balance-${safeWallet}`, balance);
+
+      trades[tradeIdx].status = win ? "won" : "lost";
+      trades[tradeIdx].profit = profit;
+      await store.setJSON(`trades-${safeWallet}`, trades);
+
+      return secureJson({ success: true, won: win, profit, newBalance: balance });
     }
 
-    // Record a new trade
+    // ── Record a new trade ────────────────────────────────────────────────────
     const trades = ((await store.get(`trades-${safeWallet}`, { type: "json" })) as any[]) || [];
     const newTrade: Record<string, any> = {
       id: Date.now(),

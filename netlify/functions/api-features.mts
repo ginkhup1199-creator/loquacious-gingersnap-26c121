@@ -4,6 +4,7 @@ import {
   validateAdminSession,
   secureJson,
   auditLog,
+  persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
 
@@ -37,7 +38,7 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Unauthorized" }, 401);
     }
 
-    auditLog("ADMIN_WRITE", { operation: "update-features", ip });
+    await persistAuditLog("ADMIN_WRITE", { operation: "update-features", ip }, store);
 
     const body = await req.json();
     // Only accept known boolean feature flags

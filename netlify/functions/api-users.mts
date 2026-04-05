@@ -9,6 +9,10 @@ function generate5DigitId(): string {
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
 
+  if (!process.env.ADMIN_TOKEN) {
+    return secureJson({ error: "Service not configured" }, 503);
+  }
+
   if (req.method === "GET") {
     const url = new URL(req.url);
     const wallet = url.searchParams.get("wallet");

@@ -5,6 +5,7 @@ import {
   secureJson,
   sanitizeString,
   auditLog,
+  persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
 
@@ -96,7 +97,7 @@ export default async (req: Request, context: Context) => {
     if (existing.length > 100) existing.splice(100);
     await store.setJSON(txKey, existing);
 
-    auditLog("ADMIN_WRITE", { operation: "record-transaction", wallet: `${wallet.slice(0, 8)}…`, type, ip });
+    await persistAuditLog("ADMIN_WRITE", { operation: "record-transaction", wallet: `${wallet.slice(0, 8)}…`, type, ip }, store);
 
     return secureJson(transaction, 201);
   }

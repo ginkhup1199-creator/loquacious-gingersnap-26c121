@@ -51,6 +51,7 @@ export function securityHeaders(options: { cache?: boolean } = {}): Record<strin
     "X-XSS-Protection": "1; mode=block",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
   };
 
   if (!options.cache) {
@@ -226,4 +227,49 @@ export function auditLog(event: string, details: Record<string, unknown> = {}): 
   }
 
   console.log(`[AUDIT] ${JSON.stringify({ timestamp: new Date().toISOString(), event, ...safe })}`);
+}
+
+// ---------------------------------------------------------------------------
+// Persistent Audit Logging
+// ---------------------------------------------------------------------------
+
+interface AuditEntry {
+  timestamp: string;
+  event: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Logs an audit event to console AND persists it to @netlify/blobs.
+ * Maintains a rolling window of the last 500 entries (newest first).
+ * Non-fatal: persistence failures do not interrupt the request.
+ */
+export async function persistAuditLog(
+  event: string,
+  details: Record<string, unknown> = {},
+  store: ReturnType<typeof getStore>
+): Promise<void> {
+  auditLog(event, details);
+
+  const safe: Record<string, unknown> = { ...details };
+  delete safe["token"];
+  delete safe["adminToken"];
+  delete safe["password"];
+  delete safe["secret"];
+  delete safe["sessionId"];
+
+  const entry: AuditEntry = {
+    timestamp: new Date().toISOString(),
+    event,
+    ...safe,
+  };
+
+  try {
+    const existing = ((await store.get("audit-log", { type: "json" })) ?? []) as AuditEntry[];
+    existing.unshift(entry);
+    if (existing.length > 500) existing.splice(500);
+    await store.setJSON("audit-log", existing);
+  } catch {
+    // Non-fatal: persist failure must never break the operation
+  }
 }

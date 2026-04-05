@@ -5,6 +5,7 @@ import {
   secureJson,
   sanitizeString,
   auditLog,
+  persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
 
@@ -34,7 +35,7 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Unauthorized" }, 401);
     }
 
-    auditLog("ADMIN_WRITE", { operation: "update-settings", ip });
+    await persistAuditLog("ADMIN_WRITE", { operation: "update-settings", ip }, store);
 
     const body = await req.json();
     // Only accept known numeric settings
