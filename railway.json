@@ -1,0 +1,1 @@
+{\n  \"build\": \"npm install\",\n  \"start\": \"node server.js\",\n  \"env\": {\n    \"ADMIN_TOKEN\": \"your_admin_token\",\n    \"ADMIN_EMAIL\": \"your_admin_email\",\n    \"GMAIL_USER\": \"your_gmail_user\",\n    \"GMAIL_APP_PASSWORD\": \"your_gmail_app_password\",\n    \"NODE_ENV\": \"production\"\n  }\n}
