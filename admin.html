@@ -854,12 +854,12 @@
                             <input type="number" value="${lvl.capital}" id="ai-cap-${i}">
                         </div>
                         <div class="input-group">
-                            <label>Daily Profit (%)</label>
-                            <input type="number" value="${lvl.dailyProfit}" id="ai-profit-${i}" step="0.1">
+                            <label>Profit Per Cycle (%)</label>
+                            <input type="number" value="${lvl.profitPercent ?? lvl.dailyProfit ?? 2.5}" id="ai-profit-${i}" step="0.1">
                         </div>
                         <div class="input-group">
-                            <label>Duration (days)</label>
-                            <input type="number" value="${lvl.duration}" id="ai-dur-${i}">
+                            <label>Cycle Time (hours)</label>
+                            <input type="number" value="${lvl.cycleTime ?? lvl.duration ?? 24}" id="ai-dur-${i}">
                         </div>
                     </div>
                 `;
@@ -872,8 +872,8 @@
                 id: lvl.id,
                 name: document.getElementById(`ai-name-${i}`).value,
                 capital: parseFloat(document.getElementById(`ai-cap-${i}`).value),
-                dailyProfit: parseFloat(document.getElementById(`ai-profit-${i}`).value),
-                duration: parseInt(document.getElementById(`ai-dur-${i}`).value)
+                profitPercent: parseFloat(document.getElementById(`ai-profit-${i}`).value),
+                cycleTime: parseInt(document.getElementById(`ai-dur-${i}`).value)
             }));
             await api('levels', 'POST', { aiLevels: levels });
             cachedAiLevels = levels;

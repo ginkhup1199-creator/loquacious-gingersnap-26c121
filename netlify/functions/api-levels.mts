@@ -18,11 +18,11 @@ const DEFAULT_BINARY_LEVELS = [
 ];
 
 const DEFAULT_AI_LEVELS = [
-  { id: 1, name: "Starter", capital: 200, dailyProfit: 2.5, duration: 7 },
-  { id: 2, name: "Advanced", capital: 1000, dailyProfit: 3.5, duration: 14 },
-  { id: 3, name: "Pro", capital: 5000, dailyProfit: 5.0, duration: 21 },
-  { id: 4, name: "Elite", capital: 10000, dailyProfit: 6.5, duration: 30 },
-  { id: 5, name: "Whale", capital: 50000, dailyProfit: 8.0, duration: 30 },
+  { id: 1, name: "Starter",  capital: 200,   cycleTime: 24, profitPercent: 2.5 },
+  { id: 2, name: "Advanced", capital: 1000,  cycleTime: 12, profitPercent: 3.5 },
+  { id: 3, name: "Pro",      capital: 5000,  cycleTime: 8,  profitPercent: 5.0 },
+  { id: 4, name: "Elite",    capital: 10000, cycleTime: 6,  profitPercent: 6.5 },
+  { id: 5, name: "Whale",    capital: 50000, cycleTime: 4,  profitPercent: 8.0 },
 ];
 
 const MAX_BINARY_LEVELS = 10;
@@ -71,9 +71,9 @@ export default async (req: Request, context: Context) => {
       const validated = (body.aiLevels as any[]).slice(0, MAX_AI_LEVELS).map((lvl: any, idx: number) => ({
         id: Number(lvl.id) || idx + 1,
         name: sanitizeString(String(lvl.name ?? ""), 32) || `Level ${idx + 1}`,
-        capital:     Math.max(1,   Math.min(1_000_000, parseFloat(lvl.capital)     || 200)),
-        dailyProfit: Math.max(0.1, Math.min(50,        parseFloat(lvl.dailyProfit) || 2.5)),
-        duration:    Math.max(1,   Math.min(365,        parseInt(lvl.duration)     || 7)),
+        capital:       Math.max(1,   Math.min(1_000_000, parseFloat(lvl.capital)       || 200)),
+        cycleTime:     Math.max(1,   Math.min(720,        parseInt(lvl.cycleTime)       || 24)),
+        profitPercent: Math.max(0.1, Math.min(50,         parseFloat(lvl.profitPercent) || 2.5)),
       }));
       await store.setJSON("ai-levels", validated);
     }
