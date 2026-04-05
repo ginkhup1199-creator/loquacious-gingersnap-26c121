@@ -84,6 +84,15 @@ export default async (req: Request, context: Context) => {
       trades[tradeIdx].profit = profit;
       await store.setJSON(`trades-${safeWallet}`, trades);
 
+      await persistAuditLog("BINARY_RESULT", {
+        wallet: `${safeWallet.slice(0, 8)}…`,
+        tradeId,
+        won: win,
+        profit,
+        override: outcome !== "random" ? outcome : undefined,
+        ip,
+      }, store);
+
       return secureJson({ success: true, won: win, profit, newBalance: balance });
     }
 
