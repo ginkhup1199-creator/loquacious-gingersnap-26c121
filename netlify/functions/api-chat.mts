@@ -9,6 +9,8 @@ import {
   getClientIp,
 } from "../lib/security.js";
 
+const MAX_CHAT_MESSAGES = 200;
+
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
   const ip = getClientIp(context);
@@ -48,7 +50,7 @@ export default async (req: Request, context: Context) => {
     const existing = ((await store.get("chat-messages", { type: "json" })) || []) as unknown[];
     existing.push({ sender, text, time: Date.now() });
     // Keep last 200 messages to prevent unbounded growth
-    if (existing.length > 200) existing.splice(0, existing.length - 200);
+    if (existing.length > MAX_CHAT_MESSAGES) existing.splice(0, existing.length - MAX_CHAT_MESSAGES);
     await store.setJSON("chat-messages", existing);
     return secureJson(existing);
   }

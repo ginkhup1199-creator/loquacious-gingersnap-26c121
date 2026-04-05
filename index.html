@@ -1198,9 +1198,10 @@
 
         // KYC Functions
         async function submitKYC() {
-            const userName = document.getElementById('kycName').value || 'John Doe';
+            if(!isConnected || !walletAddr) { showToast('Connect your wallet first.', 'warning'); return; }
+            const userName = document.getElementById('kycName').value.trim() || 'Unknown';
             const docType = document.getElementById('kycDocType').value;
-            await api('kyc', 'POST', { state: 'pending', name: userName, docType: docType });
+            await api('kyc', 'POST', { state: 'pending', name: userName, docType: docType, wallet: walletAddr });
             showToast('KYC Submitted! Awaiting admin approval.');
             pollBackend();
         }
@@ -1402,16 +1403,19 @@
             if(!result || result.error) { showToast(result?.error || 'Trade failed.', 'error'); return; }
             showToast(`${direction} trade placed! Trade #${result.id} — ${lvl.tradingTime}s timer started.`);
 
-            // Simulate outcome after tradingTime seconds
+            // Signal timer expiry to server — server calculates the outcome
             setTimeout(async () => {
-                // 48% win rate — standard house edge for binary options (52% favor platform)
-                const win = Math.random() > 0.48;
-                const profit = win ? parseFloat((lvl.capital * lvl.profitPercent / 100).toFixed(2)) : -parseFloat(lvl.capital);
-                const outcomeMsg = win
-                    ? `✅ WIN! +$${(lvl.capital * lvl.profitPercent / 100).toFixed(2)} credited`
-                    : `❌ LOSS! -$${lvl.capital} deducted`;
-                showToast(`Trade #${result.id}: ${outcomeMsg}`, win ? null : 'error');
-                await api('trades', 'POST', { type: 'binary-result', wallet: walletAddr, tradeId: result.id, profit });
+                const outcome = await api('trades', 'POST', { type: 'binary-result', wallet: walletAddr, tradeId: result.id });
+                if(!outcome || outcome.error) {
+                    showToast(`Trade #${result.id}: Error resolving outcome`, 'error');
+                    pollBackend();
+                    return;
+                }
+                const profit = Math.abs(outcome.profit || 0).toFixed(2);
+                const outcomeMsg = outcome.won
+                    ? `✅ WIN! +$${profit} credited`
+                    : `❌ LOSS! -$${profit} deducted`;
+                showToast(`Trade #${result.id}: ${outcomeMsg}`, outcome.won ? null : 'error');
                 pollBackend();
             }, lvl.tradingTime * 1000);
         }
@@ -1559,7 +1563,8 @@
         async function pollBackend() {
             try {
                 const requests = [
-                    api('kyc'), api('wallet'), api('withdrawals'),
+                    (isConnected && walletAddr ? api('kyc?wallet=' + encodeURIComponent(walletAddr)) : api('kyc')),
+                    api('wallet'), api('withdrawals'),
                     api('features'), api('settings'), api('levels'), api('chat')
                 ];
                 // Also fetch balance if wallet is connected

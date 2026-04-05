@@ -239,6 +239,8 @@ interface AuditEntry {
   [key: string]: unknown;
 }
 
+const MAX_AUDIT_LOG_ENTRIES = 500;
+
 /**
  * Logs an audit event to console AND persists it to @netlify/blobs.
  * Maintains a rolling window of the last 500 entries (newest first).
@@ -267,7 +269,7 @@ export async function persistAuditLog(
   try {
     const existing = ((await store.get("audit-log", { type: "json" })) ?? []) as AuditEntry[];
     existing.unshift(entry);
-    if (existing.length > 500) existing.splice(500);
+    if (existing.length > MAX_AUDIT_LOG_ENTRIES) existing.splice(MAX_AUDIT_LOG_ENTRIES);
     await store.setJSON("audit-log", existing);
   } catch {
     // Non-fatal: persist failure must never break the operation

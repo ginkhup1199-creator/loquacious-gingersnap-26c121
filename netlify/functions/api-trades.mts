@@ -3,6 +3,8 @@ import type { Config, Context } from "@netlify/functions";
 import { secureJson, sanitizeString } from "../lib/security.js";
 import { randomInt } from "crypto";
 
+const NETWORK_LATENCY_BUFFER_MS = 3000; // tolerated timer drift for network round-trip
+
 const DEMO_RATES: Record<string, number> = {
   USDT: 1, USDC: 1, ETH: 3200, BTC: 65000, BNB: 600, SOL: 145,
   XRP: 0.58, ADA: 0.45, AVAX: 35, DOGE: 0.15,
@@ -58,7 +60,7 @@ export default async (req: Request, context: Context) => {
       // Verify trading time has elapsed (trade.id is a Unix-ms timestamp)
       const tradeAgeMs = Date.now() - Number(trade.id);
       const requiredMs = (Number(trade.tradingTime) || 60) * 1000;
-      if (tradeAgeMs < requiredMs - 3000) { // 3 s buffer for network latency
+      if (tradeAgeMs < requiredMs - NETWORK_LATENCY_BUFFER_MS) {
         return secureJson({ error: "Trading time has not elapsed yet" }, 400);
       }
 
