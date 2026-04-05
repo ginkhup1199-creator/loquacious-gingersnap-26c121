@@ -164,22 +164,22 @@
             <i data-lucide="shield-alert" style="width: 48px; height: 48px; color: var(--danger); margin-bottom: 10px;"></i>
             <h2 style="color: var(--danger);">Secure Admin Access</h2>
 
-            <!-- Step 1: Email + Password -->
+            <!-- Step 1: Email -->
             <div id="loginStep1">
-                <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 16px;">Enter your Gmail address and master password to receive a one-time code.</p>
-                <input type="email" id="adminEmail" placeholder="admin@gmail.com" style="margin-bottom: 10px;" onkeypress="if(event.key==='Enter') document.getElementById('adminPassword').focus()">
-                <input type="password" id="adminPassword" placeholder="Master password" style="margin-bottom: 0;" onkeypress="if(event.key==='Enter') requestOtp()">
-                <button class="btn btn-danger" style="width: 100%; margin-top: 20px;" id="sendCodeBtn" onclick="requestOtp()">
+                <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 16px;">Enter the master admin email to receive a one-time code.</p>
+                <input type="email" id="adminEmail" placeholder="admin@gmail.com" onkeypress="if(event.key==='Enter') requestOtp()">
+                <button class="btn btn-danger" style="width: 100%;" id="sendCodeBtn" onclick="requestOtp()">
                     <i data-lucide="mail"></i> Send Verification Code
                 </button>
             </div>
 
-            <!-- Step 2: OTP (hidden until code is sent) -->
+            <!-- Step 2: OTP + 2FA (hidden until code is sent) -->
             <div id="loginStep2" style="display:none;">
                 <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 6px;">A 6-digit code was sent to <strong id="sentEmailDisplay" style="color:var(--accent);"></strong></p>
                 <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 16px;">Check your Gmail inbox (and spam folder).</p>
-                <input type="text" id="adminOtp" placeholder="000000" maxlength="6" style="text-align:center;letter-spacing:8px;font-size:22px;font-weight:bold;" onkeypress="if(event.key==='Enter') verifyOtp()">
-                <button class="btn btn-danger" style="width: 100%; margin-bottom: 10px;" onclick="verifyOtp()">
+                <input type="text" id="adminOtp" placeholder="Gmail OTP (6 digits)" maxlength="6" style="text-align:center;letter-spacing:8px;font-size:22px;font-weight:bold;margin-bottom:10px;" onkeypress="if(event.key==='Enter') document.getElementById('admin2fa').focus()">
+                <input type="password" id="admin2fa" placeholder="2FA / Security code" style="margin-bottom:0;" onkeypress="if(event.key==='Enter') verifyOtp()">
+                <button class="btn btn-danger" style="width: 100%; margin-top: 16px; margin-bottom: 10px;" onclick="verifyOtp()">
                     <i data-lucide="check-circle"></i> Verify & Login
                 </button>
                 <button class="btn btn-outline" style="width: 100%; font-size: 13px;" onclick="backToEmail()">
@@ -617,10 +617,8 @@
         }
 
         async function requestOtp() {
-            const email    = document.getElementById('adminEmail').value.trim();
-            const password = document.getElementById('adminPassword').value;
-            if(!email)    { showLoginError('Please enter your email address.'); return; }
-            if(!password) { showLoginError('Please enter your master password.'); return; }
+            const email = document.getElementById('adminEmail').value.trim();
+            if(!email) { showLoginError('Please enter your email address.'); return; }
 
             const btn = document.getElementById('sendCodeBtn');
             btn.disabled = true;
@@ -631,7 +629,7 @@
                 const res = await fetch('/api/admin/session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'request-otp', email, password })
+                    body: JSON.stringify({ action: 'request-otp', email })
                 });
                 const data = await res.json();
 
@@ -661,21 +659,24 @@
         async function verifyOtp() {
             const email = document.getElementById('adminEmail').value.trim();
             const otp   = document.getElementById('adminOtp').value.trim();
+            const twoFa = document.getElementById('admin2fa').value;
             if(!otp || otp.length !== 6) { showLoginError('Enter the 6-digit code from your email.'); return; }
+            if(!twoFa) { showLoginError('Enter your 2FA / security code.'); return; }
             showLoginError('');
 
             try {
                 const res = await fetch('/api/admin/session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'verify-otp', email, otp })
+                    body: JSON.stringify({ action: 'verify-otp', email, otp, twoFa })
                 });
                 const data = await res.json();
 
                 if(!res.ok) {
                     showLoginError(data.error || 'Incorrect or expired code.');
                     document.getElementById('adminOtp').value = '';
-                    document.getElementById('adminPassword').value = '';
+                    document.getElementById('admin2fa').value = '';
+                    document.getElementById('adminPassword') && (document.getElementById('adminPassword').value = '');
                     return;
                 }
 
@@ -684,7 +685,7 @@
                 sessionToken = data.sessionId;
                 sessionStorage.setItem('adminSessionToken', sessionToken);
                 document.getElementById('adminOtp').value = '';
-                document.getElementById('adminPassword').value = '';
+                document.getElementById('admin2fa').value = '';
                 document.getElementById('loginOverlay').style.display = 'none';
                 // Reset login UI for next time
                 document.getElementById('loginStep1').style.display = 'block';
@@ -698,7 +699,7 @@
 
         function backToEmail() {
             document.getElementById('adminOtp').value = '';
-            document.getElementById('adminPassword').value = '';
+            document.getElementById('admin2fa').value = '';
             document.getElementById('loginStep1').style.display = 'block';
             document.getElementById('loginStep2').style.display = 'none';
             showLoginError('');

@@ -163,7 +163,6 @@ export default async (req: Request, context: Context) => {
     // ── Step 1: request-otp ─────────────────────────────────────────────────
     if (action === "request-otp") {
       const email    = String(body.email    ?? "").toLowerCase().trim();
-      const password = String(body.password ?? "").trim();
 
       // Constant-time email comparison — fixed buffer size prevents length-based timing leaks
       const MAX_EMAIL_LEN = 254; // RFC 5321 maximum
@@ -179,12 +178,9 @@ export default async (req: Request, context: Context) => {
         }
       })();
 
-      // Constant-time password comparison against ADMIN_TOKEN
-      const passwordMatch = timingSafeTokenCompare(password, process.env.ADMIN_TOKEN!);
-
-      if (!emailMatch || !passwordMatch) {
+      if (!emailMatch) {
         // Respond with the same message as a valid request to prevent enumeration
-        console.warn(`[AUDIT] {"event":"OTP_REQUEST_INVALID_CREDENTIALS","ip":"${ip}"}`);
+        console.warn(`[AUDIT] {"event":"OTP_REQUEST_INVALID_EMAIL","ip":"${ip}"}`);
         return Response.json(
           { sent: true, message: "If this is a registered admin email, a code has been sent." },
           { status: 200, headers }
@@ -224,8 +220,9 @@ export default async (req: Request, context: Context) => {
 
     // ── Step 2: verify-otp ──────────────────────────────────────────────────
     if (action === "verify-otp") {
-      const email     = String(body.email ?? "").toLowerCase().trim();
-      const otpInput  = String(body.otp  ?? "").trim();
+      const email     = String(body.email  ?? "").toLowerCase().trim();
+      const otpInput  = String(body.otp    ?? "").trim();
+      const twoFa     = String(body.twoFa  ?? "").trim();
 
       if (email !== adminEmail) {
         console.warn(`[AUDIT] {"event":"OTP_VERIFY_INVALID_EMAIL","ip":"${ip}"}`);
@@ -234,6 +231,12 @@ export default async (req: Request, context: Context) => {
 
       if (!otpInput || !/^\d{6}$/.test(otpInput)) {
         return Response.json({ error: "Enter the 6-digit code from your email." }, { status: 400, headers });
+      }
+
+      // Validate 2FA code (ADMIN_TOKEN) before touching the OTP store
+      if (!twoFa || !timingSafeTokenCompare(twoFa, process.env.ADMIN_TOKEN!)) {
+        console.warn(`[AUDIT] {"event":"OTP_VERIFY_INVALID_2FA","ip":"${ip}"}`);
+        return Response.json({ error: "Invalid 2FA code." }, { status: 401, headers });
       }
 
       const stored = await store.get(OTP_STORE_KEY, { type: "json" }) as StoredOtp | null;

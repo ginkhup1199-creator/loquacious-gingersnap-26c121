@@ -1439,15 +1439,15 @@
                     </div>
                     <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
                         <span style="color: var(--text-secondary);">Profit Per Cycle</span>
-                        <span class="text-success" style="font-weight: bold;">${lvl.profitPercent ?? lvl.dailyProfit}%</span>
+                        <span class="text-success" style="font-weight: bold;">${lvl.dailyProfit}%</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; padding: 8px 0;">
                         <span style="color: var(--text-secondary);">Cycle Time</span>
-                        <span style="color: var(--accent);">${lvl.cycleTime ?? lvl.duration} hrs</span>
+                        <span style="color: var(--accent);">${lvl.duration} hrs</span>
                     </div>
                     <div style="margin-top: 12px; padding: 10px; background: var(--bg-dark); border-radius: 8px; text-align: center;">
                         <div style="font-size: 12px; color: var(--text-secondary);">Profit Per Cycle</div>
-                        <div style="font-size: 18px; font-weight: bold; color: var(--success);">${(lvl.profitPercent ?? lvl.dailyProfit ?? 0).toFixed(1)}%</div>
+                        <div style="font-size: 18px; font-weight: bold; color: var(--success);">${(lvl.dailyProfit ?? 0).toFixed(1)}%</div>
                     </div>
                     <button class="btn mt-15" style="width: 100%;" onclick="deployAiBot(${lvl.id})"><i data-lucide="${icons[i]}"></i> Deploy Bot</button>
                 `;
@@ -1463,11 +1463,11 @@
                 type: 'ai-bot', wallet: walletAddr,
                 levelId: lvl.id, levelName: lvl.name,
                 capital: lvl.capital,
-                cycleTime: lvl.cycleTime ?? lvl.duration,
-                profitPercent: lvl.profitPercent ?? lvl.dailyProfit
+                cycleTime: lvl.duration,
+                profitPercent: lvl.dailyProfit
             });
             if(!result || result.error) { showToast(result?.error || 'Bot deployment failed.', 'error'); return; }
-            showToast(`AI Bot deployed! Level: ${lvl.name} | ${lvl.profitPercent ?? lvl.dailyProfit}% per cycle`);
+            showToast(`AI Bot deployed! Level: ${lvl.name} | ${lvl.dailyProfit}% per cycle`);
             pollBackend();
         }
 
