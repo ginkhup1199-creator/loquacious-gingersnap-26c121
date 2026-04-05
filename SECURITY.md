@@ -44,7 +44,42 @@ To rotate the admin token:
 3. Update any admin clients or automation that use the token.
 4. Trigger a new deployment.
 
-## Asset Protection
+## Repository Push & Modification Protection
+
+This repository enforces source-code integrity through multiple layers. **The repository owner must complete the GitHub settings steps below** to activate full enforcement.
+
+### Layer 1 — CODEOWNERS (in repo)
+
+`.github/CODEOWNERS` declares `@ginkhup1199-creator` as the required reviewer for every file. This means no pull request that touches any source file can be merged without owner approval — once branch protection is enabled (see below).
+
+### Layer 2 — CI Workflows (in repo)
+
+Two GitHub Actions workflows run automatically:
+
+| Workflow | File | Trigger | Purpose |
+|---|---|---|---|
+| Code Integrity Check | `.github/workflows/integrity-check.yml` | Every push & PR | TypeScript type-check + flags protected-file changes from non-owners in CI logs |
+| PR Source-Code Guard | `.github/workflows/pr-guard.yml` | PR opened/updated touching source files | Auto-posts a warning comment on any PR from a non-owner |
+
+### Layer 3 — Branch Protection Rules (must be set by repo owner in GitHub UI)
+
+These settings **cannot be configured by a code commit** — they must be set manually:
+
+1. Go to **GitHub → Repository → Settings → Branches → Add branch protection rule**
+2. Set **Branch name pattern**: `main`
+3. Enable all of the following:
+   - ✅ **Require a pull request before merging** (set required approvals to **1**)
+   - ✅ **Require approvals from Code Owners** (this activates CODEOWNERS enforcement)
+   - ✅ **Require status checks to pass before merging** → add `TypeScript Type Check` and `Protected Files — Unauthorized Change Detection`
+   - ✅ **Require branches to be up to date before merging**
+   - ✅ **Do not allow bypassing the above settings**
+   - ✅ **Restrict who can push to matching branches** → add only `ginkhup1199-creator`
+   - ✅ **Block force pushes**
+   - ✅ **Restrict deletions**
+
+> Without completing Step 3, the CODEOWNERS file and CI workflows are active but merges are not blocked at the GitHub level. Step 3 is what makes protection mandatory and non-bypassable.
+
+
 
 - **Write operations are admin-only**: Only requests with a valid `X-Admin-Token` can modify wallet data (addresses, features, withdrawals).
 - **Read operations are public**: Wallet data can be read without authentication.
