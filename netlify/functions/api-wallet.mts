@@ -6,7 +6,7 @@ import {
   sanitizeString,
   auditLog,
   getClientIp,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 const DEFAULT_ADDRESSES: Record<string, string> = {
   TRC20: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
@@ -77,7 +77,7 @@ export default async (req: Request, context: Context) => {
 
     let body: Record<string, unknown>;
     try {
-      body = await req.json();
+      body = await req.json() as Record<string, unknown>;
     } catch {
       return secureJson({ error: "Invalid JSON" }, 400);
     }

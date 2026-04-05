@@ -6,7 +6,7 @@ import {
   sanitizeString,
   auditLog,
   getClientIp,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
@@ -22,7 +22,7 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "POST") {
-    const body = await req.json();
+    const body = await req.json() as Record<string, unknown>;
     const { action } = body;
 
     if (action === "add") {
@@ -32,7 +32,7 @@ export default async (req: Request, context: Context) => {
         coin: sanitizeString(String(body.coin ?? ""), 20),
         network: sanitizeString(String(body.network ?? ""), 20),
         address: sanitizeString(String(body.address ?? ""), 200),
-        amount: parseFloat(body.amount) || 0,
+        amount: parseFloat(String(body.amount)) || 0,
         date: new Date().toISOString().split("T")[0],
         status: "Pending",
       };

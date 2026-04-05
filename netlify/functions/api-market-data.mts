@@ -2,7 +2,7 @@ import type { Config, Context } from "@netlify/functions";
 import {
   secureJson,
   getClientIp,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 // Market data with realistic price simulation.
 // In production, replace with a real price feed API (CoinGecko, Binance, etc.)
@@ -93,7 +93,7 @@ export default async (req: Request, context: Context) => {
 
   if (type === "ohlcv") {
     const sym = symbol || "BTC";
-    const basePrice = BASE_PRICES[sym];
+    const basePrice = BASE_PRICES[sym] ?? 0;
     return secureJson(
       { symbol: sym, data: generateOhlcv(sym, basePrice) },
       200, true
@@ -110,7 +110,7 @@ export default async (req: Request, context: Context) => {
 
   // Default: prices
   if (symbol) {
-    const basePrice = BASE_PRICES[symbol];
+    const basePrice = BASE_PRICES[symbol] ?? 0;
     const price = simulatePrice(symbol, basePrice);
     const change24h = parseFloat(((Math.random() * 10) - 5).toFixed(2));
     return secureJson({

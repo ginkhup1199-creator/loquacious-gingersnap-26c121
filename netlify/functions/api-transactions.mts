@@ -6,7 +6,7 @@ import {
   sanitizeString,
   auditLog,
   getClientIp,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 const ALLOWED_TYPES = ["deposit", "withdrawal", "trade", "swap", "earn", "ai-bot"] as const;
 const ALLOWED_STATUSES = ["Pending", "Completed", "Failed", "Cancelled"] as const;
@@ -50,7 +50,7 @@ export default async (req: Request, context: Context) => {
 
     let body: Record<string, unknown>;
     try {
-      body = await req.json();
+      body = await req.json() as Record<string, unknown>;
     } catch {
       return secureJson({ error: "Invalid JSON" }, 400);
     }

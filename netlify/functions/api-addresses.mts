@@ -6,7 +6,7 @@ import {
   sanitizeString,
   auditLog,
   getClientIp,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 const DEFAULT_ADDRESSES: Record<string, string> = {
   TRC20: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
@@ -38,7 +38,7 @@ export default async (req: Request, context: Context) => {
 
     auditLog("ADMIN_WRITE", { operation: "update-addresses", ip });
 
-    const body = await req.json();
+    const body = await req.json() as Record<string, unknown>;
     // Sanitize all address values
     const sanitized: Record<string, string> = {};
     for (const [key, value] of Object.entries(body)) {

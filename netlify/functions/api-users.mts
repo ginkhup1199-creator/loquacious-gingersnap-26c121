@@ -1,6 +1,6 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
-import { secureJson, sanitizeString } from "../lib/security.js";
+import { secureJson, sanitizeString } from "../lib/security.mjs";
 
 function generate5DigitId(): string {
   return String(Math.floor(10000 + Math.random() * 90000));
@@ -23,7 +23,7 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "POST") {
-    const body = await req.json();
+    const body = await req.json() as Record<string, unknown>;
     const { wallet } = body;
 
     if (!wallet) {

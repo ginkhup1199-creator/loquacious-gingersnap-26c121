@@ -6,7 +6,7 @@ import {
   sanitizeString,
   auditLog,
   getClientIp,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 const DEFAULT_SETTINGS = {
   swapFee: 0.5,
@@ -36,12 +36,12 @@ export default async (req: Request, context: Context) => {
 
     auditLog("ADMIN_WRITE", { operation: "update-settings", ip });
 
-    const body = await req.json();
+    const body = await req.json() as Record<string, unknown>;
     // Only accept known numeric settings
     const sanitized: Record<string, number> = {};
     for (const key of Object.keys(DEFAULT_SETTINGS)) {
       if (key in body) {
-        const val = parseFloat(body[key]);
+        const val = parseFloat(String(body[key]));
         if (!isNaN(val) && val >= 0) sanitized[key] = val;
       }
     }

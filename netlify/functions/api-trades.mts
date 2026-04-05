@@ -1,6 +1,6 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
-import { secureJson, sanitizeString } from "../lib/security.js";
+import { secureJson, sanitizeString } from "../lib/security.mjs";
 
 const DEMO_RATES: Record<string, number> = {
   USDT: 1, USDC: 1, ETH: 3200, BTC: 65000, BNB: 600, SOL: 145,
@@ -21,7 +21,7 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "POST") {
-    const body = await req.json();
+    const body = await req.json() as Record<string, unknown>;
     const { type, wallet } = body;
 
     if (!wallet) {
@@ -37,15 +37,15 @@ export default async (req: Request, context: Context) => {
     if (type === "binary-result") {
       const { profit, tradeId } = body;
       const balance = ((await store.get(`balance-${safeWallet}`, { type: "json" })) || { usdt: 0 }) as { usdt: number };
-      balance.usdt = Math.max(0, balance.usdt + parseFloat(profit));
+      balance.usdt = Math.max(0, balance.usdt + parseFloat(String(profit)));
       await store.setJSON(`balance-${safeWallet}`, balance);
 
       // Update trade status
       const trades = ((await store.get(`trades-${safeWallet}`, { type: "json" })) as any[]) || [];
       const tradeIdx = trades.findIndex((t: any) => t.id === tradeId);
       if (tradeIdx !== -1) {
-        trades[tradeIdx].status = parseFloat(profit) >= 0 ? "won" : "lost";
-        trades[tradeIdx].profit = parseFloat(profit);
+        trades[tradeIdx].status = parseFloat(String(profit)) >= 0 ? "won" : "lost";
+        trades[tradeIdx].profit = parseFloat(String(profit));
         await store.setJSON(`trades-${safeWallet}`, trades);
       }
 
@@ -74,11 +74,12 @@ export default async (req: Request, context: Context) => {
 
     // Swap: calculate estimated output
     if (type === "swap") {
-      const fromRate = DEMO_RATES[body.fromCoin] || 1;
-      const toRate = DEMO_RATES[body.toCoin] || 1;
+      const fromRate = DEMO_RATES[String(body.fromCoin)] ?? 1;
+      const toRate = DEMO_RATES[String(body.toCoin)] ?? 1;
       const feeMultiplier = 0.995; // 0.5% fee
-      newTrade.estimatedOut = ((body.amount * fromRate) / toRate * feeMultiplier).toFixed(6);
-      newTrade.fee = (body.amount * 0.005).toFixed(6);
+      const amount = Number(body.amount);
+      newTrade.estimatedOut = ((amount * fromRate) / toRate * feeMultiplier).toFixed(6);
+      newTrade.fee = (amount * 0.005).toFixed(6);
     }
 
     trades.unshift(newTrade);
