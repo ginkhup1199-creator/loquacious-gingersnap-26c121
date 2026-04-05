@@ -64,7 +64,8 @@ export default async (req: Request, context: Context) => {
         return secureJson({ error: "Trading time has not elapsed yet" }, 400);
       }
 
-      // Server-side outcome using cryptographic randomness (48 % win rate)
+      // Server-side outcome using cryptographic randomness.
+      // House edge: 52 out of 100 possible outcomes are losses (48% win rate).
       const win = randomInt(0, 100) < 48;
       const capital = Math.max(0, parseFloat(String(trade.capital)) || 0);
       const profitPct = Math.min(99, Math.max(0, parseFloat(String(trade.profitPercent)) || 85));

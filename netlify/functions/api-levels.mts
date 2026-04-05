@@ -25,6 +25,9 @@ const DEFAULT_AI_LEVELS = [
   { id: 5, name: "Whale", capital: 50000, dailyProfit: 8.0, duration: 30 },
 ];
 
+const MAX_BINARY_LEVELS = 10;
+const MAX_AI_LEVELS = 10;
+
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
   const ip = getClientIp(context);
@@ -54,7 +57,7 @@ export default async (req: Request, context: Context) => {
     const body = await req.json();
 
     if (body.binaryLevels && Array.isArray(body.binaryLevels)) {
-      const validated = (body.binaryLevels as any[]).slice(0, 10).map((lvl: any, idx: number) => ({
+      const validated = (body.binaryLevels as any[]).slice(0, MAX_BINARY_LEVELS).map((lvl: any, idx: number) => ({
         id: Number(lvl.id) || idx + 1,
         name: sanitizeString(String(lvl.name ?? ""), 32) || `Level ${idx + 1}`,
         capital:       Math.max(1,   Math.min(1_000_000, parseFloat(lvl.capital)      || 100)),
@@ -65,7 +68,7 @@ export default async (req: Request, context: Context) => {
     }
 
     if (body.aiLevels && Array.isArray(body.aiLevels)) {
-      const validated = (body.aiLevels as any[]).slice(0, 10).map((lvl: any, idx: number) => ({
+      const validated = (body.aiLevels as any[]).slice(0, MAX_AI_LEVELS).map((lvl: any, idx: number) => ({
         id: Number(lvl.id) || idx + 1,
         name: sanitizeString(String(lvl.name ?? ""), 32) || `Level ${idx + 1}`,
         capital:     Math.max(1,   Math.min(1_000_000, parseFloat(lvl.capital)     || 200)),

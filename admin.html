@@ -718,8 +718,9 @@
             document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
-            // Use contains-match so compound onclick handlers (e.g. "switchTab('x'); foo()") are found too
-            const navEl = document.querySelector(`.nav-item[onclick*="switchTab('${tabId}')"]`);
+            // Escape the tabId before embedding in a CSS selector (guard against special chars)
+            const safeId = tabId.replace(/['"\\]/g, '');
+            const navEl = document.querySelector(`.nav-item[onclick*="switchTab('${safeId}')"]`);
             if(navEl) navEl.classList.add('active');
         }
 

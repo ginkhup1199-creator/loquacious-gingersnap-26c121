@@ -243,7 +243,8 @@ const MAX_AUDIT_LOG_ENTRIES = 500;
 
 /**
  * Logs an audit event to console AND persists it to @netlify/blobs.
- * Maintains a rolling window of the last 500 entries (newest first).
+ * Maintains a rolling window of the last MAX_AUDIT_LOG_ENTRIES entries
+ * (newest first). When the limit is exceeded, the oldest entries are dropped.
  * Non-fatal: persistence failures do not interrupt the request.
  */
 export async function persistAuditLog(
