@@ -1,0 +1,15 @@
+# Railway.app deployment configuration for NexusTrade Admin Backend
+# https://docs.railway.app/reference/config-as-code
+
+[build]
+# Use the default Node.js build process
+builder = "nixpacks"
+buildCommand = "npm install"
+
+[deploy]
+# Start command – Netlify CLI serves functions locally on Railway
+startCommand = "npx netlify-cli functions:serve --port $PORT --offline"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 3

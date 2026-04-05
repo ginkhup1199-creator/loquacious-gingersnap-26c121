@@ -2,6 +2,7 @@ import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
 import { createHash, randomBytes, randomInt, timingSafeEqual } from "crypto";
 import nodemailer from "nodemailer";
+import { checkRateLimit, rateLimitExceededResponse } from "../lib/security.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -133,6 +134,13 @@ export default async (req: Request, context: Context) => {
   const store      = getStore({ name: "app-data", consistency: "strong" });
   const ip         = getClientIp(context);
   const headers    = securityHeaders();
+
+  // ── Rate limiting: protect OTP endpoint from brute-force ─────────────────
+  const rl = checkRateLimit(`admin-session:${ip}`);
+  if (!rl.allowed) {
+    console.warn(`[AUDIT] {"event":"RATE_LIMIT_EXCEEDED","ip":"${ip}"}`);
+    return rateLimitExceededResponse(rl.retryAfterMs);
+  }
 
   // Master admin email — must be set via ADMIN_EMAIL env var
   const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim();
