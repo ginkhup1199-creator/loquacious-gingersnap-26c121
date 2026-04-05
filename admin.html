@@ -173,6 +173,8 @@
             <li class="nav-item" onclick="switchTab('tab-ailevels')"><i data-lucide="cpu"></i> AI Arbitrage</li>
             <li class="nav-item" onclick="switchTab('tab-kyc')"><i data-lucide="user-check"></i> KYC Approvals</li>
             <li class="nav-item" onclick="switchTab('tab-withdraw')"><i data-lucide="arrow-up-from-line"></i> Withdrawals</li>
+            <li class="nav-item" onclick="switchTab('tab-transactions')"><i data-lucide="receipt"></i> Transactions</li>
+            <li class="nav-item" onclick="switchTab('tab-trades')"><i data-lucide="trending-up"></i> Trade History</li>
             <li class="nav-item" onclick="switchTab('tab-chat')"><i data-lucide="message-circle"></i> Live Chat Support</li>
             <li class="nav-item" onclick="switchTab('tab-settings')"><i data-lucide="settings"></i> System Settings</li>
             <li class="nav-item" onclick="switchTab('tab-balances')"><i data-lucide="circle-dollar-sign"></i> User Balances</li>
@@ -337,6 +339,85 @@
                     <thead><tr><th>Coin</th><th>Network</th><th>Amount</th><th>Destination</th><th>Action</th></tr></thead>
                     <tbody id="adminWithdrawTable">
                         <tr id="emptyWithdrawRow"><td colspan="5" style="text-align: center;">No pending withdrawals</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Transactions -->
+        <div id="tab-transactions" class="tab-pane">
+            <h2>Transaction History</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Look up and manually record transactions for any wallet address.</p>
+
+            <div class="card" style="max-width: 600px; margin-bottom: 20px;">
+                <div class="card-header">Look Up Transactions</div>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="tx-wallet" placeholder="0x..." style="flex:1; padding:10px; background:var(--bg-dark); border:1px solid var(--border); color:white; border-radius:6px;">
+                    <button class="btn" onclick="loadTransactions()"><i data-lucide="search"></i> Load</button>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="card-header">Transaction History</div>
+                <table>
+                    <thead><tr><th>Type</th><th>Coin</th><th>Amount</th><th>Status</th><th>Notes</th><th>Date</th></tr></thead>
+                    <tbody id="adminTxTable">
+                        <tr id="emptyTxRow"><td colspan="6" style="text-align: center;">Enter a wallet address above to view transactions</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card" style="max-width: 600px;">
+                <div class="card-header">Record Manual Transaction</div>
+                <div class="grid-2">
+                    <div class="input-group"><label>Wallet Address</label><input type="text" id="new-tx-wallet" placeholder="0x..."></div>
+                    <div class="input-group">
+                        <label>Type</label>
+                        <select id="new-tx-type" style="width:100%; padding:10px; background:var(--bg-dark); border:1px solid var(--border); color:white; border-radius:6px;">
+                            <option value="deposit">Deposit</option>
+                            <option value="withdrawal">Withdrawal</option>
+                            <option value="trade">Trade</option>
+                            <option value="swap">Swap</option>
+                            <option value="earn">Earn</option>
+                            <option value="ai-bot">AI Bot</option>
+                        </select>
+                    </div>
+                    <div class="input-group"><label>Coin</label><input type="text" id="new-tx-coin" placeholder="USDT" value="USDT"></div>
+                    <div class="input-group"><label>Amount</label><input type="number" id="new-tx-amount" placeholder="0.00" step="0.01"></div>
+                    <div class="input-group">
+                        <label>Status</label>
+                        <select id="new-tx-status" style="width:100%; padding:10px; background:var(--bg-dark); border:1px solid var(--border); color:white; border-radius:6px;">
+                            <option value="Completed">Completed</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Failed">Failed</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="input-group"><label>Notes (optional)</label><input type="text" id="new-tx-notes" placeholder="e.g. Manual deposit credit"></div>
+                </div>
+                <button class="btn btn-success" style="width: 100%; margin-top: 5px;" onclick="recordTransaction()"><i data-lucide="plus"></i> Record Transaction</button>
+            </div>
+        </div>
+
+        <!-- Trade History -->
+        <div id="tab-trades" class="tab-pane">
+            <h2>Trade History</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">View trade records (spot, binary options, swaps, AI bots) for any wallet address.</p>
+
+            <div class="card" style="max-width: 600px; margin-bottom: 20px;">
+                <div class="card-header">Look Up Trades</div>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="trade-wallet" placeholder="0x..." style="flex:1; padding:10px; background:var(--bg-dark); border:1px solid var(--border); color:white; border-radius:6px;">
+                    <button class="btn" onclick="loadTrades()"><i data-lucide="search"></i> Load</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">Trade Records</div>
+                <table>
+                    <thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Details</th><th>Date</th></tr></thead>
+                    <tbody id="adminTradesTable">
+                        <tr id="emptyTradesRow"><td colspan="5" style="text-align: center;">Enter a wallet address above to view trades</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -945,6 +1026,101 @@
             const el = document.getElementById('balanceResult');
             if(result && result.error) { el.innerText = 'Error: ' + result.error; return; }
             el.innerText = result ? `USDT Balance: $${(result.usdt || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : 'No balance found.';
+        }
+
+        // --- Transactions ---
+        async function loadTransactions() {
+            const wallet = document.getElementById('tx-wallet').value.trim();
+            if(!wallet) { alert('Please enter a wallet address.'); return; }
+            const transactions = await api(`transactions?wallet=${encodeURIComponent(wallet)}`);
+            const table = document.getElementById('adminTxTable');
+            const emptyRow = document.getElementById('emptyTxRow');
+            document.querySelectorAll('.dynamic-tx-row').forEach(el => el.remove());
+            if(!transactions || transactions.error) {
+                emptyRow.style.display = 'table-row';
+                emptyRow.cells[0].textContent = (transactions && transactions.error) || 'Failed to load transactions.';
+                return;
+            }
+            if(transactions.length === 0) {
+                emptyRow.style.display = 'table-row';
+                emptyRow.cells[0].textContent = 'No transactions found for this wallet.';
+                return;
+            }
+            emptyRow.style.display = 'none';
+            transactions.forEach(tx => {
+                const row = document.createElement('tr');
+                row.className = 'dynamic-tx-row';
+                const statusColor = tx.status === 'Completed' ? 'var(--success)'
+                    : (tx.status === 'Failed' || tx.status === 'Cancelled') ? 'var(--danger)'
+                    : 'var(--warning)';
+                row.innerHTML = `
+                    <td style="color: var(--accent);">${esc(tx.type || '')}</td>
+                    <td>${esc(tx.coin || '')}</td>
+                    <td>${Number(tx.amount || 0).toLocaleString()}</td>
+                    <td><span style="color:${statusColor};font-weight:bold;">${esc(tx.status || '')}</span></td>
+                    <td style="font-size:12px; color:var(--text-secondary);">${esc(tx.notes || '')}</td>
+                    <td style="font-size:12px;">${esc(new Date(tx.createdAt).toLocaleString())}</td>
+                `;
+                table.appendChild(row);
+            });
+            // Pre-fill the record form wallet field
+            document.getElementById('new-tx-wallet').value = wallet;
+        }
+
+        async function recordTransaction() {
+            const wallet = document.getElementById('new-tx-wallet').value.trim();
+            const type   = document.getElementById('new-tx-type').value;
+            const coin   = document.getElementById('new-tx-coin').value.trim() || 'USDT';
+            const amount = document.getElementById('new-tx-amount').value;
+            const status = document.getElementById('new-tx-status').value;
+            const notes  = document.getElementById('new-tx-notes').value.trim();
+            if(!wallet || amount === '') { alert('Wallet address and amount are required.'); return; }
+            const result = await api('transactions', 'POST', { wallet, type, coin, amount: parseFloat(amount), status, notes });
+            if(!result || result.error) { alert('Error: ' + (result?.error || 'Unknown error')); return; }
+            alert('Transaction recorded successfully!');
+            document.getElementById('tx-wallet').value = wallet;
+            loadTransactions();
+        }
+
+        // --- Trade History ---
+        async function loadTrades() {
+            const wallet = document.getElementById('trade-wallet').value.trim();
+            if(!wallet) { alert('Please enter a wallet address.'); return; }
+            const trades = await api(`trades?wallet=${encodeURIComponent(wallet)}`);
+            const table = document.getElementById('adminTradesTable');
+            const emptyRow = document.getElementById('emptyTradesRow');
+            document.querySelectorAll('.dynamic-trade-row').forEach(el => el.remove());
+            if(!trades || trades.error) {
+                emptyRow.style.display = 'table-row';
+                emptyRow.cells[0].textContent = (trades && trades.error) || 'Failed to load trades.';
+                return;
+            }
+            if(trades.length === 0) {
+                emptyRow.style.display = 'table-row';
+                emptyRow.cells[0].textContent = 'No trades found for this wallet.';
+                return;
+            }
+            emptyRow.style.display = 'none';
+            trades.forEach(t => {
+                const row = document.createElement('tr');
+                row.className = 'dynamic-trade-row';
+                const statusColor = (t.status === 'won' || t.status === 'active') ? 'var(--success)'
+                    : t.status === 'lost' ? 'var(--danger)'
+                    : 'var(--text-secondary)';
+                let details = '';
+                if(t.type === 'binary')  details = `${t.direction || ''} · ${t.levelName || ''}`;
+                else if(t.type === 'swap') details = `${t.fromCoin || ''} → ${t.toCoin || ''}`;
+                else if(t.type === 'ai-bot') details = `${t.levelName || ''} · ${t.duration || ''}d`;
+                else details = t.levelName || '';
+                row.innerHTML = `
+                    <td style="font-family:monospace;font-size:12px;">${esc(String(t.id || ''))}</td>
+                    <td style="color:var(--accent);">${esc(t.type || '')}</td>
+                    <td><span style="color:${statusColor};font-weight:bold;">${esc(t.status || '')}</span></td>
+                    <td style="font-size:12px;">${esc(details)}</td>
+                    <td style="font-size:12px;">${esc(new Date(t.createdAt).toLocaleString())}</td>
+                `;
+                table.appendChild(row);
+            });
         }
 
         // Poll every 5 seconds
