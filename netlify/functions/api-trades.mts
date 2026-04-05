@@ -76,7 +76,7 @@ export default async (req: Request, context: Context) => {
         await store.setJSON(`trades-${safeWallet}`, trades);
       }
 
-      return secureJson({ success: true, newBalance: balance });
+      return secureJson({ success: true, newBalance: balance, outcome: finalProfit >= 0 ? "won" : "lost" });
     }
 
     // Admin-only: complete an active AI arbitrage bot trade.
