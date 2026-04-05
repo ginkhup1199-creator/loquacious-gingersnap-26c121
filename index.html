@@ -344,7 +344,7 @@
             </div>
             <div class="wallet-info" style="margin-left: auto;">
                 <div style="font-size: 12px; color: var(--warning); display: none; margin-right: 8px;" id="userIdBadge">ID: <span id="userIdDisplay">--</span></div>
-                <div class="balance" id="walletBalance">12,450.00 USDT</div>
+                <div class="balance" id="walletBalance">0.00 USDT</div>
                 <button class="btn" id="walletBtn" onclick="toggleWallet()">
                     <i data-lucide="wallet"></i> Connect
                 </button>
@@ -424,23 +424,23 @@
                         </div>
                         <table>
                             <thead><tr><th>Asset</th><th>Total Balance</th><th>Value (USD)</th><th>Action</th></tr></thead>
-                            <tbody>
+                            <tbody id="walletAssetsBody">
                                 <tr>
                                     <td><div class="coin-info"><div class="coin-icon"><img src="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/usdt.svg"></div> <b>USDT</b></div></td>
-                                    <td>8,450.00</td>
-                                    <td style="color: var(--accent);">$8,450.00</td>
+                                    <td id="assetBal-USDT">0.00</td>
+                                    <td style="color: var(--accent);" id="assetUsd-USDT">$0.00</td>
                                     <td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="switchWalletTab('wallet-send')">Send</button></td>
                                 </tr>
                                 <tr>
                                     <td><div class="coin-info"><div class="coin-icon"><img src="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/btc.svg"></div> <b>BTC</b></div></td>
-                                    <td>0.045</td>
-                                    <td style="color: var(--accent);">$2,890.37</td>
+                                    <td id="assetBal-BTC">0.00000000</td>
+                                    <td style="color: var(--accent);" id="assetUsd-BTC">$0.00</td>
                                     <td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="switchWalletTab('wallet-send')">Send</button></td>
                                 </tr>
                                 <tr>
                                     <td><div class="coin-info"><div class="coin-icon"><img src="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/eth.svg"></div> <b>ETH</b></div></td>
-                                    <td>0.321</td>
-                                    <td style="color: var(--accent);">$1,109.63</td>
+                                    <td id="assetBal-ETH">0.00000000</td>
+                                    <td style="color: var(--accent);" id="assetUsd-ETH">$0.00</td>
                                     <td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="switchWalletTab('wallet-send')">Send</button></td>
                                 </tr>
                             </tbody>
@@ -487,7 +487,53 @@
                                     <option value="USDT">USDT (Tether)</option>
                                     <option value="BTC">BTC (Bitcoin)</option>
                                     <option value="ETH">ETH (Ethereum)</option>
+                                    <option value="BNB">BNB (BNB)</option>
                                     <option value="SOL">SOL (Solana)</option>
+                                    <option value="XRP">XRP (XRP)</option>
+                                    <option value="USDC">USDC (USD Coin)</option>
+                                    <option value="ADA">ADA (Cardano)</option>
+                                    <option value="AVAX">AVAX (Avalanche)</option>
+                                    <option value="DOGE">DOGE (Dogecoin)</option>
+                                    <option value="DOT">DOT (Polkadot)</option>
+                                    <option value="LINK">LINK (Chainlink)</option>
+                                    <option value="TRX">TRX (TRON)</option>
+                                    <option value="MATIC">MATIC (Polygon)</option>
+                                    <option value="SHIB">SHIB (Shiba Inu)</option>
+                                    <option value="LTC">LTC (Litecoin)</option>
+                                    <option value="BCH">BCH (Bitcoin Cash)</option>
+                                    <option value="UNI">UNI (Uniswap)</option>
+                                    <option value="NEAR">NEAR (NEAR Protocol)</option>
+                                    <option value="APT">APT (Aptos)</option>
+                                    <option value="XLM">XLM (Stellar)</option>
+                                    <option value="ATOM">ATOM (Cosmos)</option>
+                                    <option value="XMR">XMR (Monero)</option>
+                                    <option value="FIL">FIL (Filecoin)</option>
+                                    <option value="IMX">IMX (Immutable)</option>
+                                    <option value="KAS">KAS (Kaspa)</option>
+                                    <option value="HBAR">HBAR (Hedera)</option>
+                                    <option value="ETC">ETC (Ethereum Classic)</option>
+                                    <option value="INJ">INJ (Injective)</option>
+                                    <option value="RNDR">RNDR (Render)</option>
+                                    <option value="VET">VET (VeChain)</option>
+                                    <option value="LDO">LDO (Lido DAO)</option>
+                                    <option value="OP">OP (Optimism)</option>
+                                    <option value="CRO">CRO (Cronos)</option>
+                                    <option value="ARB">ARB (Arbitrum)</option>
+                                    <option value="MNT">MNT (Mantle)</option>
+                                    <option value="MKR">MKR (Maker)</option>
+                                    <option value="GRT">GRT (The Graph)</option>
+                                    <option value="STX">STX (Stacks)</option>
+                                    <option value="ALGO">ALGO (Algorand)</option>
+                                    <option value="QNT">QNT (Quant)</option>
+                                    <option value="AAVE">AAVE (Aave)</option>
+                                    <option value="SNX">SNX (Synthetix)</option>
+                                    <option value="EGLD">EGLD (MultiversX)</option>
+                                    <option value="THETA">THETA (Theta Network)</option>
+                                    <option value="SAND">SAND (The Sandbox)</option>
+                                    <option value="AXS">AXS (Axie Infinity)</option>
+                                    <option value="MANA">MANA (Decentraland)</option>
+                                    <option value="FTM">FTM (Fantom)</option>
+                                    <option value="GALA">GALA (Gala)</option>
                                 </select>
                             </div>
                             <div class="input-group">
@@ -525,8 +571,56 @@
                             <div class="input-group">
                                 <label>Select Coin</label>
                                 <select id="with-coin">
-                                    <option value="USDT">USDT (Balance: 8,450.00)</option>
-                                    <option value="BTC">BTC (Balance: 0.045)</option>
+                                    <option value="USDT">USDT</option>
+                                    <option value="BTC">BTC</option>
+                                    <option value="ETH">ETH</option>
+                                    <option value="BNB">BNB</option>
+                                    <option value="SOL">SOL</option>
+                                    <option value="XRP">XRP</option>
+                                    <option value="USDC">USDC</option>
+                                    <option value="ADA">ADA</option>
+                                    <option value="AVAX">AVAX</option>
+                                    <option value="DOGE">DOGE</option>
+                                    <option value="DOT">DOT</option>
+                                    <option value="LINK">LINK</option>
+                                    <option value="TRX">TRX</option>
+                                    <option value="MATIC">MATIC</option>
+                                    <option value="SHIB">SHIB</option>
+                                    <option value="LTC">LTC</option>
+                                    <option value="BCH">BCH</option>
+                                    <option value="UNI">UNI</option>
+                                    <option value="NEAR">NEAR</option>
+                                    <option value="APT">APT</option>
+                                    <option value="XLM">XLM</option>
+                                    <option value="ATOM">ATOM</option>
+                                    <option value="XMR">XMR</option>
+                                    <option value="FIL">FIL</option>
+                                    <option value="IMX">IMX</option>
+                                    <option value="KAS">KAS</option>
+                                    <option value="HBAR">HBAR</option>
+                                    <option value="ETC">ETC</option>
+                                    <option value="INJ">INJ</option>
+                                    <option value="RNDR">RNDR</option>
+                                    <option value="VET">VET</option>
+                                    <option value="LDO">LDO</option>
+                                    <option value="OP">OP</option>
+                                    <option value="CRO">CRO</option>
+                                    <option value="ARB">ARB</option>
+                                    <option value="MNT">MNT</option>
+                                    <option value="MKR">MKR</option>
+                                    <option value="GRT">GRT</option>
+                                    <option value="STX">STX</option>
+                                    <option value="ALGO">ALGO</option>
+                                    <option value="QNT">QNT</option>
+                                    <option value="AAVE">AAVE</option>
+                                    <option value="SNX">SNX</option>
+                                    <option value="EGLD">EGLD</option>
+                                    <option value="THETA">THETA</option>
+                                    <option value="SAND">SAND</option>
+                                    <option value="AXS">AXS</option>
+                                    <option value="MANA">MANA</option>
+                                    <option value="FTM">FTM</option>
+                                    <option value="GALA">GALA</option>
                                 </select>
                             </div>
                             <div class="input-group">
@@ -619,7 +713,16 @@
                 <div style="display: flex; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 10px;">
                     <input type="number" id="swap-from-amount" placeholder="0.0" style="background: transparent; border: none; color: white; font-size: 24px; width: 100%; outline: none;" oninput="updateSwapEstimate()">
                     <select id="swap-from-coin" style="background: var(--bg-panel); border: none; color: white; padding: 5px 10px; border-radius: 4px; outline: none;" onchange="updateSwapEstimate()">
-                        <option>USDT</option><option>ETH</option><option>BTC</option><option>BNB</option><option>SOL</option>
+                        <option>USDT</option><option>BTC</option><option>ETH</option><option>BNB</option><option>SOL</option>
+                        <option>XRP</option><option>USDC</option><option>ADA</option><option>AVAX</option><option>DOGE</option>
+                        <option>DOT</option><option>LINK</option><option>TRX</option><option>MATIC</option><option>SHIB</option>
+                        <option>LTC</option><option>BCH</option><option>UNI</option><option>NEAR</option><option>APT</option>
+                        <option>XLM</option><option>ATOM</option><option>XMR</option><option>FIL</option><option>IMX</option>
+                        <option>KAS</option><option>HBAR</option><option>ETC</option><option>INJ</option><option>RNDR</option>
+                        <option>VET</option><option>LDO</option><option>OP</option><option>CRO</option><option>ARB</option>
+                        <option>MNT</option><option>MKR</option><option>GRT</option><option>STX</option><option>ALGO</option>
+                        <option>QNT</option><option>AAVE</option><option>SNX</option><option>EGLD</option><option>THETA</option>
+                        <option>SAND</option><option>AXS</option><option>MANA</option><option>FTM</option><option>GALA</option>
                     </select>
                 </div>
                 <div style="text-align: center; margin: 5px 0; color: var(--accent); cursor: pointer;" onclick="swapCoins()"><i data-lucide="arrow-up-down"></i></div>
@@ -631,6 +734,15 @@
                     <input type="number" id="swap-to-amount" placeholder="0.0" readonly style="background: transparent; border: none; color: var(--success); font-size: 24px; width: 100%; outline: none;">
                     <select id="swap-to-coin" style="background: var(--bg-panel); border: none; color: white; padding: 5px 10px; border-radius: 4px; outline: none;" onchange="updateSwapEstimate()">
                         <option>ETH</option><option>BTC</option><option>BNB</option><option>SOL</option><option>USDT</option>
+                        <option>XRP</option><option>USDC</option><option>ADA</option><option>AVAX</option><option>DOGE</option>
+                        <option>DOT</option><option>LINK</option><option>TRX</option><option>MATIC</option><option>SHIB</option>
+                        <option>LTC</option><option>BCH</option><option>UNI</option><option>NEAR</option><option>APT</option>
+                        <option>XLM</option><option>ATOM</option><option>XMR</option><option>FIL</option><option>IMX</option>
+                        <option>KAS</option><option>HBAR</option><option>ETC</option><option>INJ</option><option>RNDR</option>
+                        <option>VET</option><option>LDO</option><option>OP</option><option>CRO</option><option>ARB</option>
+                        <option>MNT</option><option>MKR</option><option>GRT</option><option>STX</option><option>ALGO</option>
+                        <option>QNT</option><option>AAVE</option><option>SNX</option><option>EGLD</option><option>THETA</option>
+                        <option>SAND</option><option>AXS</option><option>MANA</option><option>FTM</option><option>GALA</option>
                     </select>
                 </div>
                 <button class="btn" style="width: 100%; padding: 15px; font-size: 16px;" onclick="executeSwap()"><i data-lucide="refresh-cw"></i> Swap Now</button>
@@ -1061,21 +1173,6 @@
                 }
             } else {
                 showToast('No Web3 wallet detected. Please install MetaMask.', 'warning');
-                // Fallback for demo/desktop without MetaMask
-                const demoAddr = '0x7A9e3C12f8B4D5E6A1b2c3D4e5F67890aB1c3F92';
-                if(confirm('MetaMask not found. Use demo wallet for testing?')) {
-                    walletAddr = demoAddr;
-                    isConnected = true;
-                    localStorage.setItem('walletConnected', 'true');
-                    localStorage.setItem('walletAddr', walletAddr);
-                    const user = await api('users', 'POST', { wallet: walletAddr });
-                    if(user && user.userId) {
-                        currentUserId = user.userId;
-                        localStorage.setItem('userId', currentUserId);
-                    }
-                    updateUIState();
-                    pollBackend();
-                }
             }
         }
 
@@ -1544,6 +1641,11 @@
                     if(balanceEl) balanceEl.innerText = fmt + ' USDT';
                     const swapBalEl = document.getElementById('swapBalanceDisplay');
                     if(swapBalEl) swapBalEl.innerText = fmt;
+                    // Update USDT asset row in wallet overview table
+                    const usdtBal = document.getElementById('assetBal-USDT');
+                    if(usdtBal) usdtBal.innerText = fmt;
+                    const usdtUsd = document.getElementById('assetUsd-USDT');
+                    if(usdtUsd) usdtUsd.innerText = '$' + fmt;
                 }
 
                 // 8. Chat messages (update if chat is open)
