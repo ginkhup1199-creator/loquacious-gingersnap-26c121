@@ -1,27 +1,52 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
+import { createHash, randomBytes, randomInt, timingSafeEqual } from "crypto";
+import nodemailer from "nodemailer";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
+const SESSION_TTL_MS = 60 * 60 * 1000;    // 1 hour
+const OTP_TTL_MS     = 10 * 60 * 1000;    // 10 minutes
+const OTP_MAX_ATTEMPTS = 5;               // max wrong guesses before OTP is invalidated
 const SESSION_STORE_KEY = "admin-session";
+const OTP_STORE_KEY     = "admin-otp";
 
 // ---------------------------------------------------------------------------
-// Session helpers (inlined here so esbuild bundles each function independently)
+// Types
 // ---------------------------------------------------------------------------
-
-function generateSessionId(): string {
-  return randomBytes(32).toString("hex");
-}
 
 interface StoredSession {
   sessionId: string;
   expiresAt: string;
   createdAt: string;
   usedAt: string | null;
+}
+
+interface StoredOtp {
+  hash: string;       // SHA-256 of the 6-digit code
+  expiresAt: string;
+  createdAt: string;
+  email: string;
+  attempts: number;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers (inlined so esbuild bundles independently)
+// ---------------------------------------------------------------------------
+
+function generateSessionId(): string {
+  return randomBytes(32).toString("hex");
+}
+
+function generateOtp(): string {
+  // Use randomInt for an unbiased 6-digit code (inclusive 100000..999999)
+  return String(randomInt(100000, 1000000));
+}
+
+function hashOtp(otp: string): string {
+  return createHash("sha256").update(otp).digest("hex");
 }
 
 async function createSession(
@@ -70,50 +95,201 @@ function securityHeaders(): Record<string, string> {
   };
 }
 
+async function sendOtpEmail(
+  adminEmail: string,
+  otp: string,
+  gmailUser: string,
+  gmailAppPassword: string
+): Promise<void> {
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false,
+    auth: { user: gmailUser, pass: gmailAppPassword },
+  });
+
+  await transporter.sendMail({
+    from: `"NexusTrade Admin" <${gmailUser}>`,
+    to: adminEmail,
+    subject: "Your NexusTrade Admin Login Code",
+    text: `Your one-time login code is: ${otp}\n\nThis code expires in 10 minutes. Do not share it with anyone.`,
+    html: `
+      <div style="font-family:sans-serif;max-width:420px;margin:0 auto;background:#0a1325;color:#e2e8f0;padding:32px;border-radius:12px;border:1px solid #1a2642;">
+        <h2 style="color:#00f0ff;margin-top:0;">NexusTrade Admin Access</h2>
+        <p style="color:#8ba3cb;">Your one-time login code:</p>
+        <div style="font-size:40px;font-weight:bold;letter-spacing:12px;color:#ffffff;background:#050b14;padding:20px;border-radius:8px;text-align:center;border:1px solid #00f0ff;">${otp}</div>
+        <p style="color:#8ba3cb;font-size:13px;margin-top:20px;">This code expires in <strong style="color:#ffb300;">10 minutes</strong>. Do not share it with anyone.</p>
+        <p style="color:#ff1744;font-size:12px;">If you did not request this code, your admin panel may be under attack. Change your credentials immediately.</p>
+      </div>
+    `,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
 
 export default async (req: Request, context: Context) => {
-  const store = getStore({ name: "app-data", consistency: "strong" });
-  const adminToken = process.env.ADMIN_TOKEN;
-  const ip = getClientIp(context);
-  const headers = securityHeaders();
+  const store      = getStore({ name: "app-data", consistency: "strong" });
+  const ip         = getClientIp(context);
+  const headers    = securityHeaders();
 
-  if (!adminToken) {
-    console.warn(`[AUDIT] {"event":"AUTH_FAILURE","reason":"ADMIN_TOKEN not configured","ip":"${ip}"}`);
-    return Response.json({ error: "Admin token not configured" }, { status: 503, headers });
+  // Master admin email — must be set via ADMIN_EMAIL env var
+  const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim();
+  if (!adminEmail) {
+    console.error(`[AUDIT] {"event":"CONFIG_ERROR","reason":"ADMIN_EMAIL not configured","ip":"${ip}"}`);
+    return Response.json({ error: "Admin email not configured. Set ADMIN_EMAIL env var." }, { status: 503, headers });
+  }
+  const gmailUser        = process.env.GMAIL_USER || adminEmail;
+  const gmailAppPassword = process.env.GMAIL_APP_PASSWORD || "";
+
+  // The ADMIN_TOKEN env var is still required so other functions know the server is configured
+  if (!process.env.ADMIN_TOKEN) {
+    console.warn(`[AUDIT] {"event":"CONFIG_ERROR","reason":"ADMIN_TOKEN not configured","ip":"${ip}"}`);
+    return Response.json({ error: "Server not configured" }, { status: 503, headers });
   }
 
-  // POST /api/admin/session  → create a new session
+  // ── POST /api/admin/session ──────────────────────────────────────────────
   if (req.method === "POST") {
-    const token = req.headers.get("X-Admin-Token");
-
-    if (!token || !timingSafeTokenCompare(token, adminToken)) {
-      console.warn(`[AUDIT] {"event":"AUTH_FAILURE","reason":"Invalid admin token","ip":"${ip}"}`);
-      return Response.json({ error: "Unauthorized" }, { status: 401, headers });
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return Response.json({ error: "Invalid JSON" }, { status: 400, headers });
     }
 
-    const { sessionId, expiresAt } = await createSession(store);
+    const action = String(body.action ?? "");
 
-    console.log(`[AUDIT] {"event":"SESSION_CREATED","sessionId":"${sessionId.slice(0, 8)}…","ip":"${ip}"}`);
+    // ── Step 1: request-otp ─────────────────────────────────────────────────
+    if (action === "request-otp") {
+      const email = String(body.email ?? "").toLowerCase().trim();
 
-    return Response.json(
-      {
-        sessionId,
-        expiresAt,
-        message: "Session created. Use X-Session-Token header for admin operations.",
-      },
-      { status: 201, headers }
-    );
+      // Constant-time email comparison — fixed buffer size prevents length-based timing leaks
+      const MAX_EMAIL_LEN = 254; // RFC 5321 maximum
+      const emailMatch = (() => {
+        try {
+          const aBuf = Buffer.alloc(MAX_EMAIL_LEN);
+          const bBuf = Buffer.alloc(MAX_EMAIL_LEN);
+          Buffer.from(email).copy(aBuf);
+          Buffer.from(adminEmail).copy(bBuf);
+          return timingSafeEqual(aBuf, bBuf);
+        } catch {
+          return false;
+        }
+      })();
+
+      if (!emailMatch) {
+        // Respond with the same message as a valid request to prevent enumeration
+        console.warn(`[AUDIT] {"event":"OTP_REQUEST_INVALID_EMAIL","ip":"${ip}"}`);
+        return Response.json(
+          { sent: true, message: "If this is a registered admin email, a code has been sent." },
+          { status: 200, headers }
+        );
+      }
+
+      if (!gmailAppPassword) {
+        console.error(`[AUDIT] {"event":"CONFIG_ERROR","reason":"GMAIL_APP_PASSWORD not set","ip":"${ip}"}`);
+        return Response.json({ error: "Email service not configured. Set GMAIL_APP_PASSWORD env var." }, { status: 503, headers });
+      }
+
+      const otp = generateOtp();
+      const otpData: StoredOtp = {
+        hash: hashOtp(otp),
+        expiresAt: new Date(Date.now() + OTP_TTL_MS).toISOString(),
+        createdAt: new Date().toISOString(),
+        email: adminEmail,
+        attempts: 0,
+      };
+      await store.setJSON(OTP_STORE_KEY, otpData);
+
+      try {
+        await sendOtpEmail(adminEmail, otp, gmailUser, gmailAppPassword);
+        console.log(`[AUDIT] {"event":"OTP_SENT","email":"${adminEmail.slice(0, 4)}…","ip":"${ip}"}`);
+      } catch (err) {
+        // Clean up stored OTP if email fails
+        await store.delete(OTP_STORE_KEY).catch(() => {});
+        console.error(`[AUDIT] {"event":"OTP_SEND_FAILED","error":"${String(err)}","ip":"${ip}"}`);
+        return Response.json({ error: "Failed to send verification email. Check GMAIL_APP_PASSWORD." }, { status: 502, headers });
+      }
+
+      return Response.json(
+        { sent: true, message: "Verification code sent. Check your inbox." },
+        { status: 200, headers }
+      );
+    }
+
+    // ── Step 2: verify-otp ──────────────────────────────────────────────────
+    if (action === "verify-otp") {
+      const email     = String(body.email ?? "").toLowerCase().trim();
+      const otpInput  = String(body.otp  ?? "").trim();
+
+      if (email !== adminEmail) {
+        console.warn(`[AUDIT] {"event":"OTP_VERIFY_INVALID_EMAIL","ip":"${ip}"}`);
+        return Response.json({ error: "Invalid code or email" }, { status: 401, headers });
+      }
+
+      if (!otpInput || !/^\d{6}$/.test(otpInput)) {
+        return Response.json({ error: "Enter the 6-digit code from your email." }, { status: 400, headers });
+      }
+
+      const stored = await store.get(OTP_STORE_KEY, { type: "json" }) as StoredOtp | null;
+
+      if (!stored || stored.email !== adminEmail) {
+        return Response.json({ error: "No pending verification code. Request a new one." }, { status: 401, headers });
+      }
+
+      if (new Date(stored.expiresAt).getTime() < Date.now()) {
+        await store.delete(OTP_STORE_KEY).catch(() => {});
+        return Response.json({ error: "Code expired. Request a new one." }, { status: 401, headers });
+      }
+
+      // Increment attempt counter before checking
+      stored.attempts = (stored.attempts || 0) + 1;
+      if (stored.attempts > OTP_MAX_ATTEMPTS) {
+        await store.delete(OTP_STORE_KEY).catch(() => {});
+        console.warn(`[AUDIT] {"event":"OTP_MAX_ATTEMPTS_EXCEEDED","ip":"${ip}"}`);
+        return Response.json({ error: "Too many failed attempts. Request a new code." }, { status: 401, headers });
+      }
+      await store.setJSON(OTP_STORE_KEY, stored);
+
+      // Constant-time hash comparison
+      const inputHash   = hashOtp(otpInput);
+      const storedHash  = stored.hash;
+      const hashMatch   = timingSafeTokenCompare(inputHash, storedHash);
+
+      if (!hashMatch) {
+        const remaining = OTP_MAX_ATTEMPTS - stored.attempts;
+        console.warn(`[AUDIT] {"event":"OTP_VERIFY_FAILED","attempts":${stored.attempts},"ip":"${ip}"}`);
+        return Response.json(
+          { error: `Incorrect code. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.` },
+          { status: 401, headers }
+        );
+      }
+
+      // OTP correct — delete it (one-time use) and create session
+      await store.delete(OTP_STORE_KEY).catch(() => {});
+      const { sessionId, expiresAt } = await createSession(store);
+      console.log(`[AUDIT] {"event":"SESSION_CREATED","sessionId":"${sessionId.slice(0, 8)}…","ip":"${ip}"}`);
+
+      return Response.json(
+        {
+          sessionId,
+          expiresAt,
+          message: "Authenticated. Use X-Session-Token header for admin operations.",
+        },
+        { status: 201, headers }
+      );
+    }
+
+    return Response.json({ error: "Unknown action" }, { status: 400, headers });
   }
 
-  // DELETE /api/admin/session  → destroy the current session (logout)
+  // ── DELETE /api/admin/session → destroy session (logout) ────────────────
   if (req.method === "DELETE") {
     const sessionId = req.headers.get("X-Session-Token");
     await destroySession(store);
     console.log(`[AUDIT] {"event":"SESSION_DESTROYED","sessionId":"${sessionId ? sessionId.slice(0, 8) + "…" : "(none)"}","ip":"${ip}"}`);
-    return Response.json({ message: "Session destroyed" }, { status: 200, headers });
+    return Response.json({ message: "Logged out" }, { status: 200, headers });
   }
 
   return new Response("Method not allowed", { status: 405, headers });
