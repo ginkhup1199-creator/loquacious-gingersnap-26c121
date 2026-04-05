@@ -5,7 +5,7 @@ import {
   secureJson,
   auditLog,
   getClientIp,
-} from "../lib/security.mjs";
+} from "../lib/security.js";
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
@@ -25,7 +25,7 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "POST") {
-    const body = await req.json() as Record<string, unknown>;
+    const body = await req.json();
     // Only admin can approve/reject; users can submit pending
     if (body.state === "approved" || body.state === "unverified") {
       const sessionResult = await validateAdminSession(req, store);

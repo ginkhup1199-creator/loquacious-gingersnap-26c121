@@ -5,7 +5,7 @@ import {
   secureJson,
   auditLog,
   getClientIp,
-} from "../lib/security.mjs";
+} from "../lib/security.js";
 
 const DEFAULT_BINARY_LEVELS = [
   { id: 1, name: "Bronze", capital: 100, tradingTime: 60, profitPercent: 85 },
@@ -51,7 +51,7 @@ export default async (req: Request, context: Context) => {
 
     auditLog("ADMIN_WRITE", { operation: "update-levels", ip });
 
-    const body = await req.json() as Record<string, unknown>;
+    const body = await req.json();
     if (body.binaryLevels) {
       await store.setJSON("binary-levels", body.binaryLevels);
     }

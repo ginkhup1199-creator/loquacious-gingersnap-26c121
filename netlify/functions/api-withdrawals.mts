@@ -6,7 +6,7 @@ import {
   sanitizeString,
   auditLog,
   getClientIp,
-} from "../lib/security.mjs";
+} from "../lib/security.js";
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
@@ -22,7 +22,7 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "POST") {
-    const body = await req.json() as Record<string, unknown>;
+    const body = await req.json();
     const { action } = body;
 
     if (action === "add") {
@@ -32,7 +32,7 @@ export default async (req: Request, context: Context) => {
         coin: sanitizeString(String(body.coin ?? ""), 20),
         network: sanitizeString(String(body.network ?? ""), 20),
         address: sanitizeString(String(body.address ?? ""), 200),
-        amount: parseFloat(String(body.amount)) || 0,
+        amount: parseFloat(body.amount) || 0,
         date: new Date().toISOString().split("T")[0],
         status: "Pending",
       };
@@ -48,18 +48,14 @@ export default async (req: Request, context: Context) => {
         return secureJson({ error: "Unauthorized" }, 401);
       }
 
-      const newStatus = sanitizeString(String(body.status ?? "Completed"), 20);
-      const allowedStatuses = ["Completed", "Rejected"];
-      const safeStatus = allowedStatuses.includes(newStatus) ? newStatus : "Completed";
-
-      auditLog("ADMIN_WRITE", { operation: "process-withdrawal", withdrawalId: body.id, status: safeStatus, ip });
+      auditLog("ADMIN_WRITE", { operation: "process-withdrawal", withdrawalId: body.id, ip });
 
       const existing = (await store.get("withdrawals", { type: "json" })) || [];
-      const updated = (existing as { id: number; status: string }[]).map(
-        (w) => w.id === Number(body.id) ? { ...w, status: safeStatus } : w
+      const updated = (existing as { id: number }[]).filter(
+        (w) => w.id !== body.id
       );
       await store.setJSON("withdrawals", updated);
-      return secureJson({ success: true, status: safeStatus });
+      return secureJson({ success: true });
     }
 
     return secureJson({ error: "Invalid action" }, 400);

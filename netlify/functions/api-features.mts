@@ -5,7 +5,7 @@ import {
   secureJson,
   auditLog,
   getClientIp,
-} from "../lib/security.mjs";
+} from "../lib/security.js";
 
 const DEFAULTS = {
   fiat: true,
@@ -39,7 +39,7 @@ export default async (req: Request, context: Context) => {
 
     auditLog("ADMIN_WRITE", { operation: "update-features", ip });
 
-    const body = await req.json() as Record<string, unknown>;
+    const body = await req.json();
     // Only accept known boolean feature flags
     const sanitized: Record<string, boolean> = {};
     for (const key of Object.keys(DEFAULTS)) {

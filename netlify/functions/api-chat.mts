@@ -6,7 +6,7 @@ import {
   sanitizeString,
   auditLog,
   getClientIp,
-} from "../lib/security.mjs";
+} from "../lib/security.js";
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
@@ -18,7 +18,7 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "POST") {
-    const body = await req.json() as Record<string, unknown>;
+    const body = await req.json();
 
     // Sanitize sender name
     const sender = sanitizeString(String(body.sender ?? ""), 64);

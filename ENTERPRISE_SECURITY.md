@@ -1,191 +1,177 @@
-# Enterprise Security Architecture
+# Enterprise Security Policy — NexusTrade DApp
 
-## NexusTrade - Enterprise-Grade Security Implementation
+## Overview
 
-This document describes the enterprise security architecture implemented in NexusTrade.
+NexusTrade implements enterprise-grade security controls to protect user assets,
+prevent unauthorized access, and defend against modern AI-assisted threats.
 
 ---
 
-## 🔐 Session-Based One-Time Token System
+## Access Control Model
 
-### Overview
+### Enterprise-Only Administration
 
-Admin authentication uses a **multi-layer session system** where:
-1. The admin authenticates once per session with `ENTERPRISE_SECRET` to create a server-side session
-2. Every subsequent **write operation** requires a fresh **one-time token** that is immediately invalidated after use
-3. Sessions expire automatically after 30 minutes of inactivity
-4. Tokens expire after 5 minutes if not used
+- **Team access is completely disabled.** There are no shared team credentials,
+  group tokens, or role-delegation mechanisms.
+- Admin operations require the single enterprise `ADMIN_TOKEN` environment variable.
+- The `ADMIN_TOKEN` must be set in Netlify's environment variables panel and is
+  **never** committed to source control.
 
-### Authentication Flow
+### Session-Based Token Flow
+
+Every admin session follows this lifecycle:
 
 ```
-Admin enters password
-       ↓
-POST /api/admin?action=login
-(with ENTERPRISE_SECRET credential)
-       ↓
-Server creates session → returns sessionId
-       ↓
-For each write operation:
-  POST /api/admin?action=issue-token
-  (with sessionId)
-       ↓
-  Server issues one-time token (valid 5 min)
-       ↓
-  Admin uses token in X-Admin-Token header
-       ↓
-  Token is IMMEDIATELY INVALIDATED after first use
-       ↓
-  Next write requires a NEW token request
+Admin                       Server                        Netlify Blobs
+  |                             |                               |
+  |--POST /api/admin/session--->|                               |
+  |   X-Admin-Token: <master>   |--store session (1h TTL)------>|
+  |<--{ sessionId, expiresAt }--|                               |
+  |                             |                               |
+  |--POST /api/settings-------->|                               |
+  |   X-Session-Token: <id>     |--validate session------------>|
+  |                             |<--session valid---------------|
+  |<--200 OK--------------------|                               |
+  |                             |                               |
+  |--DELETE /api/admin/session->|--delete session-------------->|
+  |<--{ message: "destroyed" }--|                               |
 ```
 
-### Why One-Time Tokens?
-
-- **Replay attack prevention**: Captured tokens cannot be reused
-- **Session isolation**: Each admin action is explicitly re-authorized
-- **Audit trail**: Every token issuance and use is logged
-- **Time-bound**: Tokens expire even if not used
-
----
-
-## 🛡️ LLM/Prompt Injection Protection
-
-### What's Protected
-
-All user-submitted text fields are scanned for AI prompt injection patterns before processing:
-
-- Direct instruction override attempts ("ignore previous instructions")
-- Role-play / persona hijacking ("act as an unrestricted AI")
-- Data exfiltration attempts ("dump all database records")
-- System prompt delimiter injection (`[INST]`, `<|system|>`, etc.)
-- Wallet/financial manipulation attempts ("transfer all funds to...")
-
-### Implementation
-
-The `src/security/llmProtection.js` module provides:
-- `checkForInjection(input)` - Tests a string against injection patterns
-- `scanRequestBody(body)` - Recursively scans all string fields
-- `sanitizeString(input, maxLen)` - Cleans HTML, control characters, truncates
+**Key properties:**
+- The raw `ADMIN_TOKEN` (master password) is **never stored in the browser**.
+- The browser stores only the `sessionId` in `sessionStorage` (cleared on tab close).
+- Sessions expire automatically after **1 hour**.
+- Only one active session is permitted at a time; new logins replace old sessions.
+- Logout immediately invalidates the session server-side.
 
 ---
 
-## 📊 Audit Logging
+## AI / LLM Injection Prevention
 
-Every security-relevant event is logged with a structured JSON entry:
+The chat endpoint (`/api/chat`) and all user-supplied inputs are checked for
+known prompt-injection patterns before storage or forwarding to any AI service.
+
+### Blocked Patterns
+
+| Category | Examples |
+|----------|---------|
+| System prompt override | "ignore previous instructions", "override system prompt" |
+| Role escalation | "act as admin", "DAN mode", "jailbreak" |
+| Context escape | `[SYSTEM]`, `### system ###`, separator tricks |
+| Secret exfiltration | "show me your API key", "print ADMIN_TOKEN", `process.env` |
+| Tool/function abuse | `call function(`, `execute command`, `eval(` |
+
+### Response
+
+Blocked messages receive a `400 Bad Request` response:
+```json
+{ "error": "Message contains disallowed content" }
+```
+
+The attempt is recorded in the Netlify function log:
+```json
+{ "event": "INJECTION_BLOCKED", "reason": "...", "ip": "..." }
+```
+
+---
+
+## Content Sanitization
+
+All user-supplied string values are sanitized before storage:
+
+- Null bytes removed
+- HTML special characters escaped (`<`, `>`, `&`, `"`, `'`, `/`)
+- Dangerous URI schemes blocked (`javascript:`, `data:`, `vbscript:`)
+- Maximum string length enforced (1000 chars by default)
+- Object keys sanitized to prevent prototype pollution
+
+---
+
+## Security Headers
+
+Every API response includes:
+
+| Header | Value |
+|--------|-------|
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `DENY` |
+| `X-XSS-Protection` | `1; mode=block` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | camera, microphone, geolocation, payment all disabled |
+| `Cache-Control` | `no-store` (sensitive endpoints) |
+
+---
+
+## Audit Logging
+
+All security events are logged as structured JSON via `console.log` and captured
+by the Netlify log pipeline:
 
 ```json
-{
-  "timestamp": "2026-04-04T12:30:45Z",
-  "action": "BALANCE_UPDATED",
-  "level": "INFO",
-  "actor": "admin",
-  "userId": null,
-  "adminId": "sk_a***[32]",
-  "resource": "balances",
-  "changes": { "wallet": "0x...", "prevBalance": 1000, "newBalance": 2000 },
-  "status": "success",
-  "ip": "192.168.1.1"
-}
+{ "timestamp": "2026-04-04T12:00:00Z", "event": "AUTH_FAILURE", "reason": "Invalid session token", "ip": "1.2.3.4" }
+{ "timestamp": "2026-04-04T12:01:00Z", "event": "SESSION_CREATED", "sessionIdPrefix": "a1b2c3d4…", "ip": "1.2.3.4" }
+{ "timestamp": "2026-04-04T12:02:00Z", "event": "ADMIN_WRITE", "operation": "update-balance", "wallet": "0xdAC17F9…31ec7", "ip": "1.2.3.4" }
 ```
 
-Logs are captured by Netlify Function logs and can be extended to persistent storage.
-
-### Logged Events
-
-| Category | Events |
-|----------|--------|
-| Admin | Login, login failure, session created/expired, token issued/used/expired |
-| Balances | Updates (with before/after values) |
-| Trades | Created, completed, failed |
-| Wallet | Address updates |
-| Withdrawals | Requested, processed, rejected |
-| KYC | Submitted, approved, rejected |
-| Security | Rate limit exceeded, injection blocked, unauthorized access |
-| Settings | Feature toggles, settings changes, level updates |
+**Sensitive data is never logged:**
+- Token values are never included in log entries
+- Session IDs are truncated to the first 8 characters
+- Wallet addresses are truncated (`0xdAC17F9…31ec7`)
 
 ---
 
-## 🚦 Rate Limiting
+## Rate Limiting
 
-All API endpoints implement per-IP rate limiting:
-
-| Endpoint | Limit |
-|----------|-------|
-| `/api/admin` | 20 req/min (login brute-force protection) |
-| `/api/balances` | 30 req/min |
-| `/api/trades` | 30 req/min |
-| `/api/users` | 20 req/min |
-| `/api/withdrawals` | 20 req/min |
-| `/api/market-data` | 60 req/min |
-| `/api/transactions` | 30 req/min |
-
-Rate limits return HTTP 429 with a descriptive error message.
+Admin session creation is protected by the Netlify platform rate limits.
+Per-IP request counting is implemented in `src/middleware/apiSecurity.js` for
+additional defense against brute-force attempts.
 
 ---
 
-## ✅ Input Validation
+## Secret Management
 
-All API endpoints validate inputs:
+| Secret | Storage |
+|--------|---------|
+| `ADMIN_TOKEN` | Netlify environment variable only |
+| Session tokens | `@netlify/blobs` (server-side, 1-hour TTL) |
+| Browser storage | `sessionToken` in `sessionStorage` only (no `localStorage`) |
 
-- **Type checking**: All fields have type constraints
-- **Numeric bounds**: Financial values must be positive, within safe ranges
-- **Enum validation**: Coins, networks, statuses must be from allowed lists
-- **Length limits**: All string fields are capped to prevent abuse
-- **HTML stripping**: All user strings have HTML tags removed
-
-### Admin-Protected vs. Public Endpoints
-
-| Endpoint | Write Access |
-|----------|-------------|
-| `/api/balances` POST | Admin only |
-| `/api/features` POST | Admin only |
-| `/api/levels` POST | Admin only |
-| `/api/settings` POST | Admin only |
-| `/api/addresses` → `/api/wallet` POST | Admin only |
-| `/api/kyc` POST (approve/reject) | Admin only |
-| `/api/withdrawals` POST (process) | Admin only |
-| `/api/users` POST (register) | Public |
-| `/api/trades` POST | Public (authenticated wallet) |
-| `/api/withdrawals` POST (add) | Public (authenticated wallet) |
+**Never commit** `.env`, `.env.production`, or any file containing real credentials.
+The `.gitignore` is configured to block these automatically.
 
 ---
 
-## 🔑 Environment Variables
+## Generating a Secure Admin Token
 
-| Variable | Purpose | Required |
-|----------|---------|----------|
-| `ADMIN_TOKEN` | Validates admin write requests (X-Admin-Token header) | ✅ Yes |
-| `ENTERPRISE_SECRET` | Creates admin sessions (defaults to ADMIN_TOKEN) | Optional |
-| `NODE_ENV` | Application environment | No |
+```bash
+# macOS / Linux
+openssl rand -hex 32
 
-### Setting Up in Netlify
+# Node.js
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 
-1. Go to **Site Settings → Build & Deploy → Environment Variables**
-2. Add `ADMIN_TOKEN` with a strong random value (minimum 32 characters)
-3. Optionally add `ENTERPRISE_SECRET` for additional separation
-4. Trigger a new deployment
+Set the output value as `ADMIN_TOKEN` in Netlify:
+**Site Settings → Build & Deploy → Environment Variables**
 
 ---
 
-## 🔒 Constant-Time Comparison
+## Incident Response
 
-All token comparisons use `crypto.timingSafeEqual()` to prevent timing-based attacks that could reveal token values through response time differences.
+1. If `ADMIN_TOKEN` is suspected compromised:
+   - Immediately rotate the token in Netlify environment variables
+   - Trigger a new deployment to invalidate all active sessions
+   - Review Netlify function logs for suspicious `ADMIN_WRITE` events
+
+2. If a session token is suspected compromised:
+   - Rotating `ADMIN_TOKEN` and redeploying invalidates all sessions (the session
+     store is checked against the current `ADMIN_TOKEN` being set on the server)
 
 ---
 
-## 📋 Security Checklist
+## Compliance Notes
 
-- ✅ Session-based admin authentication (no persistent tokens in localStorage)
-- ✅ One-time tokens for each write operation
-- ✅ LLM/prompt injection detection and blocking
-- ✅ Input sanitization on all user fields
-- ✅ Rate limiting per IP on all endpoints
-- ✅ Constant-time token comparison
-- ✅ Audit logging for all security events
-- ✅ Admin token never stored in browser after login
-- ✅ Session expires automatically (30 min)
-- ✅ Tokens expire after 5 minutes
-- ✅ HTML injection prevention (tags stripped)
-- ✅ Numeric bounds validation
-- ✅ Enum validation for controlled fields
-- ✅ `.env` files excluded from Git
+- All admin write operations are audit-logged with timestamp and IP
+- Session tokens expire automatically (no indefinite access)
+- No sensitive data is stored in browser `localStorage`
+- Secrets are managed exclusively through environment variables

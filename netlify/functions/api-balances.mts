@@ -6,7 +6,7 @@ import {
   sanitizeString,
   auditLog,
   getClientIp,
-} from "../lib/security.mjs";
+} from "../lib/security.js";
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
@@ -33,7 +33,7 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Unauthorized" }, 401);
     }
 
-    const body = await req.json() as Record<string, unknown>;
+    const body = await req.json();
     const { wallet, usdt } = body;
     if (!wallet) {
       return secureJson({ error: "Wallet address required" }, 400);
@@ -45,7 +45,7 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Invalid wallet address" }, 400);
     }
 
-    const parsedUsdt = parseFloat(String(usdt));
+    const parsedUsdt = parseFloat(usdt);
     if (isNaN(parsedUsdt) || parsedUsdt < 0) {
       return secureJson({ error: "Invalid balance value" }, 400);
     }
