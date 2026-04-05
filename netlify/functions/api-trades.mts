@@ -12,6 +12,7 @@ const DEMO_RATES: Record<string, number> = {
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
+  const ip = getClientIp(context);
 
   if (req.method === "GET") {
     const url = new URL(req.url);
