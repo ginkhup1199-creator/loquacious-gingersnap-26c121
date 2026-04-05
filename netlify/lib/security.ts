@@ -7,6 +7,7 @@
  *  - LLM prompt-injection detection
  *  - Input sanitization helpers
  *  - Audit logging
+ *  - In-process rate limiting (per-IP, sliding window)
  */
 
 import { getStore } from "@netlify/blobs";
@@ -275,4 +276,76 @@ export async function persistAuditLog(
   } catch {
     // Non-fatal: persist failure must never break the operation
   }
+}
+
+// ---------------------------------------------------------------------------
+// In-Process Rate Limiting (sliding window, per IP)
+// ---------------------------------------------------------------------------
+
+interface RateLimitBucket {
+  timestamps: number[];
+}
+
+// Module-level map — persists across warm-Lambda invocations in the same
+// process.  Netlify Functions are ephemeral, so this provides a best-effort
+// per-process guard.  For stricter enforcement, use Netlify Edge Functions or
+// a WAF layer in front of the site.
+const _rateLimitBuckets = new Map<string, RateLimitBucket>();
+
+const RATE_LIMIT_MAX_DEFAULT     = 30;
+const RATE_LIMIT_WINDOW_DEFAULT  = 60_000; // 1 minute
+
+/**
+ * Checks whether the given key (typically a client IP address) has exceeded
+ * the rate limit.  Returns `{ allowed: true }` when the request may proceed,
+ * or `{ allowed: false, retryAfterMs }` when the caller is rate-limited.
+ *
+ * Limits are configurable via environment variables:
+ *   RATE_LIMIT_MAX         – max requests per window (default 30)
+ *   RATE_LIMIT_WINDOW_MS   – window duration in ms   (default 60000)
+ */
+export function checkRateLimit(key: string): { allowed: boolean; retryAfterMs?: number } {
+  const max    = parseInt(process.env.RATE_LIMIT_MAX        ?? String(RATE_LIMIT_MAX_DEFAULT),    10);
+  const window = parseInt(process.env.RATE_LIMIT_WINDOW_MS  ?? String(RATE_LIMIT_WINDOW_DEFAULT), 10);
+
+  const now    = Date.now();
+  const cutoff = now - window;
+
+  let bucket = _rateLimitBuckets.get(key);
+  if (!bucket) {
+    bucket = { timestamps: [] };
+    _rateLimitBuckets.set(key, bucket);
+  }
+
+  // Evict old timestamps outside the current window
+  bucket.timestamps = bucket.timestamps.filter(ts => ts > cutoff);
+
+  if (bucket.timestamps.length >= max) {
+    // Oldest timestamp in the window tells us when a slot will free up.
+    // Guard against clock skew: retryAfterMs is always at least 0.
+    const oldest       = bucket.timestamps[0];
+    const retryAfterMs = oldest <= now ? oldest + window - now : window;
+    return { allowed: false, retryAfterMs: Math.max(0, retryAfterMs) };
+  }
+
+  bucket.timestamps.push(now);
+  return { allowed: true };
+}
+
+/**
+ * Returns a 429 JSON response carrying a Retry-After header.
+ */
+export function rateLimitExceededResponse(retryAfterMs = RATE_LIMIT_WINDOW_DEFAULT): Response {
+  const retryAfterSec = Math.ceil(retryAfterMs / 1000);
+  return new Response(
+    JSON.stringify({ error: "Too many requests. Please try again later." }),
+    {
+      status: 429,
+      headers: {
+        "Content-Type": "application/json",
+        "Retry-After": String(retryAfterSec),
+        ...securityHeaders(),
+      },
+    }
+  );
 }
