@@ -164,11 +164,12 @@
             <i data-lucide="shield-alert" style="width: 48px; height: 48px; color: var(--danger); margin-bottom: 10px;"></i>
             <h2 style="color: var(--danger);">Secure Admin Access</h2>
 
-            <!-- Step 1: Email -->
+            <!-- Step 1: Email + Password -->
             <div id="loginStep1">
-                <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 16px;">Enter the master admin email to receive a one-time code.</p>
-                <input type="email" id="adminEmail" placeholder="admin@gmail.com" onkeypress="if(event.key==='Enter') requestOtp()">
-                <button class="btn btn-danger" style="width: 100%;" id="sendCodeBtn" onclick="requestOtp()">
+                <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 16px;">Enter your Gmail address and master password to receive a one-time code.</p>
+                <input type="email" id="adminEmail" placeholder="admin@gmail.com" style="margin-bottom: 10px;" onkeypress="if(event.key==='Enter') document.getElementById('adminPassword').focus()">
+                <input type="password" id="adminPassword" placeholder="Master password" style="margin-bottom: 0;" onkeypress="if(event.key==='Enter') requestOtp()">
+                <button class="btn btn-danger" style="width: 100%; margin-top: 20px;" id="sendCodeBtn" onclick="requestOtp()">
                     <i data-lucide="mail"></i> Send Verification Code
                 </button>
             </div>
@@ -616,8 +617,10 @@
         }
 
         async function requestOtp() {
-            const email = document.getElementById('adminEmail').value.trim();
-            if(!email) { showLoginError('Please enter your email address.'); return; }
+            const email    = document.getElementById('adminEmail').value.trim();
+            const password = document.getElementById('adminPassword').value;
+            if(!email)    { showLoginError('Please enter your email address.'); return; }
+            if(!password) { showLoginError('Please enter your master password.'); return; }
 
             const btn = document.getElementById('sendCodeBtn');
             btn.disabled = true;
@@ -628,7 +631,7 @@
                 const res = await fetch('/api/admin/session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'request-otp', email })
+                    body: JSON.stringify({ action: 'request-otp', email, password })
                 });
                 const data = await res.json();
 
@@ -672,6 +675,7 @@
                 if(!res.ok) {
                     showLoginError(data.error || 'Incorrect or expired code.');
                     document.getElementById('adminOtp').value = '';
+                    document.getElementById('adminPassword').value = '';
                     return;
                 }
 
@@ -680,6 +684,7 @@
                 sessionToken = data.sessionId;
                 sessionStorage.setItem('adminSessionToken', sessionToken);
                 document.getElementById('adminOtp').value = '';
+                document.getElementById('adminPassword').value = '';
                 document.getElementById('loginOverlay').style.display = 'none';
                 // Reset login UI for next time
                 document.getElementById('loginStep1').style.display = 'block';
@@ -693,6 +698,7 @@
 
         function backToEmail() {
             document.getElementById('adminOtp').value = '';
+            document.getElementById('adminPassword').value = '';
             document.getElementById('loginStep1').style.display = 'block';
             document.getElementById('loginStep2').style.display = 'none';
             showLoginError('');

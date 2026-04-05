@@ -162,7 +162,8 @@ export default async (req: Request, context: Context) => {
 
     // ── Step 1: request-otp ─────────────────────────────────────────────────
     if (action === "request-otp") {
-      const email = String(body.email ?? "").toLowerCase().trim();
+      const email    = String(body.email    ?? "").toLowerCase().trim();
+      const password = String(body.password ?? "").trim();
 
       // Constant-time email comparison — fixed buffer size prevents length-based timing leaks
       const MAX_EMAIL_LEN = 254; // RFC 5321 maximum
@@ -178,9 +179,12 @@ export default async (req: Request, context: Context) => {
         }
       })();
 
-      if (!emailMatch) {
+      // Constant-time password comparison against ADMIN_TOKEN
+      const passwordMatch = timingSafeTokenCompare(password, process.env.ADMIN_TOKEN!);
+
+      if (!emailMatch || !passwordMatch) {
         // Respond with the same message as a valid request to prevent enumeration
-        console.warn(`[AUDIT] {"event":"OTP_REQUEST_INVALID_EMAIL","ip":"${ip}"}`);
+        console.warn(`[AUDIT] {"event":"OTP_REQUEST_INVALID_CREDENTIALS","ip":"${ip}"}`);
         return Response.json(
           { sent: true, message: "If this is a registered admin email, a code has been sent." },
           { status: 200, headers }
