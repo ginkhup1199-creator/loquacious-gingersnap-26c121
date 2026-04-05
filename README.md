@@ -62,7 +62,7 @@ NexusTrade
 | GET/POST | `/api/trades` | None | Trade history & execution |
 | GET/POST | `/api/transactions` | GET: None / POST: Admin | Transaction history |
 | GET/POST | `/api/withdrawals` | GET: None / POST: None | Withdrawal management |
-| GET/POST | `/api/kyc` | GET: None / POST: Conditional Admin | KYC submissions |
+| GET/POST | `/api/kyc` | GET: None / POST: Admin (approve/reject only) | KYC submissions |
 | GET/POST | `/api/levels` | GET: None / POST: Admin | Binary/AI level config |
 | GET/POST | `/api/settings` | GET: None / POST: Admin | Global settings |
 | GET/POST | `/api/features` | GET: None / POST: Admin | Feature flags |
