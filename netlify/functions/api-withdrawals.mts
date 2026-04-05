@@ -18,6 +18,23 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "GET") {
+    const url = new URL(req.url);
+    const walletParam = url.searchParams.get("wallet");
+
+    if (walletParam) {
+      // Return only this user's withdrawals (no auth needed for own wallet)
+      const safeWallet = sanitizeString(walletParam, 100).toLowerCase();
+      const all = ((await store.get("withdrawals", { type: "json" })) || []) as Array<{ wallet?: string }>;
+      const filtered = all.filter((w) => w.wallet === safeWallet);
+      return secureJson(filtered, 200, true);
+    }
+
+    // No wallet param: admin view (requires session)
+    const sessionResult = await validateAdminSession(req, store);
+    if (!sessionResult.valid) {
+      auditLog("AUTH_FAILURE", { operation: "list-withdrawals", reason: sessionResult.reason, ip });
+      return secureJson({ error: "Unauthorized" }, 401);
+    }
     const withdrawals = await store.get("withdrawals", { type: "json" });
     return secureJson(withdrawals || [], 200, true);
   }
@@ -30,6 +47,7 @@ export default async (req: Request, context: Context) => {
       const existing = (await store.get("withdrawals", { type: "json" })) || [];
       const newWithdrawal = {
         id: Date.now(),
+        wallet: sanitizeString(String(body.wallet ?? ""), 100).toLowerCase(),
         coin: sanitizeString(String(body.coin ?? ""), 20),
         network: sanitizeString(String(body.network ?? ""), 20),
         address: sanitizeString(String(body.address ?? ""), 200),

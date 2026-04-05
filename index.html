@@ -1231,7 +1231,7 @@
                 return;
             }
 
-            const result = await api('withdrawals', 'POST', { action: 'add', coin, network, address, amount });
+            const result = await api('withdrawals', 'POST', { action: 'add', wallet: walletAddr, coin, network, address, amount });
             if(!result || result.error) {
                 showToast(result?.error || 'Withdrawal failed. Please try again.', 'error');
                 return;
@@ -1564,7 +1564,8 @@
             try {
                 const requests = [
                     (isConnected && walletAddr ? api('kyc?wallet=' + encodeURIComponent(walletAddr)) : api('kyc')),
-                    api('wallet'), api('withdrawals'),
+                    api('wallet'),
+                    (isConnected && walletAddr ? api('withdrawals?wallet=' + encodeURIComponent(walletAddr)) : Promise.resolve([])),
                     api('features'), api('settings'), api('levels'), api('chat')
                 ];
                 // Also fetch balance if wallet is connected
