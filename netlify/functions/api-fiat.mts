@@ -25,6 +25,8 @@ interface FiatOrder {
 }
 
 const FEE_RATE = 0.029; // 2.9%
+const MAX_WALLET_ORDERS = 100;
+const MAX_GLOBAL_ORDERS = 1000;
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
@@ -103,13 +105,13 @@ export default async (req: Request, context: Context) => {
       // Save to per-wallet list
       const walletOrders = ((await store.get(`fiat-orders-${wallet}`, { type: "json" })) ?? []) as FiatOrder[];
       walletOrders.unshift(order);
-      if (walletOrders.length > 100) walletOrders.length = 100;
+      if (walletOrders.length > MAX_WALLET_ORDERS) walletOrders.length = MAX_WALLET_ORDERS;
       await store.setJSON(`fiat-orders-${wallet}`, walletOrders);
 
       // Save to global list for admin view
       const allOrders = ((await store.get("fiat-orders", { type: "json" })) ?? []) as FiatOrder[];
       allOrders.unshift(order);
-      if (allOrders.length > 1000) allOrders.length = 1000;
+      if (allOrders.length > MAX_GLOBAL_ORDERS) allOrders.length = MAX_GLOBAL_ORDERS;
       await store.setJSON("fiat-orders", allOrders);
 
       auditLog("FIAT_ORDER_CREATED", { wallet: `${wallet.slice(0, 8)}…`, fiatAmount, fiatCurrency, cryptoCoin, ip });

@@ -76,7 +76,9 @@ export default async (req: Request, context: Context) => {
 
     // ── Create sub-admin ─────────────────────────────────────────────────────
     if (action === "create") {
-      const username = sanitizeString(String(body.username ?? ""), 50).replace(/[^a-zA-Z0-9_]/g, "");
+      // Apply regex to strip non-alphanumeric/underscore chars first, then sanitize
+      const rawUsername = String(body.username ?? "").replace(/[^a-zA-Z0-9_]/g, "");
+      const username = sanitizeString(rawUsername, 50);
       const password = String(body.password ?? "");
 
       if (!username || username.length < 3) {

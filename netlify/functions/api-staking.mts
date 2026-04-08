@@ -8,9 +8,10 @@ import {
   persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
+import { randomUUID } from "crypto";
 
 interface Stake {
-  id: number;
+  id: string;
   wallet: string;
   amount: number;
   apy: number;
@@ -77,7 +78,7 @@ export default async (req: Request, context: Context) => {
       await store.setJSON(`balance-${wallet}`, balance);
 
       const newStake: Stake = {
-        id: Date.now(),
+        id: randomUUID(),
         wallet,
         amount,
         apy,
@@ -103,7 +104,7 @@ export default async (req: Request, context: Context) => {
       }
 
       const wallet = sanitizeString(String(body.wallet ?? ""), 100).toLowerCase();
-      const stakeId = Number(body.stakeId);
+      const stakeId = sanitizeString(String(body.stakeId ?? ""), 64);
       if (!wallet) return secureJson({ error: "Wallet address required" }, 400);
       if (!stakeId) return secureJson({ error: "Stake ID required" }, 400);
 
@@ -116,8 +117,8 @@ export default async (req: Request, context: Context) => {
         return secureJson({ error: "Stake is not active" }, 400);
       }
 
-      // Calculate profit: APY pro-rated by days elapsed
-      const msElapsed = Date.now() - stake.id;
+      // Calculate profit: APY pro-rated by days elapsed using startAt timestamp
+      const msElapsed = Date.now() - new Date(stake.startAt).getTime();
       const daysElapsed = Math.max(1, msElapsed / (1000 * 60 * 60 * 24));
       const profit = parseFloat((stake.amount * (stake.apy / 100) * (daysElapsed / 365)).toFixed(2));
       const payout = stake.amount + profit;
@@ -148,7 +149,7 @@ export default async (req: Request, context: Context) => {
       }
 
       const wallet = sanitizeString(String(body.wallet ?? ""), 100).toLowerCase();
-      const stakeId = Number(body.stakeId);
+      const stakeId = sanitizeString(String(body.stakeId ?? ""), 64);
       if (!wallet) return secureJson({ error: "Wallet address required" }, 400);
       if (!stakeId) return secureJson({ error: "Stake ID required" }, 400);
 

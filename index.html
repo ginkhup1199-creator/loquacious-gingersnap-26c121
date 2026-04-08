@@ -456,22 +456,36 @@
                             <div class="input-group">
                                 <label>You Pay</label>
                                 <div style="display: flex; gap: 10px;">
-                                    <input type="number" value="500" style="flex: 1;">
-                                    <select style="width: 100px;"><option>USD</option><option>EUR</option><option>GBP</option></select>
+                                    <input type="number" id="fiatPayAmount" value="500" style="flex: 1;" oninput="updateFiatEstimate()">
+                                    <select id="fiatCurrency" style="width: 100px;" onchange="updateFiatEstimate()"><option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option></select>
                                 </div>
                             </div>
                             <div style="text-align: center; margin: 10px 0; color: var(--accent);"><i data-lucide="arrow-down"></i></div>
                             <div class="input-group">
                                 <label>You Receive (Estimated)</label>
                                 <div style="display: flex; gap: 10px;">
-                                    <input type="number" value="485.50" readonly style="flex: 1; background: var(--bg-panel);">
-                                    <select style="width: 100px;"><option>USDT</option><option>BTC</option><option>ETH</option></select>
+                                    <input type="number" id="fiatReceiveAmount" value="485.50" readonly style="flex: 1; background: var(--bg-panel);">
+                                    <select id="fiatCryptoCoin" style="width: 100px;" onchange="updateFiatEstimate()"><option value="USDT">USDT</option><option value="BTC">BTC</option><option value="ETH">ETH</option></select>
                                 </div>
                             </div>
-                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 15px;">
-                                <span>Provider: MoonPay</span><span>Fee: ~2.9%</span>
+                            <div class="input-group">
+                                <label>Payment Method</label>
+                                <select id="fiatPaymentMethod">
+                                    <option value="Credit Card">Credit Card</option>
+                                    <option value="Debit Card">Debit Card</option>
+                                    <option value="Bank Transfer">Bank Transfer</option>
+                                </select>
                             </div>
-                            <button class="btn" style="width: 100%;"><i data-lucide="credit-card"></i> Continue to Payment</button>
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 15px;">
+                                <span>Provider: NexusPay</span><span>Fee: ~2.9%</span>
+                            </div>
+                            <button class="btn" style="width: 100%;" onclick="submitFiatOrder()"><i data-lucide="credit-card"></i> Submit Order</button>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">Order History</div>
+                            <div id="fiatOrdersList" style="min-height: 60px;">
+                                <p style="color: var(--text-secondary); font-size: 13px; text-align: center; padding: 20px 0;">No orders yet.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -790,10 +804,24 @@
                 <div class="grid-2">
                     <div class="card">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                            <h3 style="color: var(--text-primary);">BTC Vault</h3>
+                            <h3 style="color: var(--text-primary);">USDT Vault</h3>
                             <div class="text-success" style="font-weight: bold; font-size: 20px;" id="stake-apy-btc">12.5% APY</div>
                         </div>
-                        <button class="btn btn-success" style="width: 100%;"><i data-lucide="lock"></i> Stake BTC</button>
+                        <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 15px;">Lock your USDT and earn yield. Principal + pro-rated interest is returned on completion.</p>
+                        <div class="input-group">
+                            <label>Amount to Stake (USDT)</label>
+                            <input type="number" id="stakeAmount" placeholder="0.00" step="0.01" min="10">
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 15px; padding: 10px; background: var(--bg-dark); border-radius: 6px;">
+                            <span>Lock Period: 30 days</span> &nbsp;|&nbsp; <span>APY: <span id="stakeApyDisplay">12.5</span>%</span>
+                        </div>
+                        <button class="btn btn-success" style="width: 100%;" onclick="stakeBalance()"><i data-lucide="lock"></i> Stake Now</button>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">Active Stakes</div>
+                        <div id="stakesList" style="min-height: 60px;">
+                            <p style="color: var(--text-secondary); font-size: 13px; text-align: center; padding: 20px 0;">No active stakes yet.</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -817,7 +845,8 @@
                         </div>
                         <div class="input-group">
                             <label>Upload Document</label>
-                            <input type="file" accept="image/*" style="padding: 8px;">
+                            <input type="file" id="kycDocFile" accept="image/jpeg,image/png,image/gif,image/webp,image/bmp" style="padding: 8px;" onchange="updateKycFileLabel()">
+                            <div id="kycFileInfo" style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;"></div>
                         </div>
                         <button class="btn btn-success" style="width: 100%;" onclick="submitKYC()"><i data-lucide="upload-cloud"></i> Submit Verification</button>
                     </div>
@@ -1197,11 +1226,61 @@
         }
 
         // KYC Functions
+        function updateKycFileLabel() {
+            const file = document.getElementById('kycDocFile').files[0];
+            const info = document.getElementById('kycFileInfo');
+            if(file) {
+                const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+                info.innerText = `${file.name} (${sizeMB} MB)`;
+                if(file.size > 2 * 1024 * 1024) {
+                    info.style.color = 'var(--danger)';
+                    info.innerText += ' — File too large (max 2 MB)';
+                } else {
+                    info.style.color = 'var(--success)';
+                }
+            } else {
+                info.innerText = '';
+            }
+        }
+
         async function submitKYC() {
             if(!isConnected || !walletAddr) { showToast('Connect your wallet first.', 'warning'); return; }
-            const userName = document.getElementById('kycName').value.trim() || 'Unknown';
+            const userName = document.getElementById('kycName').value.trim();
+            if(!userName) { showToast('Please enter your full name.', 'warning'); return; }
             const docType = document.getElementById('kycDocType').value;
-            await api('kyc', 'POST', { state: 'pending', name: userName, docType: docType, wallet: walletAddr });
+            const fileInput = document.getElementById('kycDocFile');
+            const file = fileInput ? fileInput.files[0] : null;
+
+            if(file) {
+                const ALLOWED_TYPES = ['image/jpeg','image/png','image/gif','image/webp','image/bmp'];
+                if(!ALLOWED_TYPES.includes(file.type)) {
+                    showToast('Only image files (JPEG, PNG, GIF, WebP, BMP) are accepted.', 'error'); return;
+                }
+            }
+
+            if(file && file.size > 2 * 1024 * 1024) {
+                showToast('Document file exceeds 2 MB limit.', 'error'); return;
+            }
+
+            let documentImage = null;
+            if(file) {
+                try {
+                    documentImage = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = e => resolve(e.target.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+                } catch(e) {
+                    showToast('Failed to read document file.', 'error'); return;
+                }
+            }
+
+            const payload = { state: 'pending', name: userName, docType, wallet: walletAddr };
+            if(documentImage) payload.documentImage = documentImage;
+
+            const result = await api('kyc', 'POST', payload);
+            if(result && result.error) { showToast(result.error, 'error'); return; }
             showToast('KYC Submitted! Awaiting admin approval.');
             pollBackend();
         }
@@ -1439,15 +1518,15 @@
                     </div>
                     <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
                         <span style="color: var(--text-secondary);">Profit Per Cycle</span>
-                        <span class="text-success" style="font-weight: bold;">${lvl.dailyProfit}%</span>
+                        <span class="text-success" style="font-weight: bold;">${lvl.profitPercent}%</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; padding: 8px 0;">
                         <span style="color: var(--text-secondary);">Cycle Time</span>
-                        <span style="color: var(--accent);">${lvl.duration} hrs</span>
+                        <span style="color: var(--accent);">${lvl.cycleTime} hrs</span>
                     </div>
                     <div style="margin-top: 12px; padding: 10px; background: var(--bg-dark); border-radius: 8px; text-align: center;">
                         <div style="font-size: 12px; color: var(--text-secondary);">Profit Per Cycle</div>
-                        <div style="font-size: 18px; font-weight: bold; color: var(--success);">${(lvl.dailyProfit ?? 0).toFixed(1)}%</div>
+                        <div style="font-size: 18px; font-weight: bold; color: var(--success);">${(lvl.profitPercent ?? 0).toFixed(1)}%</div>
                     </div>
                     <button class="btn mt-15" style="width: 100%;" onclick="deployAiBot(${lvl.id})"><i data-lucide="${icons[i]}"></i> Deploy Bot</button>
                 `;
@@ -1463,11 +1542,99 @@
                 type: 'ai-bot', wallet: walletAddr,
                 levelId: lvl.id, levelName: lvl.name,
                 capital: lvl.capital,
-                cycleTime: lvl.duration,
-                profitPercent: lvl.dailyProfit
+                cycleTime: lvl.cycleTime,
+                profitPercent: lvl.profitPercent
             });
             if(!result || result.error) { showToast(result?.error || 'Bot deployment failed.', 'error'); return; }
-            showToast(`AI Bot deployed! Level: ${lvl.name} | ${lvl.dailyProfit}% per cycle`);
+            showToast(`AI Bot deployed! Level: ${lvl.name} | ${lvl.profitPercent}% per cycle`);
+            pollBackend();
+        }
+
+        // --- Staking / Earn Functions ---
+        let cachedStakes = [];
+        function renderStakes(stakes) {
+            cachedStakes = stakes || [];
+            const container = document.getElementById('stakesList');
+            if(!container) return;
+            if(!cachedStakes.length) {
+                container.innerHTML = '<p style="color:var(--text-secondary);font-size:13px;text-align:center;padding:20px 0;">No active stakes yet.</p>';
+                return;
+            }
+            container.innerHTML = '';
+            cachedStakes.forEach(s => {
+                const statusColor = s.status === 'active' ? 'var(--warning)' : s.status === 'completed' ? 'var(--success)' : 'var(--danger)';
+                const profitLine = s.profit != null ? `<div style="font-size:11px;color:var(--success);">+$${s.profit.toFixed(2)} profit</div>` : '';
+                const div = document.createElement('div');
+                div.style.cssText = 'padding:8px 0;border-bottom:1px solid var(--border);';
+                div.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-weight:bold;color:var(--text-primary);">$${Number(s.amount).toLocaleString()} USDT</span>
+                        <span style="font-size:12px;font-weight:bold;color:${statusColor};">${s.status.toUpperCase()}</span>
+                    </div>
+                    <div style="font-size:11px;color:var(--text-secondary);">${s.apy}% APY · ${new Date(s.startAt).toLocaleDateString()}</div>
+                    ${profitLine}
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function stakeBalance() {
+            if(!isConnected || !walletAddr) { showToast('Connect your wallet first.', 'warning'); return; }
+            const amount = parseFloat(document.getElementById('stakeAmount').value);
+            if(!amount || amount < 10) { showToast('Minimum stake is $10 USDT.', 'warning'); return; }
+            const result = await api('staking', 'POST', { action: 'stake', wallet: walletAddr, amount });
+            if(!result || result.error) { showToast(result?.error || 'Staking failed.', 'error'); return; }
+            document.getElementById('stakeAmount').value = '';
+            showToast(`$${amount.toLocaleString()} USDT staked at ${result.stake.apy}% APY!`);
+            pollBackend();
+        }
+
+        // --- Fiat Buy Functions ---
+        let cachedFiatOrders = [];
+        function updateFiatEstimate() {
+            const amount = parseFloat(document.getElementById('fiatPayAmount').value) || 0;
+            const estimated = parseFloat((amount * (1 - 0.029)).toFixed(2)); // 2.9% fee, matches FEE_RATE in api-fiat.mts
+            document.getElementById('fiatReceiveAmount').value = estimated > 0 ? estimated : '';
+        }
+
+        function renderFiatOrders(orders) {
+            cachedFiatOrders = orders || [];
+            const container = document.getElementById('fiatOrdersList');
+            if(!container) return;
+            if(!cachedFiatOrders.length) {
+                container.innerHTML = '<p style="color:var(--text-secondary);font-size:13px;text-align:center;padding:20px 0;">No orders yet.</p>';
+                return;
+            }
+            container.innerHTML = '';
+            cachedFiatOrders.slice(0, 10).forEach(o => {
+                const statusColor = o.status === 'approved' ? 'var(--success)' : o.status === 'rejected' ? 'var(--danger)' : 'var(--warning)';
+                const div = document.createElement('div');
+                div.style.cssText = 'padding:8px 0;border-bottom:1px solid var(--border);';
+                div.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-weight:bold;color:var(--text-primary);">${o.fiatAmount} ${o.fiatCurrency} → ${o.cryptoCoin}</span>
+                        <span style="font-size:12px;font-weight:bold;color:${statusColor};">${o.status.toUpperCase()}</span>
+                    </div>
+                    <div style="font-size:11px;color:var(--text-secondary);">${o.paymentMethod} · ${new Date(o.createdAt).toLocaleDateString()}</div>
+                    ${o.status === 'approved' ? `<div style="font-size:11px;color:var(--success);">+${o.creditAmount} USDT credited</div>` : ''}
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function submitFiatOrder() {
+            if(!isConnected || !walletAddr) { showToast('Connect your wallet first.', 'warning'); return; }
+            const fiatAmount = parseFloat(document.getElementById('fiatPayAmount').value);
+            if(!fiatAmount || fiatAmount < 10) { showToast('Minimum order is $10.', 'warning'); return; }
+            const fiatCurrency = document.getElementById('fiatCurrency').value;
+            const cryptoCoin = document.getElementById('fiatCryptoCoin').value;
+            const paymentMethod = document.getElementById('fiatPaymentMethod').value;
+            const result = await api('fiat', 'POST', {
+                action: 'request', wallet: walletAddr,
+                fiatAmount, fiatCurrency, cryptoCoin, paymentMethod
+            });
+            if(!result || result.error) { showToast(result?.error || 'Order failed.', 'error'); return; }
+            showToast(`Order submitted! $${fiatAmount} ${fiatCurrency} → ${cryptoCoin}. Awaiting admin review.`);
             pollBackend();
         }
 
@@ -1570,12 +1737,14 @@
                     (isConnected && walletAddr ? api('withdrawals?wallet=' + encodeURIComponent(walletAddr)) : Promise.resolve([])),
                     api('features'), api('settings'), api('levels'), api('chat')
                 ];
-                // Also fetch balance if wallet is connected
+                // Also fetch balance, stakes, and fiat orders if wallet is connected
                 if(isConnected && walletAddr) {
                     requests.push(api('balances?wallet=' + encodeURIComponent(walletAddr)));
+                    requests.push(api('staking?wallet=' + encodeURIComponent(walletAddr)));
+                    requests.push(api('fiat?wallet=' + encodeURIComponent(walletAddr)));
                 }
                 const results = await Promise.all(requests);
-                const [kycData, addresses, withdrawals, features, settings, levels, messages, balanceData] = results;
+                const [kycData, addresses, withdrawals, features, settings, levels, messages, balanceData, stakesData, fiatData] = results;
 
                 // 1. KYC State
                 if(kycData) {
@@ -1656,7 +1825,23 @@
                     if(usdtUsd) usdtUsd.innerText = '$' + fmt;
                 }
 
-                // 8. Chat messages (update if chat is open)
+                // 8. Stakes
+                if(stakesData && Array.isArray(stakesData)) {
+                    renderStakes(stakesData);
+                }
+
+                // 9. Fiat orders
+                if(fiatData && Array.isArray(fiatData)) {
+                    renderFiatOrders(fiatData);
+                }
+
+                // 10. Update stake APY display from settings
+                if(settings) {
+                    const stakeApyDisp = document.getElementById('stakeApyDisplay');
+                    if(stakeApyDisp) stakeApyDisp.innerText = settings.btcStakingApy || 12.5;
+                }
+
+                // 11. Chat messages (update if chat is open)
                 if(messages && Array.isArray(messages)) {
                     cachedMessages = messages;
                     if(chatOpen) renderChat();

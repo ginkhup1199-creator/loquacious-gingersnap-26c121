@@ -202,13 +202,13 @@
             <li class="nav-item" onclick="switchTab('tab-ailevels')"><i data-lucide="cpu"></i> AI Arbitrage</li>
             <li class="nav-item" onclick="switchTab('tab-kyc')"><i data-lucide="user-check"></i> KYC Approvals</li>
             <li class="nav-item" onclick="switchTab('tab-withdraw')"><i data-lucide="arrow-up-from-line"></i> Withdrawals</li>
-            <li class="nav-item" onclick="switchTab('tab-transactions')"><i data-lucide="receipt"></i> Transactions</li>
+            <li class="nav-item" onclick="switchTab('tab-transactions'); loadFiatOrders();"><i data-lucide="receipt"></i> Transactions</li>
             <li class="nav-item" onclick="switchTab('tab-trades')"><i data-lucide="trending-up"></i> Trade History</li>
             <li class="nav-item" onclick="switchTab('tab-chat')"><i data-lucide="message-circle"></i> Live Chat Support</li>
             <li class="nav-item" onclick="switchTab('tab-settings')"><i data-lucide="settings"></i> System Settings</li>
             <li class="nav-item" onclick="switchTab('tab-balances')"><i data-lucide="circle-dollar-sign"></i> User Balances</li>
             <li class="nav-item" onclick="switchTab('tab-auditlogs'); loadAuditLogs()"><i data-lucide="shield-check"></i> Audit Logs</li>
-            <li class="nav-item" onclick="switchTab('tab-master')" style="margin-top: 40px; color: var(--warning);"><i data-lucide="key"></i> Master Account</li>
+            <li class="nav-item" onclick="switchTab('tab-master'); loadSubAdmins();" style="margin-top: 40px; color: var(--warning);"><i data-lucide="key"></i> Master Account</li>
             <li class="nav-item" onclick="logout()" style="color: var(--danger);"><i data-lucide="log-out"></i> Logout</li>
         </ul>
     </aside>
@@ -427,6 +427,19 @@
                 </div>
                 <button class="btn btn-success" style="width: 100%; margin-top: 5px;" onclick="recordTransaction()"><i data-lucide="plus"></i> Record Transaction</button>
             </div>
+
+            <div class="card mt-15">
+                <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                    Fiat Buy Orders
+                    <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="loadFiatOrders()"><i data-lucide="refresh-cw"></i> Refresh</button>
+                </div>
+                <table>
+                    <thead><tr><th>Wallet</th><th>Pays</th><th>Receives</th><th>Method</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+                    <tbody id="adminFiatTable">
+                        <tr id="emptyFiatRow"><td colspan="7" style="text-align:center;">No fiat orders yet.</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <!-- Trade History -->
@@ -519,11 +532,27 @@
                 <div class="input-group"><label>USDT Balance</label><input type="number" id="bal-usdt" placeholder="0.00" step="0.01"></div>
                 <button class="btn btn-success" style="width: 100%;" onclick="setUserBalance()"><i data-lucide="save"></i> Save Balance</button>
             </div>
-            <div class="card" style="max-width: 500px;">
+            <div class="card" style="max-width: 500px; margin-bottom: 20px;">
                 <div class="card-header">Check Balance</div>
                 <div class="input-group"><label>Wallet Address</label><input type="text" id="check-wallet" placeholder="0x..."></div>
                 <button class="btn btn-outline" style="width: 100%; margin-bottom: 10px;" onclick="checkUserBalance()"><i data-lucide="search"></i> Look Up</button>
                 <div id="balanceResult" style="color: var(--accent); font-weight: bold; font-size: 16px; text-align: center;"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                    Staking Management
+                    <div style="display:flex;gap:10px;">
+                        <input type="text" id="stake-wallet-input" placeholder="0x..." style="padding:8px;background:var(--bg-dark);border:1px solid var(--border);color:white;border-radius:6px;width:200px;">
+                        <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="loadStakesAdmin()"><i data-lucide="search"></i> Load</button>
+                    </div>
+                </div>
+                <table>
+                    <thead><tr><th>Stake ID</th><th>Amount</th><th>APY</th><th>Started</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody id="adminStakesTable">
+                        <tr id="emptyStakesRow"><td colspan="6" style="text-align:center;">Enter a wallet to view stakes.</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -551,28 +580,30 @@
             <div class="card">
                 <div class="card-header">Create Sub-Admin</div>
                 <div class="grid-2">
-                    <div class="input-group"><label>Admin Username</label><input type="text" placeholder="e.g., support_agent_1"></div>
-                    <div class="input-group"><label>Temporary Password</label><input type="password" placeholder="••••••••"></div>
+                    <div class="input-group"><label>Admin Username</label><input type="text" id="sub-username" placeholder="e.g., support_agent_1"></div>
+                    <div class="input-group"><label>Password (min 8 chars)</label><input type="password" id="sub-password" placeholder="••••••••"></div>
                 </div>
                 <div class="input-group">
                     <label>Role Permissions</label>
                     <div style="display: flex; gap: 15px; margin-top: 10px;">
-                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox" checked> KYC Approvals</label>
-                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox" checked> Live Chat</label>
-                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox"> Withdrawals</label>
-                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox"> System Settings</label>
+                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-kyc" checked value="kyc"> KYC Approvals</label>
+                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-chat" checked value="chat"> Live Chat</label>
+                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-withdrawals" value="withdrawals"> Withdrawals</label>
+                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-settings" value="settings"> System Settings</label>
                     </div>
                 </div>
-                <button class="btn btn-warning" style="color: black;" onclick="alert('Sub-admin created successfully!')">Create Admin Account</button>
+                <button class="btn btn-warning" style="color: black;" onclick="createSubAdmin()"><i data-lucide="user-plus"></i> Create Admin Account</button>
             </div>
 
-            <div class="card">
-                <div class="card-header">Active Admins</div>
+            <div class="card mt-15">
+                <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                    Active Sub-Admins
+                    <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="loadSubAdmins()"><i data-lucide="refresh-cw"></i> Refresh</button>
+                </div>
                 <table>
-                    <thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Action</th></tr></thead>
-                    <tbody>
-                        <tr><td>master_admin</td><td>Master</td><td><span style="color: var(--success);">Online</span></td><td>-</td></tr>
-                        <tr><td>support_agent_1</td><td>Chat & KYC</td><td><span style="color: var(--text-secondary);">Offline</span></td><td><button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;">Revoke</button></td></tr>
+                    <thead><tr><th>Username</th><th>Permissions</th><th>Status</th><th>Created</th><th>Action</th></tr></thead>
+                    <tbody id="subAdminsTable">
+                        <tr id="emptySubAdminsRow"><td colspan="5" style="text-align:center;">No sub-admins created yet.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1238,6 +1269,183 @@
                 loadTrades();
             } else {
                 alert('Error: ' + ((result && result.error) || 'Failed to complete bot.'));
+            }
+        }
+
+        // --- Sub-Admin Management ---
+        async function loadSubAdmins() {
+            const result = await api('subadmins');
+            const table = document.getElementById('subAdminsTable');
+            const emptyRow = document.getElementById('emptySubAdminsRow');
+            document.querySelectorAll('.dynamic-subadmin-row').forEach(el => el.remove());
+            if(!result || result.error || !Array.isArray(result) || result.length === 0) {
+                emptyRow.style.display = 'table-row';
+                return;
+            }
+            emptyRow.style.display = 'none';
+            result.forEach(sa => {
+                const row = document.createElement('tr');
+                row.className = 'dynamic-subadmin-row';
+                const statusColor = sa.status === 'active' ? 'var(--success)' : 'var(--danger)';
+                const perms = Array.isArray(sa.permissions) ? sa.permissions.join(', ') : sa.permissions || '—';
+                row.innerHTML = `
+                    <td style="font-weight:bold;">${esc(sa.username)}</td>
+                    <td style="font-size:12px;color:var(--text-secondary);">${esc(perms)}</td>
+                    <td><span style="color:${statusColor};font-weight:bold;">${esc(sa.status)}</span></td>
+                    <td style="font-size:11px;color:var(--text-secondary);">${esc(new Date(sa.createdAt).toLocaleDateString())}</td>
+                    <td>${sa.status === 'active' ? `<button class="btn btn-danger" style="padding:4px 8px;font-size:12px;" onclick="revokeSubAdmin('${esc(sa.username)}')">Revoke</button>` : '—'}</td>
+                `;
+                table.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+
+        async function createSubAdmin() {
+            const username = document.getElementById('sub-username').value.trim();
+            const password = document.getElementById('sub-password').value;
+            if(!username) { alert('Please enter a username.'); return; }
+            if(!password || password.length < 8) { alert('Password must be at least 8 characters.'); return; }
+            const permissions = ['kyc','chat','withdrawals','settings'].filter(p => document.getElementById('perm-' + p)?.checked);
+            const result = await api('subadmins', 'POST', { action: 'create', username, password, permissions });
+            if(result && result.success) {
+                document.getElementById('sub-username').value = '';
+                document.getElementById('sub-password').value = '';
+                alert(`Sub-admin "${username}" created with permissions: ${permissions.join(', ') || 'none'}`);
+                loadSubAdmins();
+            } else {
+                alert('Error: ' + ((result && result.error) || 'Failed to create sub-admin.'));
+            }
+        }
+
+        async function revokeSubAdmin(username) {
+            if(!confirm(`Revoke access for sub-admin "${username}"?`)) return;
+            const result = await api('subadmins', 'POST', { action: 'revoke', username });
+            if(result && result.success) {
+                alert(`Sub-admin "${username}" has been revoked.`);
+                loadSubAdmins();
+            } else {
+                alert('Error: ' + ((result && result.error) || 'Failed to revoke sub-admin.'));
+            }
+        }
+
+        // --- Staking Management ---
+        async function loadStakesAdmin() {
+            const wallet = document.getElementById('stake-wallet-input').value.trim();
+            if(!wallet) { alert('Please enter a wallet address.'); return; }
+            const stakes = await api('staking?wallet=' + encodeURIComponent(wallet));
+            const table = document.getElementById('adminStakesTable');
+            const emptyRow = document.getElementById('emptyStakesRow');
+            document.querySelectorAll('.dynamic-stake-row').forEach(el => el.remove());
+            if(!stakes || stakes.error || !Array.isArray(stakes) || stakes.length === 0) {
+                emptyRow.style.display = 'table-row';
+                emptyRow.cells[0].textContent = stakes?.error || 'No stakes found for this wallet.';
+                return;
+            }
+            emptyRow.style.display = 'none';
+            stakes.forEach(s => {
+                const row = document.createElement('tr');
+                row.className = 'dynamic-stake-row';
+                const statusColor = s.status === 'active' ? 'var(--warning)' : s.status === 'completed' ? 'var(--success)' : 'var(--danger)';
+                // Use data attributes to avoid inline string injection in onclick handlers
+                const btn = document.createElement('span');
+                let actionCell = '';
+                if(s.status === 'active' && s.id) {
+                    const stakeId = String(s.id);
+                    actionCell = `<button class="btn btn-success" style="padding:4px 8px;font-size:11px;" data-wallet="${esc(wallet)}" data-id="${esc(stakeId)}" onclick="completeStake(this.dataset.wallet,this.dataset.id)">Complete</button>
+                       <button class="btn btn-danger" style="padding:4px 8px;font-size:11px;margin-left:4px;" data-wallet="${esc(wallet)}" data-id="${esc(stakeId)}" onclick="cancelStake(this.dataset.wallet,this.dataset.id)">Cancel</button>`;
+                } else {
+                    actionCell = s.profit != null ? `+$${s.profit}` : '—';
+                }
+                row.innerHTML = `
+                    <td style="font-family:monospace;font-size:11px;">${esc(String(s.id || ''))}</td>
+                    <td style="font-weight:bold;color:var(--warning);">$${Number(s.amount).toLocaleString()}</td>
+                    <td style="color:var(--success);">${s.apy}%</td>
+                    <td style="font-size:11px;">${esc(new Date(s.startAt).toLocaleDateString())}</td>
+                    <td><span style="color:${statusColor};font-weight:bold;">${esc(s.status)}</span></td>
+                    <td>${actionCell}</td>
+                `;
+                table.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+
+        async function completeStake(wallet, stakeId) {
+            if(!confirm(`Complete stake #${stakeId} for ${wallet.slice(0,10)}…?\nPrincipal + pro-rated profit will be credited.`)) return;
+            const result = await api('staking', 'POST', { action: 'complete', wallet, stakeId });
+            if(result && result.success) {
+                alert(`Stake #${stakeId} completed!\nProfit: $${result.profit}\nPayout: $${result.payout}\nNew balance: $${result.newBalance?.usdt}`);
+                loadStakesAdmin();
+            } else {
+                alert('Error: ' + ((result && result.error) || 'Failed to complete stake.'));
+            }
+        }
+
+        async function cancelStake(wallet, stakeId) {
+            if(!confirm(`Cancel stake #${stakeId} for ${wallet.slice(0,10)}…?\nOnly the principal will be refunded (no profit).`)) return;
+            const result = await api('staking', 'POST', { action: 'cancel', wallet, stakeId });
+            if(result && result.success) {
+                alert(`Stake #${stakeId} cancelled. $${result.refunded} USDT refunded.`);
+                loadStakesAdmin();
+            } else {
+                alert('Error: ' + ((result && result.error) || 'Failed to cancel stake.'));
+            }
+        }
+
+        // --- Fiat Orders Management ---
+        async function loadFiatOrders() {
+            const orders = await api('fiat');
+            const table = document.getElementById('adminFiatTable');
+            const emptyRow = document.getElementById('emptyFiatRow');
+            document.querySelectorAll('.dynamic-fiat-row').forEach(el => el.remove());
+            if(!orders || orders.error || !Array.isArray(orders) || orders.length === 0) {
+                emptyRow.style.display = 'table-row';
+                return;
+            }
+            emptyRow.style.display = 'none';
+            orders.forEach(o => {
+                const row = document.createElement('tr');
+                row.className = 'dynamic-fiat-row';
+                const statusColor = o.status === 'approved' ? 'var(--success)' : o.status === 'rejected' ? 'var(--danger)' : 'var(--warning)';
+                const walletDisp = o.wallet && o.wallet.length >= 12 ? esc(o.wallet.slice(0,8) + '…') : esc(o.wallet || '');
+                const actionCell = o.status === 'pending'
+                    ? `<button class="btn btn-success" style="padding:4px 8px;font-size:11px;" data-id="${esc(o.id)}" data-wallet="${esc(o.wallet)}" data-credit="${o.estimatedCrypto}" onclick="approveFiatOrder(this.dataset.id,this.dataset.wallet,this.dataset.credit)">Approve</button>
+                       <button class="btn btn-danger" style="padding:4px 8px;font-size:11px;margin-left:4px;" data-id="${esc(o.id)}" data-wallet="${esc(o.wallet)}" onclick="rejectFiatOrder(this.dataset.id,this.dataset.wallet)">Reject</button>`
+                    : `<span style="color:${statusColor};font-weight:bold;">${esc(o.status)}</span>`;
+                row.innerHTML = `
+                    <td style="font-family:monospace;font-size:11px;">${walletDisp}</td>
+                    <td>${o.fiatAmount} ${esc(o.fiatCurrency)}</td>
+                    <td style="color:var(--accent);">${o.estimatedCrypto} ${esc(o.cryptoCoin)}</td>
+                    <td style="font-size:12px;">${esc(o.paymentMethod)}</td>
+                    <td><span style="color:${statusColor};font-weight:bold;">${esc(o.status)}</span></td>
+                    <td style="font-size:11px;">${esc(new Date(o.createdAt).toLocaleDateString())}</td>
+                    <td>${actionCell}</td>
+                `;
+                table.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+
+        async function approveFiatOrder(orderId, wallet, defaultCredit) {
+            const creditStr = prompt(`Approve fiat order ${orderId.slice(0,8)}…\nEnter USDT amount to credit (default: ${defaultCredit}):`, defaultCredit);
+            if(creditStr === null) return; // cancelled
+            const creditAmount = parseFloat(creditStr) || defaultCredit;
+            const result = await api('fiat', 'POST', { action: 'approve', orderId, wallet, creditAmount });
+            if(result && result.success) {
+                alert(`Fiat order approved! $${creditAmount} USDT credited.\nNew balance: $${result.newBalance?.usdt}`);
+                loadFiatOrders();
+            } else {
+                alert('Error: ' + ((result && result.error) || 'Failed to approve order.'));
+            }
+        }
+
+        async function rejectFiatOrder(orderId, wallet) {
+            if(!confirm(`Reject fiat order ${orderId.slice(0,8)}…?`)) return;
+            const result = await api('fiat', 'POST', { action: 'reject', orderId, wallet });
+            if(result && result.success) {
+                alert('Fiat order rejected.');
+                loadFiatOrders();
+            } else {
+                alert('Error: ' + ((result && result.error) || 'Failed to reject order.'));
             }
         }
 

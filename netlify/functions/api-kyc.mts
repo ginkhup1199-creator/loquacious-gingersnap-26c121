@@ -73,10 +73,11 @@ export default async (req: Request, context: Context) => {
     const MAX_IMAGE_B64 = 2_800_000; // ~2 MB decoded
     const rawImage = body.documentImage;
     let documentImage: string | null = null;
-    if (rawImage && typeof rawImage === "string") {
-      // Validate it is a data URI or pure base64
-      if (/^data:image\/(jpeg|png|gif|webp|bmp);base64,/.test(rawImage) || /^[A-Za-z0-9+/=]{1,}$/.test(rawImage.slice(0, 50))) {
-        documentImage = rawImage.length > MAX_IMAGE_B64 ? null : rawImage;
+    if (rawImage && typeof rawImage === "string" && rawImage.length <= MAX_IMAGE_B64) {
+      // Accept data URIs with an allowed image MIME type
+      const DATA_URI_RE = /^data:image\/(jpeg|png|gif|webp|bmp);base64,[A-Za-z0-9+/]+=*$/;
+      if (DATA_URI_RE.test(rawImage)) {
+        documentImage = rawImage;
       }
     }
 
