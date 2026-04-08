@@ -15,7 +15,7 @@
 
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
+import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import {
   validateAdminSession,
   validateAnyAdminSession,
@@ -43,7 +43,8 @@ type Permission = typeof ALLOWED_PERMISSIONS[number];
 
 interface SubAdminAccount {
   username: string;
-  passwordHash: string; // SHA-256 hex
+  passwordHash: string; // scrypt hex (64 bytes)
+  passwordSalt: string; // random hex salt
   permissions: Permission[];
   createdAt: string;
   createdBy: string;
@@ -62,8 +63,15 @@ interface SubAdminSession {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function hashPassword(password: string): string {
-  return createHash("sha256").update(password).digest("hex");
+const SCRYPT_KEYLEN = 64;
+const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1 };
+
+function hashPassword(password: string, salt: string): string {
+  return scryptSync(password, salt, SCRYPT_KEYLEN, SCRYPT_PARAMS).toString("hex");
+}
+
+function generateSalt(): string {
+  return randomBytes(32).toString("hex");
 }
 
 function generateSessionId(): string {
@@ -116,8 +124,8 @@ export default async (req: Request, context: Context) => {
     }
 
     const accounts = ((await store.get(SUB_ADMIN_ACCOUNTS_KEY, { type: "json" })) ?? []) as SubAdminAccount[];
-    // Strip password hashes before returning
-    const safe = accounts.map(({ passwordHash: _, ...rest }) => rest);
+    // Strip password hashes and salts before returning
+    const safe = accounts.map(({ passwordHash: _, passwordSalt: __, ...rest }) => rest);
     return secureJson(safe);
   }
 
@@ -144,9 +152,10 @@ export default async (req: Request, context: Context) => {
       const accounts = ((await store.get(SUB_ADMIN_ACCOUNTS_KEY, { type: "json" })) ?? []) as SubAdminAccount[];
       const account  = accounts.find((a) => a.username === username && a.active);
 
-      // Constant-time path: always compare even when account not found (use a dummy hash)
-      const expectedHash = account?.passwordHash ?? "0".repeat(64);
-      const inputHash    = hashPassword(rawPassword);
+      // Constant-time path: always run scrypt even when account not found (use a dummy salt)
+      const salt         = account?.passwordSalt ?? "00".repeat(32);
+      const expectedHash = account?.passwordHash ?? "00".repeat(SCRYPT_KEYLEN);
+      const inputHash    = hashPassword(rawPassword, salt);
       const match        = timingSafeCompare(inputHash, expectedHash) && !!account;
 
       if (!match) {
@@ -203,9 +212,11 @@ export default async (req: Request, context: Context) => {
         return secureJson({ error: `Username '${username}' already exists.` }, 409);
       }
 
+      const salt = generateSalt();
       const newAccount: SubAdminAccount = {
         username,
-        passwordHash: hashPassword(rawPassword),
+        passwordHash: hashPassword(rawPassword, salt),
+        passwordSalt: salt,
         permissions,
         createdAt: new Date().toISOString(),
         createdBy: "master",
@@ -216,7 +227,7 @@ export default async (req: Request, context: Context) => {
 
       await persistAuditLog("ADMIN_WRITE", { operation: "create-subadmin", username, permissions, ip }, store);
 
-      const { passwordHash: _, ...safeAccount } = newAccount;
+      const { passwordHash: _, passwordSalt: __, ...safeAccount } = newAccount;
       return secureJson({ created: true, account: safeAccount }, 201);
     }
 

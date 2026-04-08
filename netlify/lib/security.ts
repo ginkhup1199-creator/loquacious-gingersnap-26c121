@@ -154,8 +154,6 @@ export async function validateAdminSession(
 
 const SUB_ADMIN_SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-export const SUB_ADMIN_SESSION_TTL_MS_EXPORT = SUB_ADMIN_SESSION_TTL_MS;
-
 /**
  * Validates either a master session or a sub-admin session from the
  * X-Session-Token header. Returns role and permissions so callers can enforce

@@ -206,7 +206,7 @@ export default async (req: Request, context: Context) => {
   const adminWallet = process.env.ADMIN_WALLET?.trim();
   if (!adminWallet) {
     console.error(`[AUDIT] {"event":"CONFIG_ERROR","reason":"ADMIN_WALLET not configured","ip":"${ip}"}`);
-    return Response.json({ error: "Admin wallet not configured. Set ADMIN_WALLET env var." }, { status: 503, headers });
+    return Response.json({ error: "Admin authentication is not properly configured. Please contact the system administrator." }, { status: 503, headers });
   }
 
   // The ADMIN_TOKEN env var is still required so other functions know the server is configured
