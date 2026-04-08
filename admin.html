@@ -164,12 +164,24 @@
             <i data-lucide="shield-alert" style="width: 48px; height: 48px; color: var(--danger); margin-bottom: 10px;"></i>
             <h2 style="color: var(--danger);">Secure Admin Access</h2>
 
-            <!-- Step 1: Email -->
-            <div id="loginStep1">
+            <!-- Step 0: Master Wallet Address -->
+            <div id="loginStep0">
+                <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 16px;">Enter the master admin wallet address to begin. This must be the registered master account wallet.</p>
+                <input type="text" id="adminWallet" placeholder="Master wallet address" autocomplete="off" spellcheck="false" onkeypress="if(event.key==='Enter') verifyWallet()">
+                <button class="btn btn-danger" style="width: 100%;" onclick="verifyWallet()">
+                    <i data-lucide="wallet"></i> Verify Wallet
+                </button>
+            </div>
+
+            <!-- Step 1: Email (hidden until wallet verified) -->
+            <div id="loginStep1" style="display:none;">
                 <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 16px;">Enter the master admin email to receive a one-time code.</p>
                 <input type="email" id="adminEmail" placeholder="admin@gmail.com" onkeypress="if(event.key==='Enter') requestOtp()">
                 <button class="btn btn-danger" style="width: 100%;" id="sendCodeBtn" onclick="requestOtp()">
                     <i data-lucide="mail"></i> Send Verification Code
+                </button>
+                <button class="btn btn-outline" style="width: 100%; font-size: 13px; margin-top: 8px;" onclick="backToWallet()">
+                    <i data-lucide="arrow-left"></i> Back
                 </button>
             </div>
 
@@ -585,6 +597,8 @@
 
         // Helper for API calls — uses session token, never the raw admin password
         let sessionToken = sessionStorage.getItem('adminSessionToken') || '';
+        // Wallet-verified token: issued after Step 0 wallet check, required for Step 1 OTP request
+        let walletToken = '';
 
         async function api(endpoint, method, body) {
             const headers = { 'Content-Type': 'application/json' };
@@ -608,7 +622,7 @@
         let cachedBinaryLevels = [];
         let cachedAiLevels = [];
 
-        // ── 2-Step Email OTP Login ────────────────────────────────────────────
+        // ── 3-Step Login: Wallet → Email OTP → 2FA ───────────────────────────
 
         function showLoginError(msg) {
             const el = document.getElementById('loginError');
@@ -616,9 +630,47 @@
             el.style.display = msg ? 'block' : 'none';
         }
 
+        // Step 0: verify master wallet address
+        async function verifyWallet() {
+            const wallet = document.getElementById('adminWallet').value.trim();
+            if(!wallet) { showLoginError('Please enter the master wallet address.'); return; }
+            showLoginError('');
+
+            try {
+                const res = await fetch('/api/admin/session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'verify-wallet', wallet })
+                });
+                const data = await res.json();
+
+                if(!res.ok) {
+                    showLoginError(data.error || 'Wallet address not recognised.');
+                    return;
+                }
+
+                walletToken = data.walletToken || '';
+                document.getElementById('loginStep0').style.display = 'none';
+                document.getElementById('loginStep1').style.display = 'block';
+                document.getElementById('adminEmail').focus();
+            } catch(e) {
+                showLoginError('Connection error. Please try again.');
+            }
+        }
+
+        function backToWallet() {
+            walletToken = '';
+            document.getElementById('adminEmail').value = '';
+            document.getElementById('loginStep1').style.display = 'none';
+            document.getElementById('loginStep0').style.display = 'block';
+            showLoginError('');
+        }
+
+        // Step 1: request OTP (requires walletToken from Step 0)
         async function requestOtp() {
             const email = document.getElementById('adminEmail').value.trim();
             if(!email) { showLoginError('Please enter your email address.'); return; }
+            if(!walletToken) { showLoginError('Wallet verification required. Please restart login.'); backToWallet(); return; }
 
             const btn = document.getElementById('sendCodeBtn');
             btn.disabled = true;
@@ -629,7 +681,7 @@
                 const res = await fetch('/api/admin/session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'request-otp', email })
+                    body: JSON.stringify({ action: 'request-otp', email, walletToken })
                 });
                 const data = await res.json();
 
@@ -641,6 +693,14 @@
                 if(res.status === 502) {
                     showLoginError(data.error || 'Failed to send email. Check server configuration.');
                     btn.disabled = false; btn.innerHTML = '<i data-lucide="mail"></i> Send Verification Code'; lucide.createIcons();
+                    return;
+                }
+                if(res.status === 401) {
+                    showLoginError(data.error || 'Wallet verification expired. Please restart login.');
+                    btn.disabled = false; btn.innerHTML = '<i data-lucide="mail"></i> Send Verification Code'; lucide.createIcons();
+                    walletToken = '';
+                    document.getElementById('loginStep1').style.display = 'none';
+                    document.getElementById('loginStep0').style.display = 'block';
                     return;
                 }
 
@@ -656,6 +716,7 @@
             }
         }
 
+        // Step 2: verify OTP + 2FA
         async function verifyOtp() {
             const email = document.getElementById('adminEmail').value.trim();
             const otp   = document.getElementById('adminOtp').value.trim();
@@ -676,7 +737,6 @@
                     showLoginError(data.error || 'Incorrect or expired code.');
                     document.getElementById('adminOtp').value = '';
                     document.getElementById('admin2fa').value = '';
-                    document.getElementById('adminPassword') && (document.getElementById('adminPassword').value = '');
                     return;
                 }
 
@@ -684,11 +744,14 @@
 
                 sessionToken = data.sessionId;
                 sessionStorage.setItem('adminSessionToken', sessionToken);
+                walletToken = '';
+                document.getElementById('adminWallet').value = '';
                 document.getElementById('adminOtp').value = '';
                 document.getElementById('admin2fa').value = '';
                 document.getElementById('loginOverlay').style.display = 'none';
                 // Reset login UI for next time
-                document.getElementById('loginStep1').style.display = 'block';
+                document.getElementById('loginStep0').style.display = 'block';
+                document.getElementById('loginStep1').style.display = 'none';
                 document.getElementById('loginStep2').style.display = 'none';
                 showLoginError('');
                 initDashboard();
@@ -700,8 +763,8 @@
         function backToEmail() {
             document.getElementById('adminOtp').value = '';
             document.getElementById('admin2fa').value = '';
-            document.getElementById('loginStep1').style.display = 'block';
             document.getElementById('loginStep2').style.display = 'none';
+            document.getElementById('loginStep1').style.display = 'block';
             showLoginError('');
         }
 
@@ -730,11 +793,18 @@
                 }).catch(() => {});
             }
             sessionToken = '';
+            walletToken = '';
             sessionStorage.removeItem('adminSessionToken');
             // Clean up any legacy storage keys from previous auth implementation
             localStorage.removeItem('adminLoggedIn');
             localStorage.removeItem('adminToken');
             sessionStorage.removeItem('adminLoggedIn');
+            // Reset login UI to Step 0
+            document.getElementById('adminWallet').value = '';
+            document.getElementById('loginStep0').style.display = 'block';
+            document.getElementById('loginStep1').style.display = 'none';
+            document.getElementById('loginStep2').style.display = 'none';
+            showLoginError('');
             document.getElementById('loginOverlay').style.display = 'flex';
         }
 
