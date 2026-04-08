@@ -25,6 +25,7 @@ interface StoredSession {
   expiresAt: string;
   createdAt: string;
   usedAt: string | null;
+  role?: "master";
 }
 
 interface StoredOtp {
@@ -109,6 +110,7 @@ async function createSession(
     expiresAt,
     createdAt: new Date().toISOString(),
     usedAt: null,
+    role: "master",
   };
   await store.setJSON(SESSION_STORE_KEY, session);
   return { sessionId, expiresAt };
@@ -400,6 +402,7 @@ export default async (req: Request, context: Context) => {
         {
           sessionId,
           expiresAt,
+          role: "master",
           message: "Authenticated. Use X-Session-Token header for admin operations.",
         },
         { status: 201, headers }
