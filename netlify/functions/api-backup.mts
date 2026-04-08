@@ -26,10 +26,14 @@ import {
 // excluded so a backup file cannot be used to hijack an active session.
 const BLOB_KEYS = [
   "features",
-  "levels",
+  "binary-levels",
+  "ai-levels",
   "settings",
   "audit-log",
   "kyc-pending",
+  "all-users",
+  "withdrawals",
+  "deposit-addresses",
 ];
 
 // Per-wallet key patterns are discovered dynamically during export.
@@ -37,10 +41,12 @@ const BLOB_KEYS = [
 const DYNAMIC_KEY_PREFIXES = [
   "balance-",
   "kyc-",
-  "withdrawal-",
   "user-",
   "trade-control-",
-  "deposit-address-",
+  "trades-",
+  "transactions-",
+  "stakes-",
+  "fiat-orders-",
 ];
 
 // Maximum keys scanned per prefix to bound export duration.

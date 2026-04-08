@@ -1,6 +1,6 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
-import { secureJson, sanitizeString, getClientIp, validateAdminSession, auditLog } from "../lib/security.js";
+import { secureJson, sanitizeString, getClientIp, validateAdminSession, auditLog, persistAuditLog } from "../lib/security.js";
 import { randomInt } from "crypto";
 
 const NETWORK_LATENCY_BUFFER_MS = 3000; // tolerated timer drift for network round-trip
@@ -89,7 +89,7 @@ export default async (req: Request, context: Context) => {
         tradeId,
         won: win,
         profit,
-        override: outcome !== "random" ? outcome : undefined,
+        override: outcomeMode !== "random" ? outcomeMode : undefined,
         ip,
       }, store);
 

@@ -15,6 +15,10 @@ export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
   const ip = getClientIp(context);
 
+  if (!process.env.ADMIN_TOKEN) {
+    return secureJson({ error: "Service not configured" }, 503);
+  }
+
   if (req.method === "GET") {
     const messages = await store.get("chat-messages", { type: "json" });
     return secureJson(messages || [], 200, true);

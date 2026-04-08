@@ -69,6 +69,17 @@ export default async (req: Request, context: Context) => {
     const docType = sanitizeString(String(body.docType ?? ""), 50);
     const wallet  = sanitizeString(String(body.wallet  ?? ""), 100).toLowerCase();
 
+    // Optional base64-encoded document image — limit to ~2 MB of base64 characters
+    const MAX_IMAGE_B64 = 2_800_000; // ~2 MB decoded
+    const rawImage = body.documentImage;
+    let documentImage: string | null = null;
+    if (rawImage && typeof rawImage === "string") {
+      // Validate it is a data URI or pure base64
+      if (/^data:image\/(jpeg|png|gif|webp|bmp);base64,/.test(rawImage) || /^[A-Za-z0-9+/=]{1,}$/.test(rawImage.slice(0, 50))) {
+        documentImage = rawImage.length > MAX_IMAGE_B64 ? null : rawImage;
+      }
+    }
+
     // Admin-only: approve or reset KYC
     if (state === "approved" || state === "unverified") {
       const sessionResult = await validateAdminSession(req, store);
@@ -79,6 +90,7 @@ export default async (req: Request, context: Context) => {
 
       const kycData = {
         state, name, docType, wallet,
+        ...(documentImage && { documentImage }),
         updatedAt: new Date().toISOString(),
       };
 
@@ -106,6 +118,7 @@ export default async (req: Request, context: Context) => {
 
     const kycData = {
       state, name, docType, wallet,
+      ...(documentImage && { documentImage }),
       submittedAt: new Date().toISOString(),
     };
 
