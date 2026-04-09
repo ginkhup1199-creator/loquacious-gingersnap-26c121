@@ -292,7 +292,7 @@ export default async (req: Request, context: Context) => {
           const bBuf = Buffer.alloc(MAX_EMAIL_LEN);
           Buffer.from(email).copy(aBuf);
           Buffer.from(adminEmail).copy(bBuf);
-          return timingSafeEqual(aBuf, bBuf);
+          return email.length === adminEmail.length && timingSafeEqual(aBuf, bBuf);
         } catch {
           return false;
         }
