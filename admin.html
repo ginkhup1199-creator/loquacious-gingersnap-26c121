@@ -208,7 +208,7 @@
             <li class="nav-item" onclick="switchTab('tab-settings')"><i data-lucide="settings"></i> System Settings</li>
             <li class="nav-item" onclick="switchTab('tab-balances')"><i data-lucide="circle-dollar-sign"></i> User Balances</li>
             <li class="nav-item" onclick="switchTab('tab-auditlogs'); loadAuditLogs()"><i data-lucide="shield-check"></i> Audit Logs</li>
-            <li class="nav-item" onclick="switchTab('tab-master')" style="margin-top: 40px; color: var(--warning);"><i data-lucide="key"></i> Master Account</li>
+            <li class="nav-item" onclick="switchTab('tab-master'); loadSubAdmins();" style="margin-top: 40px; color: var(--warning);"><i data-lucide="key"></i> Master Account</li>
             <li class="nav-item" onclick="logout()" style="color: var(--danger);"><i data-lucide="log-out"></i> Logout</li>
         </ul>
     </aside>
@@ -593,7 +593,7 @@
             </div>
 
             <!-- Authentication Method -->
-            <div class="card">
+            <div class="card" style="margin-bottom: 20px;">
                 <div class="card-header">Authentication Requirements</div>
                 <p style="color:var(--text-secondary);font-size:14px;margin-bottom:16px;">
                     All three factors must be satisfied to log in.
@@ -623,6 +623,65 @@
                 </div>
                 <div style="margin-top:16px;padding:10px 14px;background:rgba(0,230,118,0.06);border:1px solid var(--success);border-radius:8px;font-size:13px;color:var(--success);">
                     <strong>Session:</strong> Valid for 1 hour. Only one active session is permitted at a time.
+                </div>
+            </div>
+
+            <!-- Create Sub-Admin -->
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="card-header">Create Sub-Admin Account</div>
+                <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">Sub-admins log in with a username and password (separate from the master login). Assign only the permissions they need.</p>
+                <div class="grid-2" style="margin-bottom:12px;">
+                    <div class="input-group">
+                        <label>Username</label>
+                        <input type="text" id="subAdminUsername" placeholder="e.g., support_agent_1" maxlength="40" autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label>Password (min 8 characters)</label>
+                        <input type="password" id="subAdminPassword" placeholder="••••••••" maxlength="128" autocomplete="new-password">
+                    </div>
+                </div>
+                <div class="input-group" style="margin-bottom:16px;">
+                    <label>Permissions</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;">
+                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;">
+                            <input type="checkbox" id="perm-kyc"> KYC Approvals
+                        </label>
+                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;">
+                            <input type="checkbox" id="perm-chat"> Live Chat
+                        </label>
+                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;">
+                            <input type="checkbox" id="perm-withdrawals"> Withdrawals
+                        </label>
+                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;">
+                            <input type="checkbox" id="perm-settings"> System Settings
+                        </label>
+                    </div>
+                </div>
+                <div id="subAdminCreateError" style="color:var(--danger);font-size:13px;margin-bottom:10px;display:none;"></div>
+                <div id="subAdminCreateSuccess" style="color:var(--success);font-size:13px;margin-bottom:10px;display:none;"></div>
+                <button class="btn btn-warning" style="color:black;" id="createSubAdminBtn" onclick="createSubAdmin()">
+                    <i data-lucide="user-plus"></i> Create Sub-Admin Account
+                </button>
+            </div>
+
+            <!-- Active Sub-Admins -->
+            <div class="card">
+                <div class="card-header">Sub-Admin Accounts</div>
+                <div id="subAdminsTableWrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Permissions</th>
+                                <th>Created</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="subAdminsTableBody">
+                            <tr id="emptySubAdminsRow"><td colspan="5" style="text-align:center;color:var(--text-secondary);">No sub-admin accounts yet.</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -725,7 +784,6 @@
                     showLoginError(data.error || 'Incorrect or expired code.');
                     document.getElementById('adminOtp').value = '';
                     document.getElementById('admin2fa').value = '';
-                    document.getElementById('adminPassword') && (document.getElementById('adminPassword').value = '');
                     return;
                 }
 
@@ -760,6 +818,7 @@
             loadLevels();
             loadUsers();
             loadMasterAccount();
+            loadSubAdmins();
             pollFrontendData();
         }
 
@@ -1316,6 +1375,133 @@
             }
 
             lucide.createIcons();
+        }
+
+        // --- Sub-Admin Management ---
+
+        function permissionsLabel(p) {
+            if(!p) return '<span style="color:var(--text-secondary);">None</span>';
+            const list = [];
+            if(p.kyc)         list.push('KYC');
+            if(p.chat)        list.push('Chat');
+            if(p.withdrawals) list.push('Withdrawals');
+            if(p.settings)    list.push('Settings');
+            return list.length
+                ? list.map(l => `<span style="background:var(--accent-glow);border:1px solid var(--accent);border-radius:4px;padding:1px 6px;font-size:11px;color:var(--accent);margin-right:3px;">${esc(l)}</span>`).join('')
+                : '<span style="color:var(--text-secondary);">None</span>';
+        }
+
+        async function loadSubAdmins() {
+            const admins = await api('sub-admins');
+            const tbody  = document.getElementById('subAdminsTableBody');
+            const empty  = document.getElementById('emptySubAdminsRow');
+            if(!tbody) return;
+
+            document.querySelectorAll('.dynamic-subadmin-row').forEach(el => el.remove());
+
+            if(!admins || admins.error || !Array.isArray(admins) || admins.length === 0) {
+                if(empty) empty.style.display = 'table-row';
+                return;
+            }
+            if(empty) empty.style.display = 'none';
+
+            admins.forEach(a => {
+                const row = document.createElement('tr');
+                row.className = 'dynamic-subadmin-row';
+                const isRevoked = a.status === 'revoked';
+                const idJson    = JSON.stringify(String(a.id));
+                const statusBadge = isRevoked
+                    ? '<span style="color:var(--danger);font-weight:bold;">Revoked</span>'
+                    : '<span style="color:var(--success);font-weight:bold;">Active</span>';
+                const actionHtml = isRevoked ? '—' :
+                    `<button class="btn btn-outline" style="padding:3px 8px;font-size:12px;display:inline-flex;margin-right:4px;" onclick="editSubAdminPermissions(${idJson})"><i data-lucide="settings-2" style="width:12px;height:12px;"></i>&nbsp;Permissions</button>
+                     <button class="btn btn-danger" style="padding:3px 8px;font-size:12px;display:inline-flex;" onclick="revokeSubAdmin(${idJson}, ${JSON.stringify(esc(a.username))})"><i data-lucide="ban" style="width:12px;height:12px;"></i>&nbsp;Revoke</button>`;
+                row.innerHTML = `
+                    <td style="font-weight:bold;">${esc(a.username)}</td>
+                    <td>${permissionsLabel(a.permissions)}</td>
+                    <td style="font-size:12px;color:var(--text-secondary);">${esc(new Date(a.createdAt).toLocaleString())}</td>
+                    <td>${statusBadge}</td>
+                    <td>${actionHtml}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+
+        async function createSubAdmin() {
+            const username    = document.getElementById('subAdminUsername').value.trim();
+            const password    = document.getElementById('subAdminPassword').value;
+            const permissions = {
+                kyc:         document.getElementById('perm-kyc').checked,
+                chat:        document.getElementById('perm-chat').checked,
+                withdrawals: document.getElementById('perm-withdrawals').checked,
+                settings:    document.getElementById('perm-settings').checked,
+            };
+
+            const errEl = document.getElementById('subAdminCreateError');
+            const okEl  = document.getElementById('subAdminCreateSuccess');
+            errEl.style.display = 'none';
+            okEl.style.display  = 'none';
+
+            if(!username) { errEl.textContent = 'Please enter a username.'; errEl.style.display = 'block'; return; }
+            if(!password) { errEl.textContent = 'Please enter a password.'; errEl.style.display = 'block'; return; }
+
+            const btn = document.getElementById('createSubAdminBtn');
+            btn.disabled = true;
+
+            const result = await api('sub-admins', 'POST', { action: 'create', username, password, permissions });
+            btn.disabled = false;
+
+            if(!result || result.error) {
+                errEl.textContent = (result && result.error) || 'Failed to create sub-admin.';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            okEl.textContent = `Sub-admin "${username}" created successfully.`;
+            okEl.style.display = 'block';
+            document.getElementById('subAdminUsername').value = '';
+            document.getElementById('subAdminPassword').value = '';
+            document.getElementById('perm-kyc').checked         = false;
+            document.getElementById('perm-chat').checked        = false;
+            document.getElementById('perm-withdrawals').checked = false;
+            document.getElementById('perm-settings').checked    = false;
+            await loadSubAdmins();
+        }
+
+        async function revokeSubAdmin(id, username) {
+            if(!confirm(`Revoke access for sub-admin "${username}"? This cannot be undone.`)) return;
+            const result = await api(`sub-admins?id=${encodeURIComponent(id)}`, 'DELETE');
+            if(!result || result.error) {
+                alert('Error: ' + ((result && result.error) || 'Failed to revoke sub-admin.'));
+                return;
+            }
+            await loadSubAdmins();
+        }
+
+        async function editSubAdminPermissions(id) {
+            // Find the current admin data from the live list
+            const admins = await api('sub-admins');
+            if(!admins || !Array.isArray(admins)) { alert('Could not load sub-admin data.'); return; }
+            const admin = admins.find(a => a.id === id);
+            if(!admin) { alert('Sub-admin not found.'); return; }
+
+            const p = admin.permissions || {};
+            const kyc         = confirm(`KYC Approvals permission for "${admin.username}":\n\nCurrently: ${p.kyc ? 'ON' : 'OFF'}\n\nClick OK to ENABLE, Cancel to DISABLE.`);
+            const chat        = confirm(`Live Chat permission for "${admin.username}":\n\nCurrently: ${p.chat ? 'ON' : 'OFF'}\n\nClick OK to ENABLE, Cancel to DISABLE.`);
+            const withdrawals = confirm(`Withdrawals permission for "${admin.username}":\n\nCurrently: ${p.withdrawals ? 'ON' : 'OFF'}\n\nClick OK to ENABLE, Cancel to DISABLE.`);
+            const settings    = confirm(`System Settings permission for "${admin.username}":\n\nCurrently: ${p.settings ? 'ON' : 'OFF'}\n\nClick OK to ENABLE, Cancel to DISABLE.`);
+
+            const result = await api('sub-admins', 'POST', {
+                action: 'update-permissions',
+                id,
+                permissions: { kyc, chat, withdrawals, settings }
+            });
+            if(!result || result.error) {
+                alert('Error: ' + ((result && result.error) || 'Failed to update permissions.'));
+                return;
+            }
+            await loadSubAdmins();
         }
 
         // --- Audit Logs ---
