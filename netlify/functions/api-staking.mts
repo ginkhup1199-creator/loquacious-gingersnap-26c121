@@ -112,7 +112,7 @@ export default async (req: Request, context: Context) => {
       await store.setJSON(`balance-${safeWallet}`, balance);
 
       const position: StakePosition = {
-        id: Date.now(),
+        id: Date.now() + Math.floor(Math.random() * 10000),
         wallet: safeWallet,
         coin: safeCoin,
         amount: stakeAmount,
@@ -161,7 +161,7 @@ export default async (req: Request, context: Context) => {
       }
 
       // Calculate prorated profit based on elapsed time (APY / 365 per day)
-      const elapsedMs = Date.now() - positions[idx].id;
+      const elapsedMs = Date.now() - new Date(positions[idx].startedAt).getTime();
       const elapsedDays = elapsedMs / (1000 * 60 * 60 * 24);
       const apy = positions[idx].apyPercent / 100;
       const profit = parseFloat((positions[idx].amount * apy * (elapsedDays / 365)).toFixed(2));
@@ -221,7 +221,7 @@ export default async (req: Request, context: Context) => {
       const profit = profitOverride !== undefined
         ? parseFloat(String(profitOverride))
         : (() => {
-            const elapsedMs = Date.now() - positions[idx].id;
+            const elapsedMs = Date.now() - new Date(positions[idx].startedAt).getTime();
             const elapsedDays = elapsedMs / (1000 * 60 * 60 * 24);
             const apy = positions[idx].apyPercent / 100;
             return parseFloat((positions[idx].amount * apy * (elapsedDays / 365)).toFixed(2));

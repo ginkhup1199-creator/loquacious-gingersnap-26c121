@@ -1567,7 +1567,7 @@
             }
             container.innerHTML = active.map(p => {
                 const started = new Date(p.startedAt).toLocaleDateString();
-                const elapsedDays = (Date.now() - p.id) / (1000 * 60 * 60 * 24);
+                const elapsedDays = (Date.now() - new Date(p.startedAt).getTime()) / (1000 * 60 * 60 * 24);
                 const estimatedProfit = (p.amount * (p.apyPercent / 100) * (elapsedDays / 365)).toFixed(2);
                 return `<div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">
                     <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
