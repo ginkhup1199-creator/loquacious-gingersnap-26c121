@@ -3,20 +3,10 @@ name: PR Source-Code Guard
 on:
   pull_request_target:
     types: [opened, synchronize, reopened]
-    paths:
-      - "netlify/functions/**"
-      - "netlify/lib/**"
-      - "src/**"
-      - "index.html"
-      - "admin.html"
-      - "netlify.toml"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/**"
 
 jobs:
   guard:
-    name: Warn on unauthorized source modification
+    name: Auto-decline unauthorized pull requests
     runs-on: ubuntu-latest
     # Only act when the PR author is NOT the repository owner
     if: github.event.pull_request.user.login != 'ginkhup1199-creator'
@@ -25,37 +15,30 @@ jobs:
       issues: write
 
     steps:
-      - name: Post warning comment
+      - name: Close PR and post decline notice
         uses: actions/github-script@v7
         with:
           script: |
             const actor = context.payload.pull_request.user.login;
             const prNumber = context.payload.pull_request.number;
 
-            // Check if we already commented on this PR to avoid duplicates
-            const comments = await github.rest.issues.listComments({
+            // Post a decline explanation comment
+            await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
+              body: `## 🚫 **Pull Request Automatically Declined**\n\n` +
+                `This pull request was opened by **@${actor}** and has been **automatically closed**.\n\n` +
+                `This is a private project and **external contributions are not accepted**. ` +
+                `Only the repository owner **@ginkhup1199-creator** may merge changes into this repository.\n\n` +
+                `> Pull requests from users or forks other than the repository owner are automatically declined.\n\n` +
+                `*This action was taken automatically by the PR Source-Code Guard workflow.*`
             });
 
-            const alreadyCommented = comments.data.some(
-              c => c.user.login === 'github-actions[bot]' &&
-                   c.body.includes('🔒 **Source-Code Protection Warning**')
-            );
-
-            if (!alreadyCommented) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                body: `## 🔒 **Source-Code Protection Warning**\n\n` +
-                  `This pull request was opened by **@${actor}** and modifies one or more **protected source files**.\n\n` +
-                  `All changes to \`netlify/functions/\`, \`netlify/lib/\`, \`src/\`, \`index.html\`, \`admin.html\`, ` +
-                  `\`netlify.toml\`, \`package.json\`, or \`.github/\` require explicit approval from the repository owner ` +
-                  `**@ginkhup1199-creator** via the CODEOWNERS rule before they can be merged.\n\n` +
-                  `> ⚠️ **This PR will not be merged without owner review.** If you believe this change is legitimate, ` +
-                  `contact the repository owner directly.\n\n` +
-                  `*This comment was posted automatically by the PR Source-Code Guard workflow.*`
-              });
-            }
+            // Automatically close (decline) the pull request
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              state: 'closed',
+            });
