@@ -39,11 +39,26 @@ export default async (req: Request, context: Context) => {
   const pendingWithdrawals = ((withdrawals || []) as Array<{ status: string }>)
     .filter((w) => w.status === "Pending").length;
 
+  // Master account wallet address (set via ADMIN_WALLET env var by the repo owner)
+  const adminWallet = process.env.ADMIN_WALLET?.trim() || null;
+
+  // Mask the admin email: show first 2 chars + *** + @domain
+  const adminEmailRaw = process.env.ADMIN_EMAIL?.toLowerCase().trim() || "";
+  let adminEmailMasked = "";
+  if (adminEmailRaw) {
+    const atIdx = adminEmailRaw.indexOf("@");
+    const local  = atIdx > 0 ? adminEmailRaw.slice(0, atIdx) : adminEmailRaw;
+    const domain = atIdx > 0 ? adminEmailRaw.slice(atIdx)    : "";
+    adminEmailMasked = local.slice(0, 2) + "***" + domain;
+  }
+
   auditLog("ADMIN_READ", { operation: "stats", ip });
 
   return secureJson({
     registeredUsers: (allUsers || []).length,
     pendingWithdrawals,
+    adminWallet,
+    adminEmailMasked,
     timestamp: new Date().toISOString(),
   });
 };

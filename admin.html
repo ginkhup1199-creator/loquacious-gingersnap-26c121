@@ -545,36 +545,85 @@
         </div>
 
         <div id="tab-master" class="tab-pane">
-            <h2 style="color: var(--warning);">Master Account Management</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 20px;">Only the Master Admin can create and assign new sub-admin accounts.</p>
-            
-            <div class="card">
-                <div class="card-header">Create Sub-Admin</div>
-                <div class="grid-2">
-                    <div class="input-group"><label>Admin Username</label><input type="text" placeholder="e.g., support_agent_1"></div>
-                    <div class="input-group"><label>Temporary Password</label><input type="password" placeholder="••••••••"></div>
-                </div>
-                <div class="input-group">
-                    <label>Role Permissions</label>
-                    <div style="display: flex; gap: 15px; margin-top: 10px;">
-                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox" checked> KYC Approvals</label>
-                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox" checked> Live Chat</label>
-                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox"> Withdrawals</label>
-                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox"> System Settings</label>
+            <h2 style="color: var(--warning);">Master Account</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                There is exactly <strong style="color:var(--warning);">one</strong> master account.
+                It is owned by the repository owner and is configured entirely through environment variables.
+            </p>
+
+            <!-- Master Account Profile -->
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="card-header">Master Account Profile</div>
+                <div style="display: flex; flex-direction: column; gap: 16px; padding-top: 8px;">
+
+                    <div style="display: flex; align-items: flex-start; gap: 14px;">
+                        <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-glow);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i data-lucide="shield-check" style="width:18px;height:18px;color:var(--accent);"></i>
+                        </div>
+                        <div>
+                            <div style="font-size:12px;color:var(--text-secondary);">Role</div>
+                            <div style="font-weight:bold;color:var(--warning);">Master Admin <span style="font-size:11px;color:var(--text-secondary);font-weight:normal;">(singleton — only 1 allowed)</span></div>
+                        </div>
                     </div>
+
+                    <div style="display: flex; align-items: flex-start; gap: 14px;">
+                        <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-glow);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i data-lucide="mail" style="width:18px;height:18px;color:var(--accent);"></i>
+                        </div>
+                        <div>
+                            <div style="font-size:12px;color:var(--text-secondary);">Email (login address)</div>
+                            <div id="master-email" style="font-family:monospace;color:var(--text-primary);">—</div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; align-items: flex-start; gap: 14px;">
+                        <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-glow);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i data-lucide="wallet" style="width:18px;height:18px;color:var(--accent);"></i>
+                        </div>
+                        <div>
+                            <div style="font-size:12px;color:var(--text-secondary);">Linked Wallet Address</div>
+                            <div id="master-wallet" style="font-family:monospace;word-break:break-all;color:var(--accent);">—</div>
+                            <div id="master-wallet-hint" style="font-size:11px;color:var(--warning);margin-top:4px;display:none;">
+                                Set <code style="background:var(--bg-dark);padding:1px 4px;border-radius:3px;">ADMIN_WALLET</code> in your environment variables to link a wallet address to this account.
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
-                <button class="btn btn-warning" style="color: black;" onclick="alert('Sub-admin created successfully!')">Create Admin Account</button>
             </div>
 
+            <!-- Authentication Method -->
             <div class="card">
-                <div class="card-header">Active Admins</div>
-                <table>
-                    <thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Action</th></tr></thead>
-                    <tbody>
-                        <tr><td>master_admin</td><td>Master</td><td><span style="color: var(--success);">Online</span></td><td>-</td></tr>
-                        <tr><td>support_agent_1</td><td>Chat & KYC</td><td><span style="color: var(--text-secondary);">Offline</span></td><td><button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;">Revoke</button></td></tr>
-                    </tbody>
-                </table>
+                <div class="card-header">Authentication Requirements</div>
+                <p style="color:var(--text-secondary);font-size:14px;margin-bottom:16px;">
+                    All three factors must be satisfied to log in.
+                </p>
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                    <div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--bg-dark);border-radius:8px;border:1px solid var(--border);">
+                        <span style="background:var(--accent);color:#000;font-weight:bold;font-size:13px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</span>
+                        <div>
+                            <div style="font-weight:bold;color:var(--text-primary);">Admin Email</div>
+                            <div style="font-size:12px;color:var(--text-secondary);">The master email address must match <code style="background:var(--bg-panel);padding:1px 4px;border-radius:3px;">ADMIN_EMAIL</code> env var.</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--bg-dark);border-radius:8px;border:1px solid var(--border);">
+                        <span style="background:var(--accent);color:#000;font-weight:bold;font-size:13px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</span>
+                        <div>
+                            <div style="font-weight:bold;color:var(--text-primary);">Gmail OTP Code</div>
+                            <div style="font-size:12px;color:var(--text-secondary);">A 6-digit one-time code sent to your Gmail inbox (expires in 10 minutes, max 5 attempts).</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--bg-dark);border-radius:8px;border:1px solid var(--border);">
+                        <span style="background:var(--accent);color:#000;font-weight:bold;font-size:13px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</span>
+                        <div>
+                            <div style="font-weight:bold;color:var(--text-primary);">2FA Security Code</div>
+                            <div style="font-size:12px;color:var(--text-secondary);">Your <code style="background:var(--bg-panel);padding:1px 4px;border-radius:3px;">ADMIN_TOKEN</code> value (set in environment variables).</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top:16px;padding:10px 14px;background:rgba(0,230,118,0.06);border:1px solid var(--success);border-radius:8px;font-size:13px;color:var(--success);">
+                    <strong>Session:</strong> Valid for 1 hour. Only one active session is permitted at a time.
+                </div>
             </div>
         </div>
 
@@ -710,6 +759,7 @@
             loadSettings();
             loadLevels();
             loadUsers();
+            loadMasterAccount();
             pollFrontendData();
         }
 
@@ -1239,6 +1289,33 @@
             } else {
                 alert('Error: ' + ((result && result.error) || 'Failed to complete bot.'));
             }
+        }
+
+        // --- Master Account ---
+        async function loadMasterAccount() {
+            const data = await api('admin');
+            if(!data) return;
+
+            const emailEl  = document.getElementById('master-email');
+            const walletEl = document.getElementById('master-wallet');
+            const hintEl   = document.getElementById('master-wallet-hint');
+
+            if(emailEl && data.adminEmailMasked) {
+                emailEl.textContent = data.adminEmailMasked;
+            }
+
+            if(walletEl) {
+                if(data.adminWallet) {
+                    walletEl.textContent = data.adminWallet;
+                    if(hintEl) hintEl.style.display = 'none';
+                } else {
+                    walletEl.textContent = 'Not configured';
+                    walletEl.style.color = 'var(--text-secondary)';
+                    if(hintEl) hintEl.style.display = 'block';
+                }
+            }
+
+            lucide.createIcons();
         }
 
         // --- Audit Logs ---
