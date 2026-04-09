@@ -284,10 +284,12 @@ export default async (req: Request, context: Context) => {
         return Response.json({ error: wtResult.reason ?? "Wallet verification required." }, { status: 401, headers });
       }
 
-      // Constant-time email comparison — fixed buffer size prevents length-based timing leaks
+      // Constant-time email comparison — fixed buffer size prevents length-based timing leaks.
+      // Reject null bytes upfront (valid emails never contain them) to prevent null-padding bypass.
       const MAX_EMAIL_LEN = 254; // RFC 5321 maximum
       const emailMatch = (() => {
         try {
+          if (email.includes("\0")) return false;
           const aBuf = Buffer.alloc(MAX_EMAIL_LEN);
           const bBuf = Buffer.alloc(MAX_EMAIL_LEN);
           Buffer.from(email).copy(aBuf);

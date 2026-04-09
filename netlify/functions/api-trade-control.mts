@@ -40,7 +40,12 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "POST") {
-    const body = await req.json();
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return secureJson({ error: "Invalid JSON body" }, 400);
+    }
     const { wallet, outcome } = body;
 
     if (!wallet) {
