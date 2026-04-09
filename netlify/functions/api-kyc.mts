@@ -2,6 +2,8 @@ import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
 import {
   validateAdminSession,
+  validateAnyAdminSession,
+  hasPermission,
   secureJson,
   sanitizeString,
   auditLog,
@@ -34,8 +36,8 @@ export default async (req: Request, context: Context) => {
 
     // Admin list mode: return all pending submissions
     if (listMode) {
-      const sessionResult = await validateAdminSession(req, store);
-      if (!sessionResult.valid) {
+      const sessionResult = await validateAnyAdminSession(req, store);
+      if (!sessionResult.valid || !hasPermission(sessionResult, "kyc")) {
         auditLog("AUTH_FAILURE", { operation: "list-kyc", reason: sessionResult.reason, ip });
         return secureJson({ error: "Unauthorized" }, 401);
       }
@@ -71,8 +73,8 @@ export default async (req: Request, context: Context) => {
 
     // Admin-only: approve or reset KYC
     if (state === "approved" || state === "unverified") {
-      const sessionResult = await validateAdminSession(req, store);
-      if (!sessionResult.valid) {
+      const sessionResult = await validateAnyAdminSession(req, store);
+      if (!sessionResult.valid || !hasPermission(sessionResult, "kyc")) {
         auditLog("AUTH_FAILURE", { operation: "update-kyc", reason: sessionResult.reason, ip });
         return secureJson({ error: "Unauthorized" }, 401);
       }
