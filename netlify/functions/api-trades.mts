@@ -29,7 +29,7 @@ export default async (req: Request, context: Context) => {
     try {
       body = await req.json();
     } catch {
-      return secureJson({ error: "Invalid JSON" }, 400);
+      return secureJson({ error: "Invalid JSON body" }, 400);
     }
     const { type, wallet } = body;
 

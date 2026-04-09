@@ -54,7 +54,12 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Unauthorized" }, 401);
     }
 
-    const body = await req.json();
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return secureJson({ error: "Invalid JSON body" }, 400);
+    }
 
     if (body.binaryLevels && Array.isArray(body.binaryLevels)) {
       const validated = (body.binaryLevels as any[]).slice(0, MAX_BINARY_LEVELS).map((lvl: any, idx: number) => ({

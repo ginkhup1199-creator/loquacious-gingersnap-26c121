@@ -1434,7 +1434,7 @@
                 let details = '';
                 if(t.type === 'binary')  details = `${t.direction || ''} · ${t.levelName || ''}`;
                 else if(t.type === 'swap') details = `${t.fromCoin || ''} → ${t.toCoin || ''}`;
-                else if(t.type === 'ai-bot') details = `${t.levelName || ''} · ${t.duration || ''}d`;
+                else if(t.type === 'ai-bot') details = `${t.levelName || ''} · ${t.cycleTime || ''}d`;
                 else details = t.levelName || '';
                 // Show "Complete" button for active AI bot trades; use parseInt to ensure a safe numeric ID
                 const safeTradeId = Number.isFinite(parseInt(String(t.id), 10)) ? parseInt(String(t.id), 10) : 0;
