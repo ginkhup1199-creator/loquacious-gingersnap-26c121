@@ -240,6 +240,7 @@
             <li class="nav-item nav-settings" onclick="switchTab('tab-settings')"><i data-lucide="settings"></i> System Settings</li>
             <li class="nav-item nav-all" onclick="switchTab('tab-balances')"><i data-lucide="circle-dollar-sign"></i> User Balances</li>
             <li class="nav-item nav-all" onclick="switchTab('tab-auditlogs'); loadAuditLogs()"><i data-lucide="shield-check"></i> Audit Logs</li>
+            <li class="nav-item nav-all" onclick="switchTab('tab-staking'); loadAllStakes()"><i data-lucide="lock"></i> Staking</li>
             <li class="nav-item nav-master" onclick="switchTab('tab-master'); loadAdminAccounts();" style="margin-top: 40px; color: var(--warning);"><i data-lucide="key"></i> Master Account</li>
             <li class="nav-item" onclick="logout()" style="color: var(--danger);"><i data-lucide="log-out"></i> Logout</li>
         </ul>
@@ -570,6 +571,30 @@
                         <thead><tr><th>Timestamp</th><th>Event</th><th>Operation</th><th>IP</th><th>Details</th></tr></thead>
                         <tbody id="adminAuditTable">
                             <tr id="emptyAuditRow"><td colspan="5" style="text-align:center;">No audit events recorded yet.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-staking" class="tab-pane">
+            <h2>Staking Management</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">View and manage all user staking positions. Use force-complete to release a stake with profit, or cancel to return principal only.</p>
+            <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+                <button class="btn btn-outline" onclick="loadAllStakes()"><i data-lucide="refresh-cw"></i> Refresh</button>
+                <select id="staking-filter" onchange="filterStakes()" style="padding:8px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                    <option value="all">All Positions</option>
+                    <option value="active">Active Only</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+            </div>
+            <div class="card">
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>Wallet</th><th>Coin</th><th>Amount</th><th>APY</th><th>Started</th><th>Status</th><th>Profit</th><th>Actions</th></tr></thead>
+                        <tbody id="adminStakingTable">
+                            <tr><td colspan="8" style="text-align:center;color:var(--text-secondary);">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1523,6 +1548,74 @@
                 table.appendChild(row);
             });
             lucide.createIcons();
+        }
+
+        // ── Staking Management ────────────────────────────────────────────────
+        let cachedAllStakes = [];
+
+        async function loadAllStakes() {
+            const data = await api('staking?list=true');
+            cachedAllStakes = (Array.isArray(data) ? data : []);
+            filterStakes();
+        }
+
+        function filterStakes() {
+            const filter = document.getElementById('staking-filter')?.value || 'all';
+            const stakes = filter === 'all' ? cachedAllStakes : cachedAllStakes.filter(s => s.status === filter);
+            renderStakingTable(stakes);
+        }
+
+        function renderStakingTable(stakes) {
+            const tbody = document.getElementById('adminStakingTable');
+            if(!tbody) return;
+            if(!stakes.length) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-secondary);">No staking positions found.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = stakes.map(s => {
+                const shortWallet = s.wallet ? s.wallet.slice(0, 8) + '…' : '-';
+                const started = s.startedAt ? new Date(s.startedAt).toLocaleDateString() : '-';
+                const statusColor = s.status === 'active' ? 'var(--success)' : s.status === 'completed' ? 'var(--accent)' : 'var(--danger)';
+                const profit = s.profit !== undefined ? `$${parseFloat(s.profit).toFixed(2)}` : '-';
+                const actions = s.status === 'active' ? `
+                    <button class="btn" style="padding:4px 8px;font-size:11px;margin-right:4px;background:var(--success);color:#000;" onclick="adminCompleteStake('${s.wallet}',${s.id})">Complete</button>
+                    <button class="btn" style="padding:4px 8px;font-size:11px;background:var(--danger);color:#fff;" onclick="adminCancelStake('${s.wallet}',${s.id})">Cancel</button>
+                ` : '-';
+                return `<tr>
+                    <td style="font-size:12px;font-family:monospace;" title="${esc(s.wallet||'')}">${esc(shortWallet)}</td>
+                    <td style="font-weight:bold;">${esc(s.coin||'-')}</td>
+                    <td>$${parseFloat(s.amount||0).toFixed(2)}</td>
+                    <td style="color:var(--success);">${esc(String(s.apyPercent||''))}%</td>
+                    <td style="font-size:12px;">${started}</td>
+                    <td style="color:${statusColor};font-weight:bold;">${esc(s.status||'-')}</td>
+                    <td style="color:var(--success);">${profit}</td>
+                    <td>${actions}</td>
+                </tr>`;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        async function adminCompleteStake(wallet, stakeId) {
+            const profitInput = prompt('Enter profit amount (leave blank for auto-calculated prorated profit):');
+            if(profitInput === null) return; // cancelled
+            const payload = { action: 'admin-complete', wallet, stakeId };
+            if(profitInput.trim() !== '') {
+                const p = parseFloat(profitInput);
+                if(isNaN(p)) { alert('Invalid profit value'); return; }
+                payload.profitOverride = p;
+            }
+            const result = await api('staking', 'POST', payload);
+            if(!result || result.error) { alert('Error: ' + (result?.error || 'Failed')); return; }
+            alert(`Stake completed.\nProfit: $${(result.profit||0).toFixed(2)} credited.\nNew Balance: $${(result.newBalance?.usdt||0).toFixed(2)}`);
+            loadAllStakes();
+        }
+
+        async function adminCancelStake(wallet, stakeId) {
+            if(!confirm('Cancel this stake and return principal only (no profit)?')) return;
+            const result = await api('staking', 'POST', { action: 'admin-cancel', wallet, stakeId });
+            if(!result || result.error) { alert('Error: ' + (result?.error || 'Failed')); return; }
+            alert(`Stake cancelled.\n$${(result.refund||0).toFixed(2)} principal returned to wallet.`);
+            loadAllStakes();
         }
 
         // Poll every 5 seconds

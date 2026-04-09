@@ -793,7 +793,27 @@
                             <h3 style="color: var(--text-primary);">BTC Vault</h3>
                             <div class="text-success" style="font-weight: bold; font-size: 20px;" id="stake-apy-btc">12.5% APY</div>
                         </div>
-                        <button class="btn btn-success" style="width: 100%;"><i data-lucide="lock"></i> Stake BTC</button>
+                        <div class="input-group" style="margin-bottom: 10px;">
+                            <label>Coin</label>
+                            <select id="stake-coin" style="width:100%;padding:10px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                                <option value="BTC">BTC</option>
+                                <option value="ETH">ETH</option>
+                                <option value="USDT" selected>USDT</option>
+                                <option value="BNB">BNB</option>
+                                <option value="SOL">SOL</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="margin-bottom: 12px;">
+                            <label>Amount (USDT value)</label>
+                            <input type="number" id="stake-amount" placeholder="e.g. 500" min="1" style="width:100%;padding:10px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);">
+                        </div>
+                        <button class="btn btn-success" style="width: 100%;" onclick="stakeCoin()"><i data-lucide="lock"></i> Stake Now</button>
+                    </div>
+                    <div class="card">
+                        <div class="card-header" style="margin-bottom:10px;">Active Stakes</div>
+                        <div id="stakePositionsList" style="max-height:220px;overflow-y:auto;">
+                            <p style="color:var(--text-secondary);font-size:13px;text-align:center;padding:20px 0;">No active stakes yet.</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1507,6 +1527,70 @@
             pollBackend();
         }
 
+        // --- Staking Functions ---
+        async function stakeCoin() {
+            if(!isConnected) { showToast('Connect wallet first', 'error'); return; }
+            const coin = document.getElementById('stake-coin').value;
+            const amount = parseFloat(document.getElementById('stake-amount').value);
+            if(!amount || amount <= 0) { showToast('Enter a valid stake amount', 'error'); return; }
+            const result = await api('staking', 'POST', { action: 'stake', wallet: walletAddr, coin, amount });
+            if(!result || result.error) { showToast(result?.error || 'Staking failed', 'error'); return; }
+            showToast(`Staked $${amount} ${coin} successfully!`);
+            document.getElementById('stake-amount').value = '';
+            pollBackend();
+            loadStakePositions();
+        }
+
+        async function unstake(stakeId) {
+            if(!isConnected) { showToast('Connect wallet first', 'error'); return; }
+            const result = await api('staking', 'POST', { action: 'unstake', wallet: walletAddr, stakeId });
+            if(!result || result.error) { showToast(result?.error || 'Unstake failed', 'error'); return; }
+            const profit = (result.profit || 0).toFixed(2);
+            showToast(`Unstaked! Profit: +$${profit} credited to balance`);
+            pollBackend();
+            loadStakePositions();
+        }
+
+        async function loadStakePositions() {
+            if(!isConnected || !walletAddr) return;
+            const positions = await api('staking?wallet=' + encodeURIComponent(walletAddr));
+            renderStakePositions(positions || []);
+        }
+
+        function renderStakePositions(positions) {
+            const container = document.getElementById('stakePositionsList');
+            if(!container) return;
+            const active = positions.filter(p => p.status === 'active');
+            if(!active.length) {
+                container.innerHTML = '<p style="color:var(--text-secondary);font-size:13px;text-align:center;padding:20px 0;">No active stakes yet.</p>';
+                return;
+            }
+            container.innerHTML = active.map(p => {
+                const started = new Date(p.startedAt).toLocaleDateString();
+                const elapsedDays = (Date.now() - p.id) / (1000 * 60 * 60 * 24);
+                const estimatedProfit = (p.amount * (p.apyPercent / 100) * (elapsedDays / 365)).toFixed(2);
+                return `<div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                        <span style="color:var(--accent);font-weight:bold;">${p.coin} Vault</span>
+                        <span style="color:var(--success);font-size:12px;">${p.apyPercent}% APY</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+                        <span style="color:var(--text-secondary);">Staked</span>
+                        <span>$${p.amount.toFixed(2)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;">
+                        <span style="color:var(--text-secondary);">Est. Profit</span>
+                        <span class="text-success">+$${estimatedProfit}</span>
+                    </div>
+                    <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;">Since ${started}</div>
+                    <button class="btn" style="width:100%;padding:6px;font-size:12px;background:var(--warning);color:#000;border-radius:6px;" onclick="unstake(${p.id})">
+                        <i data-lucide="unlock"></i> Unstake + Claim
+                    </button>
+                </div>`;
+            }).join('');
+            if(window.lucide) lucide.createIcons();
+        }
+
         // --- Live BTC Price via Binance WebSocket with market-data fallback ---
         let liveBtcPrice = 64230.50;
         function connectPriceFeed() {
@@ -1577,8 +1661,10 @@
                 const results = await Promise.all(requests);
                 const [kycData, addresses, withdrawals, features, settings, levels, messages, balanceData] = results;
 
+                // Refresh stake positions alongside regular poll when wallet connected
+                if(isConnected && walletAddr) loadStakePositions();
+
                 // 1. KYC State
-                if(kycData) {
                     currentKycState = kycData.state || 'unverified';
                     document.getElementById('kycStatusUnverified').style.display = currentKycState === 'unverified' ? 'block' : 'none';
                     document.getElementById('kycStatusPending').style.display = (currentKycState === 'pending' || currentKycState === 'submitted') ? 'block' : 'none';
@@ -1674,6 +1760,7 @@
             pollBackend();
             connectPriceFeed();
             refreshSwapRates();
+            loadStakePositions();
         };
 
     </script>
