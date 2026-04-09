@@ -26,9 +26,7 @@ jobs:
         run: npm ci
 
       - name: Run TypeScript type-check
-        run: npx tsc --noEmit --strict --target ES2022 --module NodeNext --moduleResolution NodeNext netlify/functions/*.mts netlify/lib/*.ts 2>&1 || true
-        # "|| true" because strict mode may flag pre-existing issues not introduced by this change;
-        # the step still surfaces any new type errors in the PR diff for reviewer awareness.
+        run: npm run typecheck
 
   protected-files-guard:
     name: Protected Files — Unauthorized Change Detection

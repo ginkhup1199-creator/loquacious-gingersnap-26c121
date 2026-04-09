@@ -50,7 +50,7 @@ export default async (req: Request, context: Context) => {
 
     let body: Record<string, unknown>;
     try {
-      body = await req.json();
+      body = await req.json() as Record<string, unknown>;
     } catch {
       return secureJson({ error: "Invalid JSON" }, 400);
     }

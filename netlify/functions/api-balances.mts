@@ -34,7 +34,7 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Unauthorized" }, 401);
     }
 
-    const body = await req.json();
+    const body = await req.json() as Record<string, unknown>;
     const { wallet, usdt } = body;
     if (!wallet) {
       return secureJson({ error: "Wallet address required" }, 400);
@@ -46,7 +46,7 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Invalid wallet address" }, 400);
     }
 
-    const parsedUsdt = parseFloat(usdt);
+    const parsedUsdt = parseFloat(String(usdt));
     if (isNaN(parsedUsdt) || parsedUsdt < 0) {
       return secureJson({ error: "Invalid balance value" }, 400);
     }

@@ -219,7 +219,7 @@ export default async (req: Request, context: Context) => {
   if (req.method === "POST") {
     let body: Record<string, unknown>;
     try {
-      body = await req.json();
+      body = await req.json() as Record<string, unknown>;
     } catch {
       return Response.json({ error: "Invalid JSON" }, { status: 400, headers });
     }
