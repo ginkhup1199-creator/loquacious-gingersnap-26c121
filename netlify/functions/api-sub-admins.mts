@@ -34,6 +34,10 @@ export interface SubAdmin {
 // Public-safe view (never includes password hash or salt)
 type SubAdminPublic = Omit<SubAdmin, "passwordHash" | "salt">;
 
+// A module-level dummy salt used to ensure `hashPassword` (scrypt) always
+// runs in the `verify` action, regardless of whether the username exists.
+// This prevents timing-based username enumeration.
+const DUMMY_SALT = "a".repeat(64);
 const STORE_KEY = "sub-admins";
 const USERNAME_MAX_LEN = 40;
 const PASSWORD_MIN_LEN = 8;
@@ -52,18 +56,6 @@ function hashPassword(password: string, salt: string): string {
   // scrypt with recommended parameters for interactive login
   const hash = scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 });
   return hash.toString("hex");
-}
-
-function verifyPassword(password: string, salt: string, storedHash: string): boolean {
-  try {
-    const inputHash = hashPassword(password, salt);
-    const a = Buffer.from(inputHash, "hex");
-    const b = Buffer.from(storedHash, "hex");
-    if (a.length !== b.length) return false;
-    return timingSafeEqual(a, b);
-  } catch {
-    return false;
-  }
 }
 
 function toPublic(admin: SubAdmin): SubAdminPublic {
@@ -93,21 +85,14 @@ export default async (req: Request, context: Context) => {
     return secureJson({ error: "Server not configured" }, 503);
   }
 
-  // All endpoints require a valid master-admin session
-  const sessionResult = await validateAdminSession(req, store);
-  if (!sessionResult.valid) {
-    auditLog("AUTH_FAILURE", { operation: "sub-admins", reason: sessionResult.reason, ip });
-    return secureJson({ error: "Unauthorized" }, 401);
-  }
-
-  // ── GET /api/sub-admins → list all sub-admins (no secrets) ──────────────
-  if (req.method === "GET") {
-    const all = ((await store.get(STORE_KEY, { type: "json" })) ?? []) as SubAdmin[];
-    auditLog("ADMIN_READ", { operation: "list-sub-admins", ip });
-    return secureJson(all.map(toPublic));
-  }
-
-  // ── POST /api/sub-admins → create | update-permissions | verify ──────────
+  // ── POST /api/sub-admins ─────────────────────────────────────────────────
+  // The `verify` action is the only operation that does NOT require a master
+  // session — it is used by sub-admins to check their own credentials.
+  // All other actions (create, update-permissions) and all other HTTP methods
+  // (GET, DELETE) REQUIRE the master admin session.  Only the master admin,
+  // authenticated via Gmail OTP + 2FA (api-admin-session.mts), can create or
+  // manage sub-admin accounts.  Sub-admins cannot obtain a master session and
+  // therefore can never reach those code paths.
   if (req.method === "POST") {
     let body: Record<string, unknown>;
     try {
@@ -117,6 +102,43 @@ export default async (req: Request, context: Context) => {
     }
 
     const action = String(body["action"] ?? "");
+
+    // ── verify (sub-admin credential check — no master session needed) ───────
+    if (action === "verify") {
+      const username = sanitizeString(String(body["username"] ?? ""), USERNAME_MAX_LEN).trim();
+      const password = String(body["password"] ?? "");
+
+      const all = ((await store.get(STORE_KEY, { type: "json" })) ?? []) as SubAdmin[];
+      const found = all.find(a => a.username.toLowerCase() === username.toLowerCase() && a.status === "active");
+
+      // Always run scrypt regardless of whether the username exists to prevent
+      // timing-based username enumeration attacks.
+      const computedHash = hashPassword(password, found ? found.salt : DUMMY_SALT);
+      let passwordOk = false;
+      if (found) {
+        try {
+          const a = Buffer.from(computedHash, "hex");
+          const b = Buffer.from(found.passwordHash, "hex");
+          passwordOk = a.length === b.length && timingSafeEqual(a, b);
+        } catch {
+          passwordOk = false;
+        }
+      }
+
+      if (!found || !passwordOk) {
+        auditLog("AUTH_FAILURE", { operation: "sub-admin-verify", username, ip });
+        return secureJson({ error: "Invalid credentials." }, 401);
+      }
+
+      return secureJson({ success: true, permissions: found.permissions });
+    }
+
+    // ── All other POST actions require the master admin session ───────────────
+    const sessionResult = await validateAdminSession(req, store);
+    if (!sessionResult.valid) {
+      auditLog("AUTH_FAILURE", { operation: `sub-admins:${action}`, reason: sessionResult.reason, ip });
+      return secureJson({ error: "Unauthorized. Only the master admin can manage sub-admin accounts." }, 401);
+    }
 
     // ── create ───────────────────────────────────────────────────────────────
     if (action === "create") {
@@ -185,23 +207,21 @@ export default async (req: Request, context: Context) => {
       return secureJson({ success: true, admin: toPublic(all[idx]) });
     }
 
-    // ── verify (check sub-admin credentials) ────────────────────────────────
-    if (action === "verify") {
-      const username = sanitizeString(String(body["username"] ?? ""), USERNAME_MAX_LEN).trim();
-      const password = String(body["password"] ?? "");
-
-      const all = ((await store.get(STORE_KEY, { type: "json" })) ?? []) as SubAdmin[];
-      const found = all.find(a => a.username.toLowerCase() === username.toLowerCase() && a.status === "active");
-
-      if (!found || !verifyPassword(password, found.salt, found.passwordHash)) {
-        auditLog("AUTH_FAILURE", { operation: "sub-admin-verify", username, ip });
-        return secureJson({ error: "Invalid credentials." }, 401);
-      }
-
-      return secureJson({ success: true, permissions: found.permissions });
-    }
-
     return secureJson({ error: "Unknown action." }, 400);
+  }
+
+  // ── GET and DELETE require the master admin session ──────────────────────
+  const sessionResult = await validateAdminSession(req, store);
+  if (!sessionResult.valid) {
+    auditLog("AUTH_FAILURE", { operation: "sub-admins", reason: sessionResult.reason, ip });
+    return secureJson({ error: "Unauthorized. Only the master admin can manage sub-admin accounts." }, 401);
+  }
+
+  // ── GET /api/sub-admins → list all sub-admins (no secrets) ──────────────
+  if (req.method === "GET") {
+    const all = ((await store.get(STORE_KEY, { type: "json" })) ?? []) as SubAdmin[];
+    auditLog("ADMIN_READ", { operation: "list-sub-admins", ip });
+    return secureJson(all.map(toPublic));
   }
 
   // ── DELETE /api/sub-admins?id=<id> → revoke sub-admin ───────────────────

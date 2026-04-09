@@ -1406,99 +1406,109 @@
             if(empty) empty.style.display = 'none';
 
             admins.forEach(a => {
-                const row = document.createElement('tr');
-                row.className = 'dynamic-subadmin-row';
                 const isRevoked = a.status === 'revoked';
-                const idJson    = JSON.stringify(String(a.id));
                 const statusBadge = isRevoked
                     ? '<span style="color:var(--danger);font-weight:bold;">Revoked</span>'
                     : '<span style="color:var(--success);font-weight:bold;">Active</span>';
-                const actionHtml = isRevoked ? '—' :
-                    `<button class="btn btn-outline" style="padding:3px 8px;font-size:12px;display:inline-flex;margin-right:4px;" onclick="editSubAdminPermissions(${idJson})"><i data-lucide="settings-2" style="width:12px;height:12px;"></i>&nbsp;Permissions</button>
-                     <button class="btn btn-danger" style="padding:3px 8px;font-size:12px;display:inline-flex;" onclick="revokeSubAdmin(${idJson}, ${JSON.stringify(esc(a.username))})"><i data-lucide="ban" style="width:12px;height:12px;"></i>&nbsp;Revoke</button>`;
+
+                // Main data row — store id/username as data attributes (no inline escaping needed)
+                const row = document.createElement('tr');
+                row.className = 'dynamic-subadmin-row';
+                row.dataset.id       = a.id;
+                row.dataset.username = a.username;
                 row.innerHTML = `
                     <td style="font-weight:bold;">${esc(a.username)}</td>
-                    <td>${permissionsLabel(a.permissions)}</td>
+                    <td class="perm-label-cell">${permissionsLabel(a.permissions)}</td>
                     <td style="font-size:12px;color:var(--text-secondary);">${esc(new Date(a.createdAt).toLocaleString())}</td>
                     <td>${statusBadge}</td>
-                    <td>${actionHtml}</td>
+                    <td>
+                        ${isRevoked ? '—' : `
+                        <button class="btn btn-outline" style="padding:3px 8px;font-size:12px;display:inline-flex;margin-right:4px;" onclick="togglePermEditor(this)">
+                            <i data-lucide="settings-2" style="width:12px;height:12px;"></i>&nbsp;Permissions
+                        </button>
+                        <button class="btn btn-danger" style="padding:3px 8px;font-size:12px;display:inline-flex;" onclick="revokeSubAdmin(this)">
+                            <i data-lucide="ban" style="width:12px;height:12px;"></i>&nbsp;Revoke
+                        </button>`}
+                    </td>
                 `;
                 tbody.appendChild(row);
+
+                if(!isRevoked) {
+                    // Inline permissions editor row (hidden by default)
+                    const p = a.permissions || {};
+                    const editRow = document.createElement('tr');
+                    editRow.className = 'dynamic-subadmin-row';
+                    editRow.style.display = 'none';
+                    editRow.dataset.editorFor = a.id;
+                    editRow.innerHTML = `
+                        <td colspan="5" style="padding:10px 16px;background:var(--bg-dark);border:1px solid var(--accent);">
+                            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+                                <strong style="color:var(--text-secondary);font-size:13px;margin-right:4px;">Permissions:</strong>
+                                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
+                                    <input type="checkbox" class="ep-kyc" ${p.kyc ? 'checked' : ''}> KYC Approvals
+                                </label>
+                                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
+                                    <input type="checkbox" class="ep-chat" ${p.chat ? 'checked' : ''}> Live Chat
+                                </label>
+                                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
+                                    <input type="checkbox" class="ep-withdrawals" ${p.withdrawals ? 'checked' : ''}> Withdrawals
+                                </label>
+                                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
+                                    <input type="checkbox" class="ep-settings" ${p.settings ? 'checked' : ''}> System Settings
+                                </label>
+                                <button class="btn btn-success" style="padding:4px 12px;font-size:12px;" onclick="saveSubAdminPermissions(this)">Save</button>
+                                <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="cancelPermEditor(this)">Cancel</button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(editRow);
+                }
             });
             lucide.createIcons();
         }
 
-        async function createSubAdmin() {
-            const username    = document.getElementById('subAdminUsername').value.trim();
-            const password    = document.getElementById('subAdminPassword').value;
+        function togglePermEditor(btn) {
+            const mainRow  = btn.closest('tr');
+            const editRow  = mainRow.nextElementSibling;
+            if(!editRow || !editRow.dataset.editorFor) return;
+            const isOpen = editRow.style.display !== 'none';
+            editRow.style.display = isOpen ? 'none' : 'table-row';
+        }
+
+        function cancelPermEditor(btn) {
+            const editRow = btn.closest('tr');
+            if(editRow) editRow.style.display = 'none';
+        }
+
+        async function saveSubAdminPermissions(btn) {
+            const editRow = btn.closest('tr');
+            const id = editRow.dataset.editorFor;
+            if(!id) return;
             const permissions = {
-                kyc:         document.getElementById('perm-kyc').checked,
-                chat:        document.getElementById('perm-chat').checked,
-                withdrawals: document.getElementById('perm-withdrawals').checked,
-                settings:    document.getElementById('perm-settings').checked,
+                kyc:         editRow.querySelector('.ep-kyc').checked,
+                chat:        editRow.querySelector('.ep-chat').checked,
+                withdrawals: editRow.querySelector('.ep-withdrawals').checked,
+                settings:    editRow.querySelector('.ep-settings').checked,
             };
-
-            const errEl = document.getElementById('subAdminCreateError');
-            const okEl  = document.getElementById('subAdminCreateSuccess');
-            errEl.style.display = 'none';
-            okEl.style.display  = 'none';
-
-            if(!username) { errEl.textContent = 'Please enter a username.'; errEl.style.display = 'block'; return; }
-            if(!password) { errEl.textContent = 'Please enter a password.'; errEl.style.display = 'block'; return; }
-
-            const btn = document.getElementById('createSubAdminBtn');
             btn.disabled = true;
-
-            const result = await api('sub-admins', 'POST', { action: 'create', username, password, permissions });
+            const result = await api('sub-admins', 'POST', { action: 'update-permissions', id, permissions });
             btn.disabled = false;
-
             if(!result || result.error) {
-                errEl.textContent = (result && result.error) || 'Failed to create sub-admin.';
-                errEl.style.display = 'block';
+                alert('Error: ' + ((result && result.error) || 'Failed to update permissions.'));
                 return;
             }
-
-            okEl.textContent = `Sub-admin "${username}" created successfully.`;
-            okEl.style.display = 'block';
-            document.getElementById('subAdminUsername').value = '';
-            document.getElementById('subAdminPassword').value = '';
-            document.getElementById('perm-kyc').checked         = false;
-            document.getElementById('perm-chat').checked        = false;
-            document.getElementById('perm-withdrawals').checked = false;
-            document.getElementById('perm-settings').checked    = false;
+            editRow.style.display = 'none';
             await loadSubAdmins();
         }
 
-        async function revokeSubAdmin(id, username) {
+        async function revokeSubAdmin(btn) {
+            const mainRow = btn.closest('tr');
+            const id      = mainRow.dataset.id;
+            const username = mainRow.dataset.username;
             if(!confirm(`Revoke access for sub-admin "${username}"? This cannot be undone.`)) return;
             const result = await api(`sub-admins?id=${encodeURIComponent(id)}`, 'DELETE');
             if(!result || result.error) {
                 alert('Error: ' + ((result && result.error) || 'Failed to revoke sub-admin.'));
-                return;
-            }
-            await loadSubAdmins();
-        }
-
-        async function editSubAdminPermissions(id) {
-            // Find the current admin data from the live list
-            const admins = await api('sub-admins');
-            if(!admins || !Array.isArray(admins)) { alert('Could not load sub-admin data.'); return; }
-            const admin = admins.find(a => a.id === id);
-            if(!admin) { alert('Sub-admin not found.'); return; }
-
-            const p = admin.permissions || {};
-            const kyc         = confirm(`KYC Approvals permission for "${admin.username}":\n\nCurrently: ${p.kyc ? 'ON' : 'OFF'}\n\nClick OK to ENABLE, Cancel to DISABLE.`);
-            const chat        = confirm(`Live Chat permission for "${admin.username}":\n\nCurrently: ${p.chat ? 'ON' : 'OFF'}\n\nClick OK to ENABLE, Cancel to DISABLE.`);
-            const withdrawals = confirm(`Withdrawals permission for "${admin.username}":\n\nCurrently: ${p.withdrawals ? 'ON' : 'OFF'}\n\nClick OK to ENABLE, Cancel to DISABLE.`);
-            const settings    = confirm(`System Settings permission for "${admin.username}":\n\nCurrently: ${p.settings ? 'ON' : 'OFF'}\n\nClick OK to ENABLE, Cancel to DISABLE.`);
-
-            const result = await api('sub-admins', 'POST', {
-                action: 'update-permissions',
-                id,
-                permissions: { kyc, chat, withdrawals, settings }
-            });
-            if(!result || result.error) {
-                alert('Error: ' + ((result && result.error) || 'Failed to update permissions.'));
                 return;
             }
             await loadSubAdmins();
