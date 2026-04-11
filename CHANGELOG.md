@@ -8,19 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-### Added
-- `netlify/functions/api-health.mts` — health check endpoint at `/api/health`
-- `README.md` — comprehensive architecture overview and setup guide
-- `DEPLOYMENT.md` — production release checklist
-- `CONTRIBUTING.md` — developer contribution guide
-- `CHANGELOG.md` — this file
-- `LICENSE` — MIT license
-
 ---
 
-## [1.0.0] — 2026-04-05
+## [1.0.0] — 2026-04-11
 
 ### Added — Public Release
+
+**Infrastructure & Build**
+- `tsconfig.json` — TypeScript project configuration (ES2022, NodeNext, strict mode)
+- `typecheck` npm script — `npm run typecheck` runs `tsc --noEmit` against all functions
+- `netlify/lib/security.mts` — shared security utilities renamed to `.mts` for consistent ESM module resolution; fixes Store type compatibility across all Netlify Functions
+- `@types/nodemailer` and `@netlify/node-cookies` added as dev dependencies to resolve all TypeScript strict-mode errors
+- CI workflow updated to use `npm run typecheck` (driven by `tsconfig.json`) instead of an ad-hoc inline tsc command
+- `.env.production` removed from git tracking (was accidentally committed; `.gitignore` entry already existed)
 
 **Core API Endpoints**
 - `api-users.mts` — user registration

@@ -26,7 +26,7 @@ import {
   getClientIp,
   checkRateLimit,
   rateLimitExceededResponse,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 // ---------------------------------------------------------------------------
 // Constants

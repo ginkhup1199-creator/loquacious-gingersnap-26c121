@@ -6,7 +6,7 @@ import {
   auditLog,
   persistAuditLog,
   getClientIp,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 /**
  * Netlify Blobs Backup & Restore

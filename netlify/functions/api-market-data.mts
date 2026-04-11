@@ -2,7 +2,7 @@ import type { Config, Context } from "@netlify/functions";
 import {
   secureJson,
   getClientIp,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 // Market data with realistic price simulation.
 // In production, replace with a real price feed API (CoinGecko, Binance, etc.)

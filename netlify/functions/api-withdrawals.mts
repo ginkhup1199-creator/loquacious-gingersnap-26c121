@@ -9,7 +9,7 @@ import {
   auditLog,
   persistAuditLog,
   getClientIp,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });

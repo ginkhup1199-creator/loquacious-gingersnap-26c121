@@ -7,7 +7,7 @@ import {
   auditLog,
   persistAuditLog,
   getClientIp,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 const DEFAULT_ADDRESSES: Record<string, string> = {
   TRC20: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",

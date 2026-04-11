@@ -6,7 +6,7 @@ import {
   sanitizeString,
   auditLog,
   getClientIp,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 const ALLOWED_OUTCOMES = ["random", "win", "lose"] as const;
 type Outcome = (typeof ALLOWED_OUTCOMES)[number];

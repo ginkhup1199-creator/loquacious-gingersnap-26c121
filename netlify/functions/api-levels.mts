@@ -7,7 +7,7 @@ import {
   auditLog,
   persistAuditLog,
   getClientIp,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 const DEFAULT_BINARY_LEVELS = [
   { id: 1, name: "Bronze", capital: 100, tradingTime: 60, profitPercent: 85 },

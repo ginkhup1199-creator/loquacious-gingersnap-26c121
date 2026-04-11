@@ -8,7 +8,7 @@ import {
   auditLog,
   persistAuditLog,
   getClientIp,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 const DEFAULT_SETTINGS = {
   swapFee: 0.5,

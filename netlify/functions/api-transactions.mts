@@ -7,7 +7,7 @@ import {
   auditLog,
   persistAuditLog,
   getClientIp,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 const ALLOWED_TYPES = ["deposit", "withdrawal", "trade", "swap", "earn", "ai-bot"] as const;
 const ALLOWED_STATUSES = ["Pending", "Completed", "Failed", "Cancelled"] as const;

@@ -2,7 +2,7 @@ import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
 import { createHash, randomBytes, randomInt, timingSafeEqual } from "crypto";
 import nodemailer from "nodemailer";
-import { checkRateLimit, rateLimitExceededResponse } from "../lib/security.js";
+import { checkRateLimit, rateLimitExceededResponse } from "../lib/security.mjs";
 
 // ---------------------------------------------------------------------------
 // Constants

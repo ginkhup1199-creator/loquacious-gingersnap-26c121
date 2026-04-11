@@ -2,12 +2,16 @@
   "name": "nexustrade",
   "version": "1.0.0",
   "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "@netlify/blobs": "^8.1.0",
     "@netlify/functions": "^3.0.0",
     "nodemailer": "^7.0.11"
   },
   "devDependencies": {
+    "@netlify/node-cookies": "^0.1.0",
     "@types/nodemailer": "^8.0.0",
     "typescript": "^5.9.3"
   }

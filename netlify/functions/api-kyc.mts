@@ -9,7 +9,7 @@ import {
   auditLog,
   persistAuditLog,
   getClientIp,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 const ALLOWED_STATES = ["pending", "approved", "unverified"] as const;
 

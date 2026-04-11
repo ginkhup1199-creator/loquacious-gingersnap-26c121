@@ -1,6 +1,6 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
-import { secureJson, sanitizeString, getClientIp, validateAdminSession, auditLog, persistAuditLog } from "../lib/security.js";
+import { secureJson, sanitizeString, getClientIp, validateAdminSession, auditLog, persistAuditLog } from "../lib/security.mjs";
 import { randomInt } from "crypto";
 
 const NETWORK_LATENCY_BUFFER_MS = 3000; // tolerated timer drift for network round-trip

@@ -5,7 +5,7 @@ import {
   secureJson,
   auditLog,
   getClientIp,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 /**
  * GET /api/audit-logs

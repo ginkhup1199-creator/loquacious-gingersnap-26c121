@@ -8,7 +8,7 @@ import {
   sanitizeString,
   auditLog,
   getClientIp,
-} from "../lib/security.js";
+} from "../lib/security.mjs";
 
 const MAX_CHAT_MESSAGES = 200;
 

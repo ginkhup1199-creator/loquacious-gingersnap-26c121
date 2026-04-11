@@ -1,5 +1,5 @@
 import type { Config } from "@netlify/functions";
-import { secureJson } from "../lib/security.js";
+import { secureJson } from "../lib/security.mjs";
 
 const VERSION =
   process.env.APP_VERSION ??
