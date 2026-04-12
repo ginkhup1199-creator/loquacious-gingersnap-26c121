@@ -80,13 +80,13 @@ jobs:
           done
 
           if [ -n "$FLAGGED" ]; then
-            echo "::warning::Pull request from '$ACTOR' modifies protected source files that require owner review:"
+            echo "::error::Pull request from '$ACTOR' modifies protected source files that require owner review:"
             echo -e "$FLAGGED"
             echo ""
-            echo "Branch protection rules must be enabled on this repository to enforce CODEOWNERS review."
-            echo "The repository owner (@$OWNER) must approve this PR before it can be merged."
-            # Do NOT hard-fail here — CODEOWNERS + branch protection rules are the enforcement layer.
-            # This step surfaces the information prominently in the CI log.
+            echo "Only the repository owner (@$OWNER) is permitted to modify these files."
+            echo "This CI check is a required status check — the PR CANNOT be merged until the owner"
+            echo "approves it via the CODEOWNERS rule or closes this PR and applies the change directly."
+            exit 1
           else
             echo "No protected files modified by non-owner, or actor is the owner. All clear."
           fi
