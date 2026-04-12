@@ -3,96 +3,42 @@ name: PR Source-Code Guard
 on:
   pull_request_target:
     types: [opened, synchronize, reopened]
-    paths:
-      - "netlify/functions/**"
-      - "netlify/lib/**"
-      - "src/**"
-      - "index.html"
-      - "admin.html"
-      - "netlify.toml"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/**"
-  push:
-    branches:
-      - main
-      - master
-      - "production"
-      - "release/**"
 
 jobs:
-  guard-pr:
-    name: Block unauthorized PR changes
+  guard:
+    name: Auto-decline unauthorized pull requests
     runs-on: ubuntu-latest
     # Only act when the PR author is NOT the repository owner
-    if: >
-      github.event_name == 'pull_request_target' &&
-      github.event.pull_request.user.login != 'ginkhup1199-creator'
+    if: github.event.pull_request.user.login != 'ginkhup1199-creator'
     permissions:
       pull-requests: write
       issues: write
 
     steps:
-      - name: Close PR and post warning
+      - name: Close PR and post decline notice
         uses: actions/github-script@v7
         with:
           script: |
             const actor = context.payload.pull_request.user.login;
             const prNumber = context.payload.pull_request.number;
 
-            // Post a warning comment (deduplicated)
-            const comments = await github.rest.issues.listComments({
+            // Post a decline explanation comment
+            await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
+              body: `## 🚫 **Pull Request Automatically Declined**\n\n` +
+                `This pull request was opened by **@${actor}** and has been **automatically closed**.\n\n` +
+                `This is a private project and **external contributions are not accepted**. ` +
+                `Only the repository owner **@ginkhup1199-creator** may merge changes into this repository.\n\n` +
+                `> Pull requests from users or forks other than the repository owner are automatically declined.\n\n` +
+                `*This action was taken automatically by the PR Source-Code Guard workflow.*`
             });
 
-            const alreadyCommented = comments.data.some(
-              c => c.user.login === 'github-actions[bot]' &&
-                   c.body.includes('🔒 **Source-Code Protection Warning**')
-            );
-
-            if (!alreadyCommented) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                body: `## 🔒 **Source-Code Protection Warning**\n\n` +
-                  `This pull request was opened by **@${actor}** and modifies one or more **protected source files**.\n\n` +
-                  `All changes to \`netlify/functions/\`, \`netlify/lib/\`, \`src/\`, \`index.html\`, \`admin.html\`, ` +
-                  `\`netlify.toml\`, \`package.json\`, or \`.github/\` **may only be made by the repository owner** ` +
-                  `**@ginkhup1199-creator**.\n\n` +
-                  `> ❌ **This PR has been automatically closed.** If you believe this change is legitimate, ` +
-                  `contact the repository owner directly.\n\n` +
-                  `*This comment was posted automatically by the PR Source-Code Guard workflow.*`
-              });
-            }
-
-            // Close the PR immediately — non-owner changes to protected files are not permitted
+            // Automatically close (decline) the pull request
             await github.rest.pulls.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: prNumber,
               state: 'closed',
             });
-
-            core.setFailed(
-              `PR #${prNumber} from @${actor} modifies protected source files. ` +
-              `Only @ginkhup1199-creator is permitted to change these files. PR closed.`
-            );
-
-  guard-push:
-    name: Block unauthorized direct push to protected branch
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.actor != 'ginkhup1199-creator'
-    permissions:
-      contents: read
-
-    steps:
-      - name: Fail — unauthorized push
-        run: |
-          echo "::error::Direct push to '${{ github.ref_name }}' by '${{ github.actor }}' is not permitted."
-          echo "Only the repository owner (@ginkhup1199-creator) may push directly to this branch."
-          echo "Please open a pull request and request review from the owner."
-          exit 1
-

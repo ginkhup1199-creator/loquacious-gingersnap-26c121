@@ -23,12 +23,29 @@ export interface StoredSession {
   expiresAt: string;
   createdAt: string;
   usedAt: string | null;
+  role?: "master";
+}
+
+export interface StoredSubAdminSession {
+  sessionId: string;
+  username: string;
+  permissions: string[];
+  expiresAt: string;
+  createdAt: string;
 }
 
 export interface SessionValidationResult {
   valid: boolean;
   reason?: string;
   session?: StoredSession;
+}
+
+export interface AnySessionResult {
+  valid: boolean;
+  reason?: string;
+  role?: "master" | "subadmin";
+  permissions?: string[];
+  username?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -129,6 +146,83 @@ export async function validateAdminSession(
   }
 
   return { valid: true, session };
+}
+
+// ---------------------------------------------------------------------------
+// Sub-Admin Session Validation
+// ---------------------------------------------------------------------------
+
+const SUB_ADMIN_SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Validates either a master session or a sub-admin session from the
+ * X-Session-Token header. Returns role and permissions so callers can enforce
+ * permission-based access control.
+ */
+export async function validateAnyAdminSession(
+  req: Request,
+  store: ReturnType<typeof getStore>
+): Promise<AnySessionResult> {
+  const sessionId = req.headers.get("X-Session-Token");
+  if (!sessionId || typeof sessionId !== "string") {
+    return { valid: false, reason: "No session token provided" };
+  }
+
+  // 1. Try master session first
+  const masterResult = await validateAdminSession(req, store);
+  if (masterResult.valid) {
+    return { valid: true, role: "master" };
+  }
+
+  // 2. Try sub-admin session stored under its own key
+  let subSession: StoredSubAdminSession | null = null;
+  try {
+    subSession = await store.get(`subadmin-session-${sessionId}`, { type: "json" }) as StoredSubAdminSession | null;
+  } catch {
+    return { valid: false, reason: "Session store unavailable" };
+  }
+
+  if (!subSession) {
+    return { valid: false, reason: "Invalid session token" };
+  }
+
+  // Constant-time token comparison
+  let tokenMatch = false;
+  try {
+    const maxLen = Math.max(sessionId.length, subSession.sessionId.length);
+    const bufA = Buffer.alloc(maxLen);
+    const bufB = Buffer.alloc(maxLen);
+    Buffer.from(sessionId).copy(bufA);
+    Buffer.from(subSession.sessionId).copy(bufB);
+    tokenMatch = sessionId.length === subSession.sessionId.length && timingSafeEqual(bufA, bufB);
+  } catch {
+    tokenMatch = false;
+  }
+
+  if (!tokenMatch) {
+    return { valid: false, reason: "Invalid session token" };
+  }
+
+  if (new Date(subSession.expiresAt).getTime() < Date.now()) {
+    try { await store.delete(`subadmin-session-${sessionId}`); } catch { /* best effort */ }
+    return { valid: false, reason: "Session expired" };
+  }
+
+  return {
+    valid: true,
+    role: "subadmin",
+    username: subSession.username,
+    permissions: subSession.permissions,
+  };
+}
+
+/**
+ * Returns true if the session has the given permission.
+ * Master sessions always have every permission.
+ */
+export function hasPermission(result: AnySessionResult, permission: string): boolean {
+  if (result.role === "master") return true;
+  return (result.permissions ?? []).includes(permission);
 }
 
 // ---------------------------------------------------------------------------

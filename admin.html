@@ -164,12 +164,32 @@
             <i data-lucide="shield-alert" style="width: 48px; height: 48px; color: var(--danger); margin-bottom: 10px;"></i>
             <h2 style="color: var(--danger);">Secure Admin Access</h2>
 
-            <!-- Step 1: Email -->
-            <div id="loginStep1">
+        <!-- Login mode toggle -->
+            <div style="display:flex;gap:0;margin-bottom:20px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+                <button id="modeMaster" onclick="setLoginMode('master')" style="flex:1;padding:10px;background:var(--danger);color:#fff;border:none;cursor:pointer;font-weight:bold;font-size:13px;">Master Login</button>
+                <button id="modeSubAdmin" onclick="setLoginMode('subadmin')" style="flex:1;padding:10px;background:transparent;color:var(--text-secondary);border:none;cursor:pointer;font-weight:bold;font-size:13px;">Admin Login</button>
+            </div>
+
+            <!-- ── MASTER LOGIN FLOW ── -->
+            <div id="masterFlow">
+            <!-- Step 0: Master Wallet Address -->
+            <div id="loginStep0">
+                <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 16px;">Enter the master admin wallet address to begin. This must be the registered master account wallet.</p>
+                <input type="text" id="adminWallet" placeholder="Master wallet address" autocomplete="off" spellcheck="false" onkeypress="if(event.key==='Enter') verifyWallet()">
+                <button class="btn btn-danger" style="width: 100%;" onclick="verifyWallet()">
+                    <i data-lucide="wallet"></i> Verify Wallet
+                </button>
+            </div>
+
+            <!-- Step 1: Email (hidden until wallet verified) -->
+            <div id="loginStep1" style="display:none;">
                 <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 16px;">Enter the master admin email to receive a one-time code.</p>
                 <input type="email" id="adminEmail" placeholder="admin@gmail.com" onkeypress="if(event.key==='Enter') requestOtp()">
                 <button class="btn btn-danger" style="width: 100%;" id="sendCodeBtn" onclick="requestOtp()">
                     <i data-lucide="mail"></i> Send Verification Code
+                </button>
+                <button class="btn btn-outline" style="width: 100%; font-size: 13px; margin-top: 8px;" onclick="backToWallet()">
+                    <i data-lucide="arrow-left"></i> Back
                 </button>
             </div>
 
@@ -186,6 +206,17 @@
                     <i data-lucide="arrow-left"></i> Use different email
                 </button>
             </div>
+            </div><!-- /masterFlow -->
+
+            <!-- ── SUB-ADMIN LOGIN FLOW ── -->
+            <div id="subAdminFlow" style="display:none;">
+                <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 16px;">Enter your sub-admin credentials assigned by the master account.</p>
+                <input type="text" id="subAdminUsername" placeholder="Username" autocomplete="off" onkeypress="if(event.key==='Enter') document.getElementById('subAdminPassword').focus()">
+                <input type="password" id="subAdminPassword" placeholder="Password" onkeypress="if(event.key==='Enter') subAdminLogin()">
+                <button class="btn btn-danger" style="width: 100%; margin-top: 8px;" onclick="subAdminLogin()">
+                    <i data-lucide="log-in"></i> Login
+                </button>
+            </div>
 
             <div id="loginError" style="color:var(--danger);font-size:13px;margin-top:12px;display:none;"></div>
         </div>
@@ -194,21 +225,22 @@
     <!-- Sidebar -->
     <aside class="sidebar">
         <div class="logo"><i data-lucide="shield-alert"></i> Admin Backend</div>
+        <div id="sessionBadge" style="display:none;margin:0 10px 10px;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:bold;text-align:center;"></div>
         <ul class="nav-menu">
             <li class="nav-item active" onclick="switchTab('tab-overview')"><i data-lucide="activity"></i> Overview</li>
-            <li class="nav-item" onclick="switchTab('tab-users')"><i data-lucide="users"></i> Users</li>
-            <li class="nav-item" onclick="switchTab('tab-wallet')"><i data-lucide="wallet"></i> Wallet Controls</li>
-            <li class="nav-item" onclick="switchTab('tab-levels')"><i data-lucide="layers"></i> Binary Levels</li>
-            <li class="nav-item" onclick="switchTab('tab-ailevels')"><i data-lucide="cpu"></i> AI Arbitrage</li>
-            <li class="nav-item" onclick="switchTab('tab-kyc')"><i data-lucide="user-check"></i> KYC Approvals</li>
-            <li class="nav-item" onclick="switchTab('tab-withdraw')"><i data-lucide="arrow-up-from-line"></i> Withdrawals</li>
-            <li class="nav-item" onclick="switchTab('tab-transactions')"><i data-lucide="receipt"></i> Transactions</li>
-            <li class="nav-item" onclick="switchTab('tab-trades')"><i data-lucide="trending-up"></i> Trade History</li>
-            <li class="nav-item" onclick="switchTab('tab-chat')"><i data-lucide="message-circle"></i> Live Chat Support</li>
-            <li class="nav-item" onclick="switchTab('tab-settings')"><i data-lucide="settings"></i> System Settings</li>
-            <li class="nav-item" onclick="switchTab('tab-balances')"><i data-lucide="circle-dollar-sign"></i> User Balances</li>
-            <li class="nav-item" onclick="switchTab('tab-auditlogs'); loadAuditLogs()"><i data-lucide="shield-check"></i> Audit Logs</li>
-            <li class="nav-item" onclick="switchTab('tab-master'); loadSubAdmins();" style="margin-top: 40px; color: var(--warning);"><i data-lucide="key"></i> Master Account</li>
+            <li class="nav-item nav-all" onclick="switchTab('tab-users')"><i data-lucide="users"></i> Users</li>
+            <li class="nav-item nav-all" onclick="switchTab('tab-wallet')"><i data-lucide="wallet"></i> Wallet Controls</li>
+            <li class="nav-item nav-all" onclick="switchTab('tab-levels')"><i data-lucide="layers"></i> Binary Levels</li>
+            <li class="nav-item nav-all" onclick="switchTab('tab-ailevels')"><i data-lucide="cpu"></i> AI Arbitrage</li>
+            <li class="nav-item nav-kyc" onclick="switchTab('tab-kyc')"><i data-lucide="user-check"></i> KYC Approvals</li>
+            <li class="nav-item nav-withdrawals" onclick="switchTab('tab-withdraw')"><i data-lucide="arrow-up-from-line"></i> Withdrawals</li>
+            <li class="nav-item nav-all" onclick="switchTab('tab-transactions')"><i data-lucide="receipt"></i> Transactions</li>
+            <li class="nav-item nav-all" onclick="switchTab('tab-trades')"><i data-lucide="trending-up"></i> Trade History</li>
+            <li class="nav-item nav-chat" onclick="switchTab('tab-chat')"><i data-lucide="message-circle"></i> Live Chat Support</li>
+            <li class="nav-item nav-settings" onclick="switchTab('tab-settings')"><i data-lucide="settings"></i> System Settings</li>
+            <li class="nav-item nav-all" onclick="switchTab('tab-balances')"><i data-lucide="circle-dollar-sign"></i> User Balances</li>
+            <li class="nav-item nav-all" onclick="switchTab('tab-auditlogs'); loadAuditLogs()"><i data-lucide="shield-check"></i> Audit Logs</li>
+            <li class="nav-item nav-master" onclick="switchTab('tab-master'); loadAdminAccounts();" style="margin-top: 40px; color: var(--warning);"><i data-lucide="key"></i> Master Account</li>
             <li class="nav-item" onclick="logout()" style="color: var(--danger);"><i data-lucide="log-out"></i> Logout</li>
         </ul>
     </aside>
@@ -545,144 +577,38 @@
         </div>
 
         <div id="tab-master" class="tab-pane">
-            <h2 style="color: var(--warning);">Master Account</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 20px;">
-                There is exactly <strong style="color:var(--warning);">one</strong> master account.
-                It is owned by the repository owner and is configured entirely through environment variables.
-            </p>
+            <h2 style="color: var(--warning);">Master Account Management</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Only the Master Admin can create and assign new sub-admin accounts.</p>
 
-            <!-- Master Account Profile -->
-            <div class="card" style="margin-bottom: 20px;">
-                <div class="card-header">Master Account Profile</div>
-                <div style="display: flex; flex-direction: column; gap: 16px; padding-top: 8px;">
-
-                    <div style="display: flex; align-items: flex-start; gap: 14px;">
-                        <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-glow);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                            <i data-lucide="shield-check" style="width:18px;height:18px;color:var(--accent);"></i>
-                        </div>
-                        <div>
-                            <div style="font-size:12px;color:var(--text-secondary);">Role</div>
-                            <div style="font-weight:bold;color:var(--warning);">Master Admin <span style="font-size:11px;color:var(--text-secondary);font-weight:normal;">(singleton — only 1 allowed)</span></div>
-                        </div>
-                    </div>
-
-                    <div style="display: flex; align-items: flex-start; gap: 14px;">
-                        <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-glow);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                            <i data-lucide="mail" style="width:18px;height:18px;color:var(--accent);"></i>
-                        </div>
-                        <div>
-                            <div style="font-size:12px;color:var(--text-secondary);">Email (login address)</div>
-                            <div id="master-email" style="font-family:monospace;color:var(--text-primary);">—</div>
-                        </div>
-                    </div>
-
-                    <div style="display: flex; align-items: flex-start; gap: 14px;">
-                        <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-glow);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                            <i data-lucide="wallet" style="width:18px;height:18px;color:var(--accent);"></i>
-                        </div>
-                        <div>
-                            <div style="font-size:12px;color:var(--text-secondary);">Linked Wallet Address</div>
-                            <div id="master-wallet" style="font-family:monospace;word-break:break-all;color:var(--accent);">—</div>
-                            <div id="master-wallet-hint" style="font-size:11px;color:var(--warning);margin-top:4px;display:none;">
-                                Set <code style="background:var(--bg-dark);padding:1px 4px;border-radius:3px;">ADMIN_WALLET</code> in your environment variables to link a wallet address to this account.
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-
-            <!-- Authentication Method -->
-            <div class="card" style="margin-bottom: 20px;">
-                <div class="card-header">Authentication Requirements</div>
-                <p style="color:var(--text-secondary);font-size:14px;margin-bottom:16px;">
-                    All three factors must be satisfied to log in.
-                </p>
-                <div style="display:flex;flex-direction:column;gap:12px;">
-                    <div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--bg-dark);border-radius:8px;border:1px solid var(--border);">
-                        <span style="background:var(--accent);color:#000;font-weight:bold;font-size:13px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</span>
-                        <div>
-                            <div style="font-weight:bold;color:var(--text-primary);">Admin Email</div>
-                            <div style="font-size:12px;color:var(--text-secondary);">The master email address must match <code style="background:var(--bg-panel);padding:1px 4px;border-radius:3px;">ADMIN_EMAIL</code> env var.</div>
-                        </div>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--bg-dark);border-radius:8px;border:1px solid var(--border);">
-                        <span style="background:var(--accent);color:#000;font-weight:bold;font-size:13px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</span>
-                        <div>
-                            <div style="font-weight:bold;color:var(--text-primary);">Gmail OTP Code</div>
-                            <div style="font-size:12px;color:var(--text-secondary);">A 6-digit one-time code sent to your Gmail inbox (expires in 10 minutes, max 5 attempts).</div>
-                        </div>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--bg-dark);border-radius:8px;border:1px solid var(--border);">
-                        <span style="background:var(--accent);color:#000;font-weight:bold;font-size:13px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</span>
-                        <div>
-                            <div style="font-weight:bold;color:var(--text-primary);">2FA Security Code</div>
-                            <div style="font-size:12px;color:var(--text-secondary);">Your <code style="background:var(--bg-panel);padding:1px 4px;border-radius:3px;">ADMIN_TOKEN</code> value (set in environment variables).</div>
-                        </div>
-                    </div>
-                </div>
-                <div style="margin-top:16px;padding:10px 14px;background:rgba(0,230,118,0.06);border:1px solid var(--success);border-radius:8px;font-size:13px;color:var(--success);">
-                    <strong>Session:</strong> Valid for 1 hour. Only one active session is permitted at a time.
-                </div>
-            </div>
-
-            <!-- Create Sub-Admin -->
-            <div class="card" style="margin-bottom: 20px;">
-                <div class="card-header">Create Sub-Admin Account</div>
-                <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px;">Sub-admins log in with a username and password (separate from the master login). Assign only the permissions they need.</p>
-                <div class="grid-2" style="margin-bottom:12px;">
-                    <div class="input-group">
-                        <label>Username</label>
-                        <input type="text" id="subAdminUsername" placeholder="e.g., support_agent_1" maxlength="40" autocomplete="off">
-                    </div>
-                    <div class="input-group">
-                        <label>Password (min 8 characters)</label>
-                        <input type="password" id="subAdminPassword" placeholder="••••••••" maxlength="128" autocomplete="new-password">
-                    </div>
-                </div>
-                <div class="input-group" style="margin-bottom:16px;">
-                    <label>Permissions</label>
-                    <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;">
-                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;">
-                            <input type="checkbox" id="perm-kyc"> KYC Approvals
-                        </label>
-                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;">
-                            <input type="checkbox" id="perm-chat"> Live Chat
-                        </label>
-                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;">
-                            <input type="checkbox" id="perm-withdrawals"> Withdrawals
-                        </label>
-                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;">
-                            <input type="checkbox" id="perm-settings"> System Settings
-                        </label>
-                    </div>
-                </div>
-                <div id="subAdminCreateError" style="color:var(--danger);font-size:13px;margin-bottom:10px;display:none;"></div>
-                <div id="subAdminCreateSuccess" style="color:var(--success);font-size:13px;margin-bottom:10px;display:none;"></div>
-                <button class="btn btn-warning" style="color:black;" id="createSubAdminBtn" onclick="createSubAdmin()">
-                    <i data-lucide="user-plus"></i> Create Sub-Admin Account
-                </button>
-            </div>
-
-            <!-- Active Sub-Admins -->
             <div class="card">
-                <div class="card-header">Sub-Admin Accounts</div>
-                <div id="subAdminsTableWrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Username</th>
-                                <th>Permissions</th>
-                                <th>Created</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="subAdminsTableBody">
-                            <tr id="emptySubAdminsRow"><td colspan="5" style="text-align:center;color:var(--text-secondary);">No sub-admin accounts yet.</td></tr>
-                        </tbody>
-                    </table>
+                <div class="card-header">Create Sub-Admin Account</div>
+                <div class="grid-2">
+                    <div class="input-group"><label>Username</label><input type="text" id="new-admin-username" placeholder="e.g., support_agent_1" autocomplete="off"></div>
+                    <div class="input-group"><label>Temporary Password</label><input type="password" id="new-admin-password" placeholder="Min. 8 characters"></div>
                 </div>
+                <div class="input-group">
+                    <label>Role Permissions</label>
+                    <div style="display: flex; gap: 15px; margin-top: 10px; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-kyc" checked> KYC Approvals</label>
+                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-chat" checked> Live Chat</label>
+                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-withdrawals"> Withdrawals</label>
+                        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox" id="perm-settings"> System Settings</label>
+                    </div>
+                </div>
+                <button class="btn btn-warning" style="color: black;" onclick="createSubAdmin()">
+                    <i data-lucide="user-plus"></i> Create Admin Account
+                </button>
+                <div id="createAdminResult" style="margin-top:12px;font-size:13px;display:none;"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">Active Admin Accounts</div>
+                <table>
+                    <thead><tr><th>Username</th><th>Permissions</th><th>Created</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody id="adminAccountsTable">
+                        <tr><td colspan="5" style="text-align:center;color:var(--text-secondary);">Loading…</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -693,6 +619,11 @@
 
         // Helper for API calls — uses session token, never the raw admin password
         let sessionToken = sessionStorage.getItem('adminSessionToken') || '';
+        // Wallet-verified token: issued after Step 0 wallet check, required for Step 1 OTP request
+        let walletToken = '';
+        // Session role and permissions (set after login)
+        let sessionRole = sessionStorage.getItem('adminSessionRole') || '';           // 'master' | 'subadmin'
+        let sessionPerms = JSON.parse(sessionStorage.getItem('adminSessionPerms') || '[]'); // string[]
 
         async function api(endpoint, method, body) {
             const headers = { 'Content-Type': 'application/json' };
@@ -716,7 +647,7 @@
         let cachedBinaryLevels = [];
         let cachedAiLevels = [];
 
-        // ── 2-Step Email OTP Login ────────────────────────────────────────────
+        // ── 3-Step Login: Wallet → Email OTP → 2FA ───────────────────────────
 
         function showLoginError(msg) {
             const el = document.getElementById('loginError');
@@ -724,9 +655,47 @@
             el.style.display = msg ? 'block' : 'none';
         }
 
+        // Step 0: verify master wallet address
+        async function verifyWallet() {
+            const wallet = document.getElementById('adminWallet').value.trim();
+            if(!wallet) { showLoginError('Please enter the master wallet address.'); return; }
+            showLoginError('');
+
+            try {
+                const res = await fetch('/api/admin/session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'verify-wallet', wallet })
+                });
+                const data = await res.json();
+
+                if(!res.ok) {
+                    showLoginError(data.error || 'Wallet address not recognised.');
+                    return;
+                }
+
+                walletToken = data.walletToken || '';
+                document.getElementById('loginStep0').style.display = 'none';
+                document.getElementById('loginStep1').style.display = 'block';
+                document.getElementById('adminEmail').focus();
+            } catch(e) {
+                showLoginError('Connection error. Please try again.');
+            }
+        }
+
+        function backToWallet() {
+            walletToken = '';
+            document.getElementById('adminEmail').value = '';
+            document.getElementById('loginStep1').style.display = 'none';
+            document.getElementById('loginStep0').style.display = 'block';
+            showLoginError('');
+        }
+
+        // Step 1: request OTP (requires walletToken from Step 0)
         async function requestOtp() {
             const email = document.getElementById('adminEmail').value.trim();
             if(!email) { showLoginError('Please enter your email address.'); return; }
+            if(!walletToken) { showLoginError('Wallet verification required. Please restart login.'); backToWallet(); return; }
 
             const btn = document.getElementById('sendCodeBtn');
             btn.disabled = true;
@@ -737,7 +706,7 @@
                 const res = await fetch('/api/admin/session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'request-otp', email })
+                    body: JSON.stringify({ action: 'request-otp', email, walletToken })
                 });
                 const data = await res.json();
 
@@ -749,6 +718,14 @@
                 if(res.status === 502) {
                     showLoginError(data.error || 'Failed to send email. Check server configuration.');
                     btn.disabled = false; btn.innerHTML = '<i data-lucide="mail"></i> Send Verification Code'; lucide.createIcons();
+                    return;
+                }
+                if(res.status === 401) {
+                    showLoginError(data.error || 'Wallet verification expired. Please restart login.');
+                    btn.disabled = false; btn.innerHTML = '<i data-lucide="mail"></i> Send Verification Code'; lucide.createIcons();
+                    walletToken = '';
+                    document.getElementById('loginStep1').style.display = 'none';
+                    document.getElementById('loginStep0').style.display = 'block';
                     return;
                 }
 
@@ -764,6 +741,7 @@
             }
         }
 
+        // Step 2: verify OTP + 2FA
         async function verifyOtp() {
             const email = document.getElementById('adminEmail').value.trim();
             const otp   = document.getElementById('adminOtp').value.trim();
@@ -789,16 +767,7 @@
 
                 if(!data.sessionId) { showLoginError('Invalid server response.'); return; }
 
-                sessionToken = data.sessionId;
-                sessionStorage.setItem('adminSessionToken', sessionToken);
-                document.getElementById('adminOtp').value = '';
-                document.getElementById('admin2fa').value = '';
-                document.getElementById('loginOverlay').style.display = 'none';
-                // Reset login UI for next time
-                document.getElementById('loginStep1').style.display = 'block';
-                document.getElementById('loginStep2').style.display = 'none';
-                showLoginError('');
-                initDashboard();
+                finishLogin(data.sessionId, data.role || 'master', []);
             } catch(e) {
                 showLoginError('Connection error. Please try again.');
             }
@@ -807,24 +776,182 @@
         function backToEmail() {
             document.getElementById('adminOtp').value = '';
             document.getElementById('admin2fa').value = '';
-            document.getElementById('loginStep1').style.display = 'block';
             document.getElementById('loginStep2').style.display = 'none';
+            document.getElementById('loginStep1').style.display = 'block';
             showLoginError('');
         }
 
+        // ── Login mode toggle ─────────────────────────────────────────────────
+        function setLoginMode(mode) {
+            const isMaster = mode === 'master';
+            document.getElementById('masterFlow').style.display    = isMaster ? 'block' : 'none';
+            document.getElementById('subAdminFlow').style.display  = isMaster ? 'none'  : 'block';
+            document.getElementById('modeMaster').style.background   = isMaster ? 'var(--danger)' : 'transparent';
+            document.getElementById('modeMaster').style.color        = isMaster ? '#fff' : 'var(--text-secondary)';
+            document.getElementById('modeSubAdmin').style.background = isMaster ? 'transparent' : 'var(--danger)';
+            document.getElementById('modeSubAdmin').style.color      = isMaster ? 'var(--text-secondary)' : '#fff';
+            showLoginError('');
+        }
+
+        // ── Sub-admin login ────────────────────────────────────────────────────
+        async function subAdminLogin() {
+            const username = document.getElementById('subAdminUsername').value.trim();
+            const password = document.getElementById('subAdminPassword').value;
+            if(!username || !password) { showLoginError('Enter username and password.'); return; }
+            showLoginError('');
+            try {
+                const res = await fetch('/api/admin-accounts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'login', username, password })
+                });
+                const data = await res.json();
+                if(!res.ok) { showLoginError(data.error || 'Invalid credentials.'); return; }
+                finishLogin(data.sessionId, data.role || 'subadmin', data.permissions || []);
+            } catch(e) { showLoginError('Connection error. Please try again.'); }
+        }
+
+        // ── Post-login common setup ────────────────────────────────────────────
+        function finishLogin(sid, role, perms) {
+            sessionToken = sid;
+            sessionRole  = role;
+            sessionPerms = perms;
+            sessionStorage.setItem('adminSessionToken', sessionToken);
+            sessionStorage.setItem('adminSessionRole',  sessionRole);
+            sessionStorage.setItem('adminSessionPerms', JSON.stringify(sessionPerms));
+            applyPermissions();
+            document.getElementById('loginOverlay').style.display = 'none';
+            resetLoginUI();
+            initDashboard();
+        }
+
+        // ── Apply permission-based nav visibility ─────────────────────────────
+        function applyPermissions() {
+            const isMaster = sessionRole === 'master';
+
+            // Show/hide nav items based on role
+            document.querySelectorAll('.nav-all').forEach(el => {
+                el.style.display = isMaster ? 'flex' : 'none';
+            });
+            document.querySelectorAll('.nav-master').forEach(el => {
+                el.style.display = isMaster ? 'flex' : 'none';
+            });
+            document.querySelectorAll('.nav-kyc').forEach(el => {
+                el.style.display = (isMaster || sessionPerms.includes('kyc')) ? 'flex' : 'none';
+            });
+            document.querySelectorAll('.nav-withdrawals').forEach(el => {
+                el.style.display = (isMaster || sessionPerms.includes('withdrawals')) ? 'flex' : 'none';
+            });
+            document.querySelectorAll('.nav-chat').forEach(el => {
+                el.style.display = (isMaster || sessionPerms.includes('chat')) ? 'flex' : 'none';
+            });
+            document.querySelectorAll('.nav-settings').forEach(el => {
+                el.style.display = (isMaster || sessionPerms.includes('settings')) ? 'flex' : 'none';
+            });
+
+            // Session badge
+            const badge = document.getElementById('sessionBadge');
+            if(isMaster) {
+                badge.style.display = 'block';
+                badge.style.background = 'rgba(255,179,0,0.15)';
+                badge.style.border = '1px solid var(--warning)';
+                badge.style.color = 'var(--warning)';
+                badge.innerHTML = '<i data-lucide="crown" style="width:12px;height:12px;"></i> Master Account';
+            } else {
+                badge.style.display = 'block';
+                badge.style.background = 'rgba(0,240,255,0.08)';
+                badge.style.border = '1px solid var(--accent)';
+                badge.style.color = 'var(--accent)';
+                badge.innerHTML = '<i data-lucide="user" style="width:12px;height:12px;"></i> Sub-Admin';
+            }
+            lucide.createIcons();
+        }
+
+        function resetLoginUI() {
+            walletToken = '';
+            document.getElementById('adminWallet') && (document.getElementById('adminWallet').value = '');
+            document.getElementById('adminOtp') && (document.getElementById('adminOtp').value = '');
+            document.getElementById('admin2fa') && (document.getElementById('admin2fa').value = '');
+            document.getElementById('subAdminUsername') && (document.getElementById('subAdminUsername').value = '');
+            document.getElementById('subAdminPassword') && (document.getElementById('subAdminPassword').value = '');
+            document.getElementById('loginStep0').style.display = 'block';
+            document.getElementById('loginStep1').style.display = 'none';
+            document.getElementById('loginStep2').style.display = 'none';
+            setLoginMode('master');
+        }
+
+        // ── Master Account tab: create sub-admin ──────────────────────────────
+        async function createSubAdmin() {
+            const username = document.getElementById('new-admin-username').value.trim();
+            const password = document.getElementById('new-admin-password').value;
+            const perms = [];
+            if(document.getElementById('perm-kyc').checked)         perms.push('kyc');
+            if(document.getElementById('perm-chat').checked)        perms.push('chat');
+            if(document.getElementById('perm-withdrawals').checked) perms.push('withdrawals');
+            if(document.getElementById('perm-settings').checked)    perms.push('settings');
+
+            const resultEl = document.getElementById('createAdminResult');
+            resultEl.style.display = 'none';
+
+            if(!username) { resultEl.style.color='var(--danger)'; resultEl.innerText='Username is required.'; resultEl.style.display='block'; return; }
+            if(!password || password.length < 8) { resultEl.style.color='var(--danger)'; resultEl.innerText='Password must be at least 8 characters.'; resultEl.style.display='block'; return; }
+            if(perms.length === 0) { resultEl.style.color='var(--danger)'; resultEl.innerText='Select at least one permission.'; resultEl.style.display='block'; return; }
+
+            const data = await api('admin-accounts', 'POST', { action: 'create', username, password, permissions: perms });
+            if(!data) return;
+            if(data.error) {
+                resultEl.style.color='var(--danger)'; resultEl.innerText=data.error; resultEl.style.display='block';
+            } else {
+                resultEl.style.color='var(--success)';
+                resultEl.innerText=`Account '${username}' created with permissions: ${perms.join(', ')}.`;
+                resultEl.style.display='block';
+                document.getElementById('new-admin-username').value = '';
+                document.getElementById('new-admin-password').value = '';
+                loadAdminAccounts();
+            }
+        }
+
+        async function loadAdminAccounts() {
+            const tbody = document.getElementById('adminAccountsTable');
+            if(!tbody) return;
+            const data = await api('admin-accounts');
+            if(!data) return;
+            const accounts = Array.isArray(data) ? data : [];
+            if(accounts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);">No sub-admin accounts yet.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = accounts.map(a => `
+                <tr>
+                    <td style="font-family:monospace;">${esc(a.username)}</td>
+                    <td style="font-size:12px;">${(a.permissions||[]).map(p=>`<span style="background:var(--bg-hover);padding:2px 6px;border-radius:4px;margin-right:3px;">${esc(p)}</span>`).join('')}</td>
+                    <td style="font-size:12px;">${a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '-'}</td>
+                    <td>${a.active ? '<span style="color:var(--success);">Active</span>' : '<span style="color:var(--text-secondary);">Revoked</span>'}</td>
+                    <td>${a.active ? `<button class="btn btn-danger" style="padding:4px 8px;font-size:12px;" onclick="revokeSubAdmin('${esc(a.username)}')">Revoke</button>` : '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function revokeSubAdmin(username) {
+            if(!confirm(`Revoke access for '${username}'?`)) return;
+            const data = await api('admin-accounts', 'POST', { action: 'revoke', username });
+            if(data && data.revoked) loadAdminAccounts();
+        }
+
         function initDashboard() {
+            applyPermissions();
             loadFeatures();
             loadSettings();
             loadLevels();
             loadUsers();
-            loadMasterAccount();
-            loadSubAdmins();
+            if(sessionRole === 'master') loadAdminAccounts();
             pollFrontendData();
         }
 
         // Auto-login if session token is still in sessionStorage
         (function autoLogin() {
             if(sessionToken) {
+                applyPermissions();
                 document.getElementById('loginOverlay').style.display = 'none';
                 initDashboard();
             }
@@ -833,17 +960,31 @@
         function logout() {
             // Destroy the session server-side
             if(sessionToken) {
-                fetch('/api/admin/session', {
+                const endpoint = sessionRole === 'subadmin' ? '/api/admin-accounts' : '/api/admin/session';
+                fetch(endpoint, {
                     method: 'DELETE',
                     headers: { 'X-Session-Token': sessionToken }
                 }).catch(() => {});
             }
             sessionToken = '';
+            sessionRole  = '';
+            sessionPerms = [];
+            walletToken = '';
             sessionStorage.removeItem('adminSessionToken');
+            sessionStorage.removeItem('adminSessionRole');
+            sessionStorage.removeItem('adminSessionPerms');
             // Clean up any legacy storage keys from previous auth implementation
             localStorage.removeItem('adminLoggedIn');
             localStorage.removeItem('adminToken');
             sessionStorage.removeItem('adminLoggedIn');
+            // Reset login UI to Step 0
+            document.getElementById('adminWallet').value = '';
+            document.getElementById('loginStep0').style.display = 'block';
+            document.getElementById('loginStep1').style.display = 'none';
+            document.getElementById('loginStep2').style.display = 'none';
+            document.getElementById('sessionBadge').style.display = 'none';
+            setLoginMode('master');
+            showLoginError('');
             document.getElementById('loginOverlay').style.display = 'flex';
         }
 
@@ -1293,7 +1434,7 @@
                 let details = '';
                 if(t.type === 'binary')  details = `${t.direction || ''} · ${t.levelName || ''}`;
                 else if(t.type === 'swap') details = `${t.fromCoin || ''} → ${t.toCoin || ''}`;
-                else if(t.type === 'ai-bot') details = `${t.levelName || ''} · ${t.duration || ''}h`;
+                else if(t.type === 'ai-bot') details = `${t.levelName || ''} · ${t.cycleTime || ''}d`;
                 else details = t.levelName || '';
                 // Show "Complete" button for active AI bot trades; use parseInt to ensure a safe numeric ID
                 const safeTradeId = Number.isFinite(parseInt(String(t.id), 10)) ? parseInt(String(t.id), 10) : 0;
@@ -1348,170 +1489,6 @@
             } else {
                 alert('Error: ' + ((result && result.error) || 'Failed to complete bot.'));
             }
-        }
-
-        // --- Master Account ---
-        async function loadMasterAccount() {
-            const data = await api('admin');
-            if(!data) return;
-
-            const emailEl  = document.getElementById('master-email');
-            const walletEl = document.getElementById('master-wallet');
-            const hintEl   = document.getElementById('master-wallet-hint');
-
-            if(emailEl && data.adminEmailMasked) {
-                emailEl.textContent = data.adminEmailMasked;
-            }
-
-            if(walletEl) {
-                if(data.adminWallet) {
-                    walletEl.textContent = data.adminWallet;
-                    if(hintEl) hintEl.style.display = 'none';
-                } else {
-                    walletEl.textContent = 'Not configured';
-                    walletEl.style.color = 'var(--text-secondary)';
-                    if(hintEl) hintEl.style.display = 'block';
-                }
-            }
-
-            lucide.createIcons();
-        }
-
-        // --- Sub-Admin Management ---
-
-        function permissionsLabel(p) {
-            if(!p) return '<span style="color:var(--text-secondary);">None</span>';
-            const list = [];
-            if(p.kyc)         list.push('KYC');
-            if(p.chat)        list.push('Chat');
-            if(p.withdrawals) list.push('Withdrawals');
-            if(p.settings)    list.push('Settings');
-            return list.length
-                ? list.map(l => `<span style="background:var(--accent-glow);border:1px solid var(--accent);border-radius:4px;padding:1px 6px;font-size:11px;color:var(--accent);margin-right:3px;">${esc(l)}</span>`).join('')
-                : '<span style="color:var(--text-secondary);">None</span>';
-        }
-
-        async function loadSubAdmins() {
-            const admins = await api('sub-admins');
-            const tbody  = document.getElementById('subAdminsTableBody');
-            const empty  = document.getElementById('emptySubAdminsRow');
-            if(!tbody) return;
-
-            document.querySelectorAll('.dynamic-subadmin-row').forEach(el => el.remove());
-
-            if(!admins || admins.error || !Array.isArray(admins) || admins.length === 0) {
-                if(empty) empty.style.display = 'table-row';
-                return;
-            }
-            if(empty) empty.style.display = 'none';
-
-            admins.forEach(a => {
-                const isRevoked = a.status === 'revoked';
-                const statusBadge = isRevoked
-                    ? '<span style="color:var(--danger);font-weight:bold;">Revoked</span>'
-                    : '<span style="color:var(--success);font-weight:bold;">Active</span>';
-
-                // Main data row — store id/username as data attributes (no inline escaping needed)
-                const row = document.createElement('tr');
-                row.className = 'dynamic-subadmin-row';
-                row.dataset.id       = a.id;
-                row.dataset.username = a.username;
-                row.innerHTML = `
-                    <td style="font-weight:bold;">${esc(a.username)}</td>
-                    <td class="perm-label-cell">${permissionsLabel(a.permissions)}</td>
-                    <td style="font-size:12px;color:var(--text-secondary);">${esc(new Date(a.createdAt).toLocaleString())}</td>
-                    <td>${statusBadge}</td>
-                    <td>
-                        ${isRevoked ? '—' : `
-                        <button class="btn btn-outline" style="padding:3px 8px;font-size:12px;display:inline-flex;margin-right:4px;" onclick="togglePermEditor(this)">
-                            <i data-lucide="settings-2" style="width:12px;height:12px;"></i>&nbsp;Permissions
-                        </button>
-                        <button class="btn btn-danger" style="padding:3px 8px;font-size:12px;display:inline-flex;" onclick="revokeSubAdmin(this)">
-                            <i data-lucide="ban" style="width:12px;height:12px;"></i>&nbsp;Revoke
-                        </button>`}
-                    </td>
-                `;
-                tbody.appendChild(row);
-
-                if(!isRevoked) {
-                    // Inline permissions editor row (hidden by default)
-                    const p = a.permissions || {};
-                    const editRow = document.createElement('tr');
-                    editRow.className = 'dynamic-subadmin-row';
-                    editRow.style.display = 'none';
-                    editRow.dataset.editorFor = a.id;
-                    editRow.innerHTML = `
-                        <td colspan="5" style="padding:10px 16px;background:var(--bg-dark);border:1px solid var(--accent);">
-                            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
-                                <strong style="color:var(--text-secondary);font-size:13px;margin-right:4px;">Permissions:</strong>
-                                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
-                                    <input type="checkbox" class="ep-kyc" ${p.kyc ? 'checked' : ''}> KYC Approvals
-                                </label>
-                                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
-                                    <input type="checkbox" class="ep-chat" ${p.chat ? 'checked' : ''}> Live Chat
-                                </label>
-                                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
-                                    <input type="checkbox" class="ep-withdrawals" ${p.withdrawals ? 'checked' : ''}> Withdrawals
-                                </label>
-                                <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
-                                    <input type="checkbox" class="ep-settings" ${p.settings ? 'checked' : ''}> System Settings
-                                </label>
-                                <button class="btn btn-success" style="padding:4px 12px;font-size:12px;" onclick="saveSubAdminPermissions(this)">Save</button>
-                                <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="cancelPermEditor(this)">Cancel</button>
-                            </div>
-                        </td>
-                    `;
-                    tbody.appendChild(editRow);
-                }
-            });
-            lucide.createIcons();
-        }
-
-        function togglePermEditor(btn) {
-            const mainRow  = btn.closest('tr');
-            const editRow  = mainRow.nextElementSibling;
-            if(!editRow || !editRow.dataset.editorFor) return;
-            const isOpen = editRow.style.display !== 'none';
-            editRow.style.display = isOpen ? 'none' : 'table-row';
-        }
-
-        function cancelPermEditor(btn) {
-            const editRow = btn.closest('tr');
-            if(editRow) editRow.style.display = 'none';
-        }
-
-        async function saveSubAdminPermissions(btn) {
-            const editRow = btn.closest('tr');
-            const id = editRow.dataset.editorFor;
-            if(!id) return;
-            const permissions = {
-                kyc:         editRow.querySelector('.ep-kyc').checked,
-                chat:        editRow.querySelector('.ep-chat').checked,
-                withdrawals: editRow.querySelector('.ep-withdrawals').checked,
-                settings:    editRow.querySelector('.ep-settings').checked,
-            };
-            btn.disabled = true;
-            const result = await api('sub-admins', 'POST', { action: 'update-permissions', id, permissions });
-            btn.disabled = false;
-            if(!result || result.error) {
-                alert('Error: ' + ((result && result.error) || 'Failed to update permissions.'));
-                return;
-            }
-            editRow.style.display = 'none';
-            await loadSubAdmins();
-        }
-
-        async function revokeSubAdmin(btn) {
-            const mainRow = btn.closest('tr');
-            const id      = mainRow.dataset.id;
-            const username = mainRow.dataset.username;
-            if(!confirm(`Revoke access for sub-admin "${username}"? This cannot be undone.`)) return;
-            const result = await api(`sub-admins?id=${encodeURIComponent(id)}`, 'DELETE');
-            if(!result || result.error) {
-                alert('Error: ' + ((result && result.error) || 'Failed to revoke sub-admin.'));
-                return;
-            }
-            await loadSubAdmins();
         }
 
         // --- Audit Logs ---

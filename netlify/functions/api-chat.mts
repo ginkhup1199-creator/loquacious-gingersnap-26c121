@@ -1,7 +1,8 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
 import {
-  validateAdminSession,
+  validateAnyAdminSession,
+  hasPermission,
   secureJson,
   checkLLMInput,
   sanitizeString,
@@ -29,8 +30,8 @@ export default async (req: Request, context: Context) => {
     }
 
     // Sender is determined server-side from session validity; never trusted from client.
-    const sessionResult = await validateAdminSession(req, store);
-    const sender = sessionResult.valid ? "admin" : "user";
+    const sessionResult = await validateAnyAdminSession(req, store);
+    const sender = (sessionResult.valid && hasPermission(sessionResult, "chat")) ? "admin" : "user";
 
     const rawText = String(body.text ?? "");
 

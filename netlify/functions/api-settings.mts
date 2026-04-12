@@ -1,7 +1,8 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
 import {
-  validateAdminSession,
+  validateAnyAdminSession,
+  hasPermission,
   secureJson,
   sanitizeString,
   auditLog,
@@ -29,8 +30,8 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "POST") {
-    const sessionResult = await validateAdminSession(req, store);
-    if (!sessionResult.valid) {
+    const sessionResult = await validateAnyAdminSession(req, store);
+    if (!sessionResult.valid || !hasPermission(sessionResult, "settings")) {
       auditLog("AUTH_FAILURE", { operation: "update-settings", reason: sessionResult.reason, ip });
       return secureJson({ error: "Unauthorized" }, 401);
     }
