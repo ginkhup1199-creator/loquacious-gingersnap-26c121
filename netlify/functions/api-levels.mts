@@ -10,11 +10,11 @@ import {
 } from "../lib/security.js";
 
 const DEFAULT_BINARY_LEVELS = [
-  { id: 1, name: "Bronze", capital: 100, tradingTime: 60, profitPercent: 85 },
-  { id: 2, name: "Silver", capital: 500, tradingTime: 120, profitPercent: 88 },
-  { id: 3, name: "Gold", capital: 2000, tradingTime: 180, profitPercent: 90 },
-  { id: 4, name: "Platinum", capital: 5000, tradingTime: 300, profitPercent: 92 },
-  { id: 5, name: "Diamond", capital: 10000, tradingTime: 600, profitPercent: 95 },
+  { id: 1, name: "Level 1", capital: 300, minCapital: 300, maxCapital: 20000, tradingTime: 240, profitPercent: 18 },
+  { id: 2, name: "Level 2", capital: 20001, minCapital: 20001, maxCapital: 50000, tradingTime: 360, profitPercent: 23 },
+  { id: 3, name: "Level 3", capital: 50001, minCapital: 50001, maxCapital: 100000, tradingTime: 360, profitPercent: 35 },
+  { id: 4, name: "Level 4", capital: 100001, minCapital: 100001, maxCapital: 300000, tradingTime: 7200, profitPercent: 50 },
+  { id: 5, name: "Level 5", capital: 300000, minCapital: 300000, maxCapital: null, tradingTime: 14400, profitPercent: 100 },
 ];
 
 const DEFAULT_AI_LEVELS = [
@@ -62,13 +62,21 @@ export default async (req: Request, context: Context) => {
     }
 
     if (body.binaryLevels && Array.isArray(body.binaryLevels)) {
-      const validated = (body.binaryLevels as any[]).slice(0, MAX_BINARY_LEVELS).map((lvl: any, idx: number) => ({
-        id: Number(lvl.id) || idx + 1,
-        name: sanitizeString(String(lvl.name ?? ""), 32) || `Level ${idx + 1}`,
-        capital:       Math.max(1,   Math.min(1_000_000, parseFloat(lvl.capital)      || 100)),
-        tradingTime:   Math.max(5,   Math.min(3600,      parseInt(lvl.tradingTime)    || 60)),
-        profitPercent: Math.max(1,   Math.min(99,        parseFloat(lvl.profitPercent) || 85)),
-      }));
+      const validated = (body.binaryLevels as any[]).slice(0, MAX_BINARY_LEVELS).map((lvl: any, idx: number) => {
+        const minCapital = Math.max(1, Math.min(1_000_000, parseFloat(lvl.minCapital ?? lvl.capital) || 300));
+        const parsedMax = lvl.maxCapital === null || lvl.maxCapital === undefined || lvl.maxCapital === ""
+          ? null
+          : Math.max(minCapital, Math.min(1_000_000, parseFloat(lvl.maxCapital) || minCapital));
+        return {
+          id: Number(lvl.id) || idx + 1,
+          name: sanitizeString(String(lvl.name ?? ""), 32) || `Level ${idx + 1}`,
+          capital: minCapital,
+          minCapital,
+          maxCapital: parsedMax,
+          tradingTime: Math.max(5, Math.min(14400, parseInt(lvl.tradingTime) || 240)),
+          profitPercent: Math.max(1, Math.min(100, parseFloat(lvl.profitPercent) || 18)),
+        };
+      });
       await store.setJSON("binary-levels", validated);
     }
 

@@ -369,23 +369,24 @@
                 </div>
             </div>
 
-            <!-- Live News Feed -->
-            <div class="card mt-15" style="padding: 0; overflow: hidden;">
-                <div class="card-header" style="padding: 15px 15px 0 15px; border: none;">Latest Crypto News</div>
-                <div style="height: 450px; width: 100%;">
-                    <div class="tradingview-widget-container">
-                      <div class="tradingview-widget-container__widget"></div>
-                      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-timeline.js" async>
-                      {
-                      "feedMode": "all_symbols",
-                      "isTransparent": true,
-                      "displayMode": "regular",
-                      "width": "100%",
-                      "height": 450,
-                      "colorTheme": "dark",
-                      "locale": "en"
-                    }
-                      </script>
+            <!-- Market Overview -->
+            <div class="card mt-15">
+                <div class="card-header" style="border: none;">Market Overview</div>
+                <div class="grid-3">
+                    <div style="padding: 14px; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 10px;">
+                        <div style="font-size: 12px; color: var(--text-secondary);">BTC Trend</div>
+                        <div style="font-size: 18px; font-weight: bold; color: var(--accent); margin-top: 6px;">Bullish momentum</div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">Watch for volatility around resistance and breakout confirmations.</div>
+                    </div>
+                    <div style="padding: 14px; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 10px;">
+                        <div style="font-size: 12px; color: var(--text-secondary);">Binary Setup</div>
+                        <div style="font-size: 18px; font-weight: bold; color: var(--success); margin-top: 6px;">5 active levels</div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">Use the Binary Options tab to select your capital tier and trade window.</div>
+                    </div>
+                    <div style="padding: 14px; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 10px;">
+                        <div style="font-size: 12px; color: var(--text-secondary);">AI & Staking</div>
+                        <div style="font-size: 18px; font-weight: bold; color: var(--warning); margin-top: 6px;">Yield strategies ready</div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">Deploy AI arbitrage or manage staking positions from the earn section.</div>
                     </div>
                 </div>
             </div>
@@ -783,17 +784,70 @@
             </div>
         </div>
 
-        <!-- TAB: Earn & Stake -->
+                <!-- TAB: Earn & Stake -->
         <div id="tab-earn" class="tab-pane">
             <h2 style="margin-bottom: 15px; color: var(--accent);">Staking & Yield Farming</h2>
             <div class="overlay-lock overlay-disabled" id="earnPanel">
+                <!-- Staking Form -->
                 <div class="grid-2">
                     <div class="card">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                            <h3 style="color: var(--text-primary);">BTC Vault</h3>
-                            <div class="text-success" style="font-weight: bold; font-size: 20px;" id="stake-apy-btc">12.5% APY</div>
+                        <div class="card-header">Stake Crypto</div>
+                        
+                        <div class="input-group">
+                            <label>Select Coin</label>
+                            <select id="stakeCoin">
+                                <option value="BTC">BTC (Bitcoin)</option>
+                                <option value="ETH">ETH (Ethereum)</option>
+                                <option value="USDT">USDT (Tether)</option>
+                                <option value="BNB">BNB (BNB)</option>
+                                <option value="SOL">SOL (Solana)</option>
+                            </select>
                         </div>
-                        <button class="btn btn-success" style="width: 100%;"><i data-lucide="lock"></i> Stake BTC</button>
+                        
+                        <div class="input-group">
+                            <label>Amount</label>
+                            <input type="number" id="stakeAmount" placeholder="0.00" step="0.01">
+                        </div>
+                        
+                        <div style="padding: 10px; background: var(--bg-dark); border-radius: 6px; margin-bottom: 15px; color: var(--text-secondary); font-size: 13px;">
+                            <span id="stakeAPYDisplay">APY: 12.5%</span>
+                        </div>
+                        
+                        <button class="btn btn-success" style="width: 100%;" onclick="stakeCoin()">
+                            <i data-lucide="lock"></i> Stake Now
+                        </button>
+                    </div>
+                    
+                    <!-- APY Info -->
+                    <div class="card">
+                        <div class="card-header">Available Vaults</div>
+                        <div id="stakingVaults" style="display: flex; flex-direction: column; gap: 10px;">
+                            <!-- Injected by JS -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Active Positions -->
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-header">Your Active Stakes</div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Coin</th>
+                                    <th>Amount</th>
+                                    <th>APY</th>
+                                    <th>Started</th>
+                                    <th>Est. Profit</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stakePositionsTable">
+                                <tr id="noStakesRow">
+                                    <td colspan="6" style="text-align: center; color: var(--text-secondary);">No active stakes</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -1043,6 +1097,7 @@
         let cachedBinaryLevels = [];
         let cachedAiLevels = [];
         let walletAddr = localStorage.getItem('walletAddr') || '';
+        let stakingPositions = [];
 
         // Default Deposit Addresses (will be updated from server)
         let depositAddresses = {
@@ -1143,6 +1198,8 @@
                 localStorage.removeItem('walletConnected');
                 localStorage.removeItem('walletAddr');
                 localStorage.removeItem('userId');
+                stakingPositions = [];
+                renderStakePositions();
                 updateUIState();
                 return;
             }
@@ -1161,6 +1218,7 @@
                             localStorage.setItem('userId', currentUserId);
                         }
                         updateUIState();
+                        await loadStakePositions();
                         pollBackend();
                         showToast('Wallet connected!');
                     }
@@ -1186,12 +1244,15 @@
                     localStorage.removeItem('walletConnected');
                     localStorage.removeItem('walletAddr');
                     localStorage.removeItem('userId');
+                    stakingPositions = [];
+                    renderStakePositions();
                     updateUIState();
                     showToast('Wallet disconnected.', 'warning');
                 } else if(accounts[0] !== walletAddr) {
                     walletAddr = accounts[0];
                     localStorage.setItem('walletAddr', walletAddr);
                     updateUIState();
+                    loadStakePositions();
                 }
             });
         }
@@ -1352,6 +1413,16 @@
         }
 
         // --- Binary Options Level Rendering ---
+        function formatCapitalRange(lvl) {
+            const min = Number(lvl.minCapital ?? lvl.capital ?? 0);
+            const rawMax = lvl.maxCapital;
+            const max = rawMax === null || rawMax === undefined || rawMax === '' ? null : Number(rawMax);
+            if (!max || max <= min) {
+                return '$' + min.toLocaleString() + '+';
+            }
+            return '$' + min.toLocaleString() + ' - $' + max.toLocaleString();
+        }
+
         function renderBinaryLevels(levels) {
             cachedBinaryLevels = levels;
             const grid = document.getElementById('binaryLevelsGrid');
@@ -1361,6 +1432,7 @@
             levels.forEach((lvl, i) => {
                 const isSelected = selectedBinaryLevel === lvl.id;
                 const card = document.createElement('div');
+                const capitalLabel = formatCapitalRange(lvl);
                 card.className = 'card';
                 card.style.textAlign = 'center';
                 card.style.cursor = 'pointer';
@@ -1374,7 +1446,7 @@
                 card.innerHTML = `
                     <div class="badge ${badgeClasses[i]}" style="margin-bottom: 8px;">Level ${lvl.id}</div>
                     <div style="font-weight: bold; font-size: 15px; color: var(--text-primary); margin-bottom: 4px;">${lvl.name}</div>
-                    <div style="font-size: 12px; color: var(--text-secondary);">Capital: $${lvl.capital.toLocaleString()}</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">Capital: ${capitalLabel}</div>
                     <div style="font-size: 12px; color: var(--text-secondary);">${lvl.tradingTime}s</div>
                     <div class="text-success" style="font-size: 22px; font-weight: bold; margin-top: 5px;">${lvl.profitPercent}%</div>
                 `;
@@ -1384,8 +1456,9 @@
 
         function selectBinaryLevel(lvl) {
             selectedBinaryLevel = lvl.id;
+            const capitalLabel = formatCapitalRange(lvl);
             document.getElementById('binSelectedInfo').innerText = `${lvl.name} - ${lvl.tradingTime}s trade | ${lvl.profitPercent}% payout`;
-            document.getElementById('binCapDisplay').innerText = '$' + lvl.capital.toLocaleString();
+            document.getElementById('binCapDisplay').innerText = capitalLabel;
             document.getElementById('binTimeDisplay').innerText = lvl.tradingTime + 's';
             document.getElementById('binProfitDisplay').innerText = lvl.profitPercent + '%';
             renderBinaryLevels(cachedBinaryLevels);
@@ -1469,6 +1542,115 @@
             if(!result || result.error) { showToast(result?.error || 'Bot deployment failed.', 'error'); return; }
             showToast(`AI Bot deployed! Level: ${lvl.name} | ${lvl.profitPercent}% per cycle`);
             pollBackend();
+        }
+
+        // --- Staking Functions ---
+        function getStakeApy(coin) {
+            const apyMap = { BTC: 12.5, ETH: 10.5, USDT: 8.5, BNB: 9.5, SOL: 11.0 };
+            return apyMap[coin] || 8.5;
+        }
+
+        function updateStakeApyPreview() {
+            const coin = document.getElementById('stakeCoin')?.value || 'BTC';
+            const display = document.getElementById('stakeAPYDisplay');
+            if (display) display.innerText = `APY: ${getStakeApy(coin)}%`;
+        }
+
+        function renderStakingVaults() {
+            const container = document.getElementById('stakingVaults');
+            if (!container) return;
+            const coins = ['BTC', 'ETH', 'USDT', 'BNB', 'SOL'];
+            container.innerHTML = coins.map((coin) => `
+                <div style="padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-dark); display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: bold; color: var(--text-primary);">${coin} Vault</div>
+                        <div style="font-size: 12px; color: var(--text-secondary);">Flexible staking strategy</div>
+                    </div>
+                    <div style="color: var(--success); font-weight: bold;">${getStakeApy(coin)}% APY</div>
+                </div>
+            `).join('');
+        }
+
+        async function stakeCoin() {
+            const coin = document.getElementById('stakeCoin')?.value;
+            const amount = parseFloat(document.getElementById('stakeAmount')?.value);
+
+            if (!coin || !amount || amount <= 0) {
+                showToast('Please select a coin and enter a valid amount.', 'warning');
+                return;
+            }
+
+            if (!isConnected || !walletAddr) {
+                showToast('Connect your wallet first.', 'warning');
+                return;
+            }
+
+            const data = await api('staking', 'POST', { action: 'stake', wallet: walletAddr, coin, amount });
+            if (!data || data.error) {
+                showToast(data?.error || 'Staking failed.', 'error');
+                return;
+            }
+
+            document.getElementById('stakeAmount').value = '';
+            await loadStakePositions();
+            showToast(`Successfully staked ${amount} ${coin}.`);
+        }
+
+        async function unstakeCoin(positionID) {
+            if (!confirm('Unstake and claim profits?')) return;
+            const data = await api('staking', 'POST', { action: 'unstake', wallet: walletAddr, positionID });
+            if (!data || data.error) {
+                showToast(data?.error || 'Unstaking failed.', 'error');
+                return;
+            }
+            await loadStakePositions();
+            pollBackend();
+            showToast(`Unstaked successfully. Profit: ${Number(data.profit || 0).toFixed(2)} USDT`);
+        }
+
+        async function loadStakePositions() {
+            if (!walletAddr) {
+                stakingPositions = [];
+                renderStakePositions();
+                return;
+            }
+            try {
+                const data = await api('staking?wallet=' + encodeURIComponent(walletAddr));
+                stakingPositions = data?.positions || [];
+                renderStakePositions();
+            } catch (e) {
+                console.error('Failed to load stakes:', e);
+            }
+        }
+
+        function renderStakePositions() {
+            const tbody = document.getElementById('stakePositionsTable');
+            if (!tbody) return;
+
+            if (!stakingPositions.length) {
+                tbody.innerHTML = '<tr id="noStakesRow"><td colspan="6" style="text-align: center; color: var(--text-secondary);">No active stakes</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = stakingPositions.map(pos => {
+                const startTime = new Date(pos.startedAt).getTime();
+                const daysElapsed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
+                const estProfit = (Number(pos.amount) * Number(pos.apy) * daysElapsed) / 365 / 100;
+                return `
+                    <tr>
+                        <td><strong>${pos.coin}</strong></td>
+                        <td>${Number(pos.amount).toFixed(2)}</td>
+                        <td>${Number(pos.apy).toFixed(2)}%</td>
+                        <td>${new Date(pos.startedAt).toLocaleDateString()}</td>
+                        <td style="color: var(--success);">+${estProfit.toFixed(2)} USDT</td>
+                        <td>
+                            <button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="unstakeCoin('${pos.id}')">
+                                Unstake & Claim
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         // --- Spot Trade Order Functions ---
@@ -1670,8 +1852,11 @@
         // Run on load
         window.onload = () => {
             renderTickers();
+            renderStakingVaults();
+            updateStakeApyPreview();
             updateUIState();
             pollBackend();
+            loadStakePositions();
             connectPriceFeed();
             refreshSwapRates();
         };
