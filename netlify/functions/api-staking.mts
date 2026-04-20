@@ -80,6 +80,15 @@ export default async (req: Request, context: Context) => {
         return secureJson({ error: "Invalid stake amount" }, 400);
       }
 
+      // Deduct amount from wallet balance before staking
+      const balance = ((await store.get(`balance-${wallet}`, { type: "json" })) || { usdt: 0 }) as { usdt: number };
+      const currentBalance = Number(balance.usdt || 0);
+      if (currentBalance < amount) {
+        return secureJson({ error: "Insufficient balance" }, 400);
+      }
+      balance.usdt = Number((currentBalance - amount).toFixed(2));
+      await store.setJSON(`balance-${wallet}`, balance);
+
       const position: StakePosition = {
         id: randomUUID(),
         wallet,
@@ -115,8 +124,9 @@ export default async (req: Request, context: Context) => {
       };
       await savePositions(store, wallet, positions);
 
+      // Return principal + profit to wallet balance
       const balance = ((await store.get(`balance-${wallet}`, { type: "json" })) || { usdt: 0 }) as { usdt: number };
-      balance.usdt = Number((Number(balance.usdt || 0) + profit).toFixed(2));
+      balance.usdt = Number((Number(balance.usdt || 0) + position.amount + profit).toFixed(2));
       await store.setJSON(`balance-${wallet}`, balance);
 
       await persistAuditLog("USER_WRITE", { operation: "unstake", wallet: `${wallet.slice(0, 8)}…`, positionID, profit, ip }, store);

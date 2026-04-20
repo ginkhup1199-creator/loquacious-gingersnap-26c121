@@ -37,6 +37,26 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "GET") {
+    const url     = new URL(req.url);
+    const wallet  = url.searchParams.get("wallet");
+    const rawOnly = url.searchParams.get("raw") === "1";
+
+    if (wallet) {
+      const safeWallet = wallet.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 100);
+      const userOverrides = ((await store.get(`deposit-addr-${safeWallet}`, { type: "json" })) || {}) as Record<string, string>;
+      if (rawOnly) {
+        // Admin wants only the stored per-user overrides (empty {} if none set)
+        return secureJson(userOverrides, 200, true);
+      }
+      // Merge: user-specific overrides win over global
+      const global = ((await store.get("deposit-addresses", { type: "json" })) || DEFAULT_ADDRESSES) as Record<string, string>;
+      const merged: Record<string, string> = { ...global };
+      for (const net of VALID_NETWORKS) {
+        if (userOverrides[net]) merged[net] = userOverrides[net];
+      }
+      return secureJson(merged, 200, true);
+    }
+
     const addresses = await store.get("deposit-addresses", { type: "json" });
     return secureJson(addresses || DEFAULT_ADDRESSES, 200, true);
   }
@@ -55,7 +75,34 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Invalid JSON" }, 400);
     }
 
+    // Per-user address override (wallet field present in body)
+    if (body.wallet) {
+      const rawWallet = String(body.wallet).toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 100);
+      if (!rawWallet) return secureJson({ error: "Invalid wallet address" }, 400);
+
+      // Global address update
     const sanitized: Record<string, string> = {};
+      for (const network of VALID_NETWORKS) {
+        const addr = body[network] as string | undefined;
+        if (addr !== undefined && addr !== "") {
+          const cleanAddr = sanitizeString(String(addr), 200);
+          const pattern = ADDRESS_PATTERNS[network];
+          if (pattern && !pattern.test(cleanAddr)) {
+            return secureJson({ error: `Invalid address format for network ${network}` }, 400);
+          }
+          sanitized[network] = cleanAddr;
+        }
+      }
+
+      const existing = ((await store.get(`deposit-addr-${rawWallet}`, { type: "json" })) || {}) as Record<string, string>;
+      const updated  = { ...existing, ...sanitized };
+      await store.setJSON(`deposit-addr-${rawWallet}`, updated);
+
+      await persistAuditLog("ADMIN_WRITE", { operation: "set-user-deposit-address", wallet: `${rawWallet.slice(0, 8)}…`, networks: Object.keys(sanitized), ip }, store);
+      return secureJson(updated);
+    }
+
+    // Global address update
     for (const network of VALID_NETWORKS) {
       const addr = body[network] as string | undefined;
       if (addr !== undefined && addr !== "") {

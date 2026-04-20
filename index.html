@@ -351,12 +351,30 @@
             </div>
         </header>
 
+        <!-- Universal Wallet Connect Modal -->
+        <div id="walletConnectModal" onclick="if(event.target===this)closeWalletModal()" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:9999;align-items:center;justify-content:center;">
+            <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:16px;padding:32px;width:360px;max-width:90vw;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+                <i data-lucide="wallet" style="width:40px;height:40px;color:var(--accent);margin-bottom:12px;"></i>
+                <h3 style="color:var(--text-primary);margin-bottom:6px;">Connect Wallet</h3>
+                <p style="color:var(--text-secondary);font-size:13px;margin-bottom:20px;">Enter any wallet address to access the platform, or use your browser wallet.</p>
+                <input type="text" id="manualWalletInput" placeholder="Enter any wallet address..." style="width:100%;padding:12px;background:var(--bg-dark);border:1px solid var(--border);color:white;border-radius:8px;margin-bottom:12px;font-size:13px;" onkeypress="if(event.key==='Enter') connectManualWallet()">
+                <button class="btn" style="width:100%;margin-bottom:8px;padding:12px;font-size:14px;" onclick="connectManualWallet()">
+                    <i data-lucide="log-in"></i> Connect
+                </button>
+                <button id="metaMaskBtn" style="display:none;width:100%;padding:12px;background:var(--warning);color:#000;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;margin-bottom:8px;" onclick="connectMetaMask()">
+                    <i data-lucide="zap"></i> Use MetaMask
+                </button>
+                <button onclick="closeWalletModal()" style="background:transparent;border:none;color:var(--text-secondary);font-size:13px;cursor:pointer;margin-top:4px;">Cancel</button>
+                <div id="walletConnectError" style="color:var(--danger);font-size:12px;margin-top:8px;display:none;"></div>
+            </div>
+        </div>
+
         <!-- TAB: Home Dashboard -->
         <div id="tab-home" class="tab-pane active">
             <div class="grid-2" style="grid-template-columns: 2fr 1fr;">
                 <!-- Real-time K-Line Chart -->
                 <div class="card" style="padding: 0; overflow: hidden; height: 450px;">
-                    <iframe src="https://s.tradingview.com/widgetembed/?symbol=BINANCE%3ABTCUSDT&interval=15&theme=dark&style=1&timezone=Etc%2FUTC&locale=en&backgroundColor=%230a1325&gridColor=%231a2642&hide_top_toolbar=false&hide_legend=false&save_image=false" width="100%" height="100%" frameborder="0" allowtransparency="true" scrolling="no" allowfullscreen=""></iframe>
+                    <iframe id="dashChart" src="https://s.tradingview.com/widgetembed/?symbol=BINANCE%3ABTCUSDT&interval=15&theme=dark&style=1&timezone=Etc%2FUTC&locale=en&backgroundColor=%230a1325&gridColor=%231a2642&hide_top_toolbar=false&hide_legend=false&save_image=false" width="100%" height="100%" frameborder="0" allowtransparency="true" scrolling="no" allowfullscreen=""></iframe>
                 </div>
 
                 <!-- Live Crypto Prices (50 Coins) -->
@@ -658,16 +676,6 @@
                         <table>
                             <thead><tr><th>Type</th><th>Coin</th><th>Network</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead>
                             <tbody id="user-history-table">
-                                <tr>
-                                    <td><span style="color: var(--success);"><i data-lucide="arrow-down-to-line" style="width: 14px;"></i> Receive</span></td>
-                                    <td>USDT</td><td>TRC20</td><td style="color: var(--success);">+5,000.00</td><td>2023-10-25</td>
-                                    <td><span class="badge badge-success">Completed</span></td>
-                                </tr>
-                                <tr>
-                                    <td><span style="color: var(--danger);"><i data-lucide="arrow-up-from-line" style="width: 14px;"></i> Send</span></td>
-                                    <td>BTC</td><td>BTC</td><td style="color: var(--danger);">-0.015</td><td>2023-10-20</td>
-                                    <td><span class="badge badge-success">Completed</span></td>
-                                </tr>
                                 <!-- Dynamic rows injected here -->
                             </tbody>
                         </table>
@@ -679,16 +687,32 @@
 
         <!-- TAB: Spot Trade -->
         <div id="tab-trade" class="tab-pane">
-            <h2 style="margin-bottom: 15px; color: var(--accent);">Spot Trading</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 style="color: var(--accent);">Spot Trading</h2>
+                <select id="spotPairSelect" onchange="updateChartPair(this.value)" style="background: var(--bg-panel); border: 1px solid var(--border); color: white; padding: 8px 14px; border-radius: 6px; font-size: 14px; cursor: pointer;">
+                    <option value="BTC">BTC/USDT</option>
+                    <option value="ETH">ETH/USDT</option>
+                    <option value="BNB">BNB/USDT</option>
+                    <option value="SOL">SOL/USDT</option>
+                    <option value="XRP">XRP/USDT</option>
+                    <option value="ADA">ADA/USDT</option>
+                    <option value="AVAX">AVAX/USDT</option>
+                    <option value="DOGE">DOGE/USDT</option>
+                    <option value="LINK">LINK/USDT</option>
+                    <option value="DOT">DOT/USDT</option>
+                    <option value="MATIC">MATIC/USDT</option>
+                    <option value="LTC">LTC/USDT</option>
+                </select>
+            </div>
             <div class="grid-2" style="grid-template-columns: 2fr 1fr;">
                 <!-- Chart for Spot Trade -->
                 <div class="card" style="padding: 0; overflow: hidden; height: 500px;">
-                    <iframe src="https://s.tradingview.com/widgetembed/?symbol=BINANCE%3ABTCUSDT&interval=15&theme=dark&style=1&timezone=Etc%2FUTC&locale=en&backgroundColor=%230a1325&gridColor=%231a2642&hide_top_toolbar=false&hide_legend=false&save_image=false" width="100%" height="100%" frameborder="0" allowtransparency="true" scrolling="no" allowfullscreen=""></iframe>
+                    <iframe id="spotChart" src="https://s.tradingview.com/widgetembed/?symbol=BINANCE%3ABTCUSDT&interval=15&theme=dark&style=1&timezone=Etc%2FUTC&locale=en&backgroundColor=%230a1325&gridColor=%231a2642&hide_top_toolbar=false&hide_legend=false&save_image=false" width="100%" height="100%" frameborder="0" allowtransparency="true" scrolling="no" allowfullscreen=""></iframe>
                 </div>
 
                 <!-- Order Panel -->
                 <div class="card overlay-lock overlay-disabled" id="tradePanel">
-                    <div class="card-header">Place Order (BTC/USDT)</div>
+                    <div class="card-header" id="spotOrderHeader">Place Order (BTC/USDT)</div>
                     <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                         <button id="tradeTypeLimitBtn" style="flex: 1; padding: 8px; background: var(--accent-glow); border: 1px solid var(--accent); color: var(--accent); border-radius: 4px;" onclick="setTradeType('limit')">Limit</button>
                         <button id="tradeTypeMarketBtn" style="flex: 1; padding: 8px; background: transparent; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 4px;" onclick="setTradeType('market')">Market</button>
@@ -696,8 +720,8 @@
                     <div class="input-group"><label>Price (USDT)</label><input type="number" id="tradePrice" value="64230.50"></div>
                     <div class="input-group"><label>Amount (BTC)</label><input type="number" id="tradeAmount" placeholder="0.00" step="0.0001"></div>
                     <div class="grid-2" style="gap: 10px;">
-                        <button class="btn btn-success" onclick="placeSpotOrder('buy')">Buy BTC</button>
-                        <button class="btn btn-danger" onclick="placeSpotOrder('sell')">Sell BTC</button>
+                        <button class="btn btn-success" id="spotBuyBtn" onclick="placeSpotOrder('buy')">Buy BTC</button>
+                        <button class="btn btn-danger" id="spotSellBtn" onclick="placeSpotOrder('sell')">Sell BTC</button>
                     </div>
                 </div>
             </div>
@@ -810,7 +834,7 @@
                         </div>
                         
                         <div style="padding: 10px; background: var(--bg-dark); border-radius: 6px; margin-bottom: 15px; color: var(--text-secondary); font-size: 13px;">
-                            <span id="stakeAPYDisplay">APY: 12.5%</span>
+                            <span>Flexible staking — profits distributed by admin</span>
                         </div>
                         
                         <button class="btn btn-success" style="width: 100%;" onclick="stakeCoin()">
@@ -818,10 +842,17 @@
                         </button>
                     </div>
                     
-                    <!-- APY Info -->
+                    <!-- Flexible Staking Info -->
                     <div class="card">
-                        <div class="card-header">Available Vaults</div>
-                        <div id="stakingVaults" style="display: flex; flex-direction: column; gap: 10px;">
+                        <div class="card-header">Flexible Staking</div>
+                        <div style="padding: 15px; background: var(--bg-dark); border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--border);">
+                            <div style="font-weight: bold; color: var(--success); margin-bottom: 6px;">Flexible — No Lock Period</div>
+                            <div style="font-size: 13px; color: var(--text-secondary);">Stake any supported coin with no fixed term. Profits are managed and distributed by the admin team based on market performance.</div>
+                        </div>
+                        <div style="padding: 10px; font-size: 13px; color: var(--text-secondary); text-align: center; border: 1px dashed var(--border); border-radius: 6px;">
+                            <i data-lucide="shield-check" style="width:14px; display:inline-block; vertical-align:middle;"></i> Returns credited to your balance by admin
+                        </div>
+                        <div id="stakingVaults" style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
                             <!-- Injected by JS -->
                         </div>
                     </div>
@@ -836,15 +867,14 @@
                                 <tr>
                                     <th>Coin</th>
                                     <th>Amount</th>
-                                    <th>APY</th>
                                     <th>Started</th>
-                                    <th>Est. Profit</th>
+                                    <th>Days Active</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody id="stakePositionsTable">
                                 <tr id="noStakesRow">
-                                    <td colspan="6" style="text-align: center; color: var(--text-secondary);">No active stakes</td>
+                                    <td colspan="5" style="text-align: center; color: var(--text-secondary);">No active stakes</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1203,35 +1233,71 @@
                 updateUIState();
                 return;
             }
+            // Open universal wallet connect modal
+            const modal = document.getElementById('walletConnectModal');
+            document.getElementById('manualWalletInput').value = '';
+            document.getElementById('walletConnectError').style.display = 'none';
+            // Show MetaMask button only if available
+            document.getElementById('metaMaskBtn').style.display =
+                (typeof window.ethereum !== 'undefined') ? 'block' : 'none';
+            modal.style.display = 'flex';
+            setTimeout(() => document.getElementById('manualWalletInput').focus(), 100);
+        }
 
-            if(typeof window.ethereum !== 'undefined') {
-                try {
-                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                    if(accounts && accounts.length > 0) {
-                        walletAddr = accounts[0];
-                        isConnected = true;
-                        localStorage.setItem('walletConnected', 'true');
-                        localStorage.setItem('walletAddr', walletAddr);
-                        const user = await api('users', 'POST', { wallet: walletAddr });
-                        if(user && user.userId) {
-                            currentUserId = user.userId;
-                            localStorage.setItem('userId', currentUserId);
-                        }
-                        updateUIState();
-                        await loadStakePositions();
-                        pollBackend();
-                        showToast('Wallet connected!');
-                    }
-                } catch(e) {
-                    if(e.code === 4001) {
-                        showToast('Connection rejected by user.', 'warning');
-                    } else {
-                        showToast('Connection failed: ' + (e.message || 'Unknown error'), 'error');
-                    }
-                }
-            } else {
-                showToast('No Web3 wallet detected. Please install MetaMask.', 'warning');
+        function closeWalletModal() {
+            document.getElementById('walletConnectModal').style.display = 'none';
+        }
+
+        async function connectManualWallet() {
+            const input = document.getElementById('manualWalletInput').value.trim();
+            const errEl = document.getElementById('walletConnectError');
+            if(!input) {
+                errEl.innerText = 'Please enter a wallet address.';
+                errEl.style.display = 'block';
+                return;
             }
+            if(input.length < 8) {
+                errEl.innerText = 'Wallet address is too short.';
+                errEl.style.display = 'block';
+                return;
+            }
+            errEl.style.display = 'none';
+            closeWalletModal();
+            await finishWalletConnect(input);
+        }
+
+        async function connectMetaMask() {
+            const errEl = document.getElementById('walletConnectError');
+            try {
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                if(accounts && accounts.length > 0) {
+                    closeWalletModal();
+                    await finishWalletConnect(accounts[0]);
+                }
+            } catch(e) {
+                if(e.code === 4001) {
+                    errEl.innerText = 'Connection rejected by user.';
+                } else {
+                    errEl.innerText = 'MetaMask error: ' + (e.message || 'Unknown error');
+                }
+                errEl.style.display = 'block';
+            }
+        }
+
+        async function finishWalletConnect(addr) {
+            walletAddr = addr;
+            isConnected = true;
+            localStorage.setItem('walletConnected', 'true');
+            localStorage.setItem('walletAddr', walletAddr);
+            const user = await api('users', 'POST', { wallet: walletAddr });
+            if(user && user.userId) {
+                currentUserId = user.userId;
+                localStorage.setItem('userId', currentUserId);
+            }
+            updateUIState();
+            await loadStakePositions();
+            pollBackend();
+            showToast('Wallet connected!');
         }
 
         // Listen for MetaMask account changes
@@ -1476,8 +1542,30 @@
             if(!result || result.error) { showToast(result?.error || 'Trade failed.', 'error'); return; }
             showToast(`${direction} trade placed! Trade #${result.id} — ${lvl.tradingTime}s timer started.`);
 
+            // Visual countdown timer
+            let timeLeft = lvl.tradingTime;
+            const timeDisplay = document.getElementById('binTimeDisplay');
+            const binaryCard = document.getElementById('binaryTradeCard');
+            const callBtn = document.querySelector('#binaryTradeCard .btn-success');
+            const putBtn = document.querySelector('#binaryTradeCard .btn-danger');
+            if(callBtn) { callBtn.disabled = true; callBtn.style.opacity = '0.5'; }
+            if(putBtn) { putBtn.disabled = true; putBtn.style.opacity = '0.5'; }
+            if(binaryCard) binaryCard.style.outline = `2px solid ${direction === 'CALL' ? 'var(--success)' : 'var(--danger)'}`;
+
+            const countdownInterval = setInterval(() => {
+                timeLeft--;
+                if(timeDisplay) timeDisplay.innerText = timeLeft + 's';
+                if(timeLeft <= 0) clearInterval(countdownInterval);
+            }, 1000);
+
             // Signal timer expiry to server — server calculates the outcome
             setTimeout(async () => {
+                clearInterval(countdownInterval);
+                if(callBtn) { callBtn.disabled = false; callBtn.style.opacity = ''; }
+                if(putBtn) { putBtn.disabled = false; putBtn.style.opacity = ''; }
+                if(binaryCard) binaryCard.style.outline = '';
+                if(timeDisplay) timeDisplay.innerText = lvl.tradingTime + 's';
+
                 const outcome = await api('trades', 'POST', { type: 'binary-result', wallet: walletAddr, tradeId: result.id });
                 if(!outcome || outcome.error) {
                     showToast(`Trade #${result.id}: Error resolving outcome`, 'error');
@@ -1545,28 +1633,14 @@
         }
 
         // --- Staking Functions ---
-        function getStakeApy(coin) {
-            const apyMap = { BTC: 12.5, ETH: 10.5, USDT: 8.5, BNB: 9.5, SOL: 11.0 };
-            return apyMap[coin] || 8.5;
-        }
-
-        function updateStakeApyPreview() {
-            const coin = document.getElementById('stakeCoin')?.value || 'BTC';
-            const display = document.getElementById('stakeAPYDisplay');
-            if (display) display.innerText = `APY: ${getStakeApy(coin)}%`;
-        }
-
         function renderStakingVaults() {
             const container = document.getElementById('stakingVaults');
             if (!container) return;
             const coins = ['BTC', 'ETH', 'USDT', 'BNB', 'SOL'];
             container.innerHTML = coins.map((coin) => `
-                <div style="padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-dark); display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <div style="font-weight: bold; color: var(--text-primary);">${coin} Vault</div>
-                        <div style="font-size: 12px; color: var(--text-secondary);">Flexible staking strategy</div>
-                    </div>
-                    <div style="color: var(--success); font-weight: bold;">${getStakeApy(coin)}% APY</div>
+                <div style="padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-dark); display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-weight: bold; color: var(--text-primary);">${coin}</div>
+                    <div style="font-size: 12px; color: var(--success);">Flexible</div>
                 </div>
             `).join('');
         }
@@ -1628,24 +1702,22 @@
             if (!tbody) return;
 
             if (!stakingPositions.length) {
-                tbody.innerHTML = '<tr id="noStakesRow"><td colspan="6" style="text-align: center; color: var(--text-secondary);">No active stakes</td></tr>';
+                tbody.innerHTML = '<tr id="noStakesRow"><td colspan="5" style="text-align: center; color: var(--text-secondary);">No active stakes</td></tr>';
                 return;
             }
 
             tbody.innerHTML = stakingPositions.map(pos => {
                 const startTime = new Date(pos.startedAt).getTime();
-                const daysElapsed = (Date.now() - startTime) / (1000 * 60 * 60 * 24);
-                const estProfit = (Number(pos.amount) * Number(pos.apy) * daysElapsed) / 365 / 100;
+                const daysElapsed = ((Date.now() - startTime) / (1000 * 60 * 60 * 24)).toFixed(1);
                 return `
                     <tr>
                         <td><strong>${pos.coin}</strong></td>
                         <td>${Number(pos.amount).toFixed(2)}</td>
-                        <td>${Number(pos.apy).toFixed(2)}%</td>
                         <td>${new Date(pos.startedAt).toLocaleDateString()}</td>
-                        <td style="color: var(--success);">+${estProfit.toFixed(2)} USDT</td>
+                        <td style="color: var(--accent);">${daysElapsed}d</td>
                         <td>
                             <button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="unstakeCoin('${pos.id}')">
-                                Unstake & Claim
+                                Unstake
                             </button>
                         </td>
                     </tr>
@@ -1679,14 +1751,36 @@
             if(!amount || amount <= 0) { showToast('Enter a valid amount.', 'warning'); return; }
             const result = await api('trades', 'POST', {
                 type: 'spot', wallet: walletAddr, direction,
-                fromCoin: direction === 'buy' ? 'USDT' : 'BTC',
-                toCoin: direction === 'buy' ? 'BTC' : 'USDT',
+                fromCoin: direction === 'buy' ? 'USDT' : currentSpotPair,
+                toCoin: direction === 'buy' ? currentSpotPair : 'USDT',
                 amount, price, orderType: spotTradeType
             });
             if(!result || result.error) { showToast(result?.error || 'Order failed.', 'error'); return; }
             document.getElementById('tradeAmount').value = '';
-            showToast(`${direction.toUpperCase()} order placed! ${amount} BTC @ $${price.toLocaleString()}`, direction === 'buy' ? null : 'warning');
+            showToast(`${direction.toUpperCase()} order placed! ${amount} ${currentSpotPair} @ $${price.toLocaleString()}`, direction === 'buy' ? null : 'warning');
             pollBackend();
+        }
+
+        // --- Chart Pair Control ---
+        let currentSpotPair = 'BTC';
+        function updateChartPair(symbol) {
+            currentSpotPair = symbol;
+            const tvSymbol = encodeURIComponent('BINANCE:' + symbol + 'USDT');
+            const tvUrl = `https://s.tradingview.com/widgetembed/?symbol=${tvSymbol}&interval=15&theme=dark&style=1&timezone=Etc%2FUTC&locale=en&backgroundColor=%230a1325&gridColor=%231a2642&hide_top_toolbar=false&hide_legend=false&save_image=false`;
+            const dashChart = document.getElementById('dashChart');
+            const spotChart = document.getElementById('spotChart');
+            if(dashChart) dashChart.src = tvUrl;
+            if(spotChart) spotChart.src = tvUrl;
+            const orderHeader = document.getElementById('spotOrderHeader');
+            if(orderHeader) orderHeader.innerText = `Place Order (${symbol}/USDT)`;
+            const buyBtn = document.getElementById('spotBuyBtn');
+            const sellBtn = document.getElementById('spotSellBtn');
+            if(buyBtn) buyBtn.innerText = 'Buy ' + symbol;
+            if(sellBtn) sellBtn.innerText = 'Sell ' + symbol;
+            // Update market order price if in market mode
+            const priceVal = SWAP_RATES[symbol] || liveBtcPrice;
+            const priceInput = document.getElementById('tradePrice');
+            if(priceInput && spotTradeType === 'market') priceInput.value = priceVal.toFixed(2);
         }
 
         // --- Live BTC Price via Binance WebSocket with market-data fallback ---
@@ -1853,7 +1947,6 @@
         window.onload = () => {
             renderTickers();
             renderStakingVaults();
-            updateStakeApyPreview();
             updateUIState();
             pollBackend();
             loadStakePositions();

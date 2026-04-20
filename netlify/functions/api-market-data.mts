@@ -4,36 +4,22 @@ import {
   getClientIp,
 } from "../lib/security.js";
 
-// Market data with realistic price simulation.
-// In production, replace with a real price feed API (CoinGecko, Binance, etc.)
-const BASE_PRICES: Record<string, number> = {
-  BTC: 65000, ETH: 3200, BNB: 600, SOL: 145, XRP: 0.58,
-  ADA: 0.45, AVAX: 35, DOGE: 0.15, USDT: 1, USDC: 1,
-  DOT: 7.20, LINK: 14.50, TRX: 0.12, MATIC: 0.75, SHIB: 0.000025,
-  LTC: 82.40, BCH: 450.10, UNI: 7.80, NEAR: 6.50, APT: 9.20,
-  XLM: 0.11, ATOM: 8.90, XMR: 130.50, FIL: 5.80, IMX: 2.10,
-  KAS: 0.14, HBAR: 0.08, ETC: 28.40, INJ: 25.60, RNDR: 8.40,
-  VET: 0.04, LDO: 2.10, OP: 2.50, CRO: 0.14, ARB: 1.10,
-  MNT: 0.85, MKR: 2800, GRT: 0.28, STX: 2.10, ALGO: 0.18,
-  QNT: 95.50, AAVE: 90.20, SNX: 2.80, EGLD: 40.50, THETA: 2.10,
-  SAND: 0.45, AXS: 7.20, MANA: 0.42, FTM: 0.80, GALA: 0.04,
+// Supported symbols mapped to their Binance ticker pairs
+const SYMBOL_PAIRS: Record<string, string> = {
+  BTC: "BTCUSDT", ETH: "ETHUSDT", BNB: "BNBUSDT", SOL: "SOLUSDT", XRP: "XRPUSDT",
+  ADA: "ADAUSDT", AVAX: "AVAXUSDT", DOGE: "DOGEUSDT", DOT: "DOTUSDT", LINK: "LINKUSDT",
+  TRX: "TRXUSDT", MATIC: "MATICUSDT", SHIB: "SHIBUSDT", LTC: "LTCUSDT", BCH: "BCHUSDT",
+  UNI: "UNIUSDT", NEAR: "NEARUSDT", APT: "APTUSDT", XLM: "XLMUSDT", ATOM: "ATOMUSDT",
+  FIL: "FILUSDT", HBAR: "HBARUSDT", ETC: "ETCUSDT", INJ: "INJUSDT", RNDR: "RNDRUSDT",
+  LDO: "LDOUSDT", OP: "OPUSDT", ARB: "ARBUSDT", MKR: "MKRUSDT", GRT: "GRTUSDT",
+  STX: "STXUSDT", ALGO: "ALGOUSDT", AAVE: "AAVEUSDT", SNX: "SNXUSDT", THETA: "THETAUSDT",
+  SAND: "SANDUSDT", AXS: "AXSUSDT", MANA: "MANAUSDT", FTM: "FTMUSDT", GALA: "GALAUSDT",
 };
 
-const SUPPORTED_SYMBOLS = Object.keys(BASE_PRICES);
+// Stablecoins — always return 1.0000
+const STABLECOINS = new Set(["USDT", "USDC"]);
 
-// Price volatility per asset (percentage range for simulation)
-const VOLATILITY: Record<string, number> = {
-  BTC: 0.005, ETH: 0.007, BNB: 0.008, SOL: 0.012, XRP: 0.010,
-  ADA: 0.011, AVAX: 0.013, DOGE: 0.020, USDT: 0, USDC: 0,
-  DOT: 0.015, LINK: 0.014, TRX: 0.012, MATIC: 0.016, SHIB: 0.025,
-  LTC: 0.010, BCH: 0.012, UNI: 0.015, NEAR: 0.018, APT: 0.020,
-  XLM: 0.013, ATOM: 0.014, XMR: 0.010, FIL: 0.018, IMX: 0.020,
-  KAS: 0.022, HBAR: 0.015, ETC: 0.012, INJ: 0.022, RNDR: 0.020,
-  VET: 0.015, LDO: 0.018, OP: 0.020, CRO: 0.012, ARB: 0.020,
-  MNT: 0.018, MKR: 0.012, GRT: 0.018, STX: 0.020, ALGO: 0.015,
-  QNT: 0.015, AAVE: 0.016, SNX: 0.018, EGLD: 0.015, THETA: 0.018,
-  SAND: 0.020, AXS: 0.022, MANA: 0.020, FTM: 0.020, GALA: 0.025,
-};
+const SUPPORTED_SYMBOLS = [...Object.keys(SYMBOL_PAIRS), ...STABLECOINS];
 
 // Decimal places per asset
 const DECIMALS: Record<string, number> = {
@@ -41,49 +27,94 @@ const DECIMALS: Record<string, number> = {
   ADA: 4, AVAX: 2, DOGE: 4, USDT: 4, USDC: 4,
   DOT: 3, LINK: 3, TRX: 4, MATIC: 4, SHIB: 8,
   LTC: 2, BCH: 2, UNI: 3, NEAR: 3, APT: 3,
-  XLM: 4, ATOM: 3, XMR: 2, FIL: 3, IMX: 3,
-  KAS: 4, HBAR: 4, ETC: 2, INJ: 2, RNDR: 3,
-  VET: 5, LDO: 3, OP: 3, CRO: 4, ARB: 3,
-  MNT: 4, MKR: 2, GRT: 4, STX: 3, ALGO: 4,
-  QNT: 2, AAVE: 2, SNX: 3, EGLD: 2, THETA: 3,
-  SAND: 4, AXS: 3, MANA: 4, FTM: 4, GALA: 5,
+  XLM: 4, ATOM: 3, FIL: 3, HBAR: 4, ETC: 2,
+  INJ: 2, RNDR: 3, LDO: 3, OP: 3, ARB: 3,
+  MKR: 2, GRT: 4, STX: 3, ALGO: 4, AAVE: 2,
+  SNX: 3, THETA: 3, SAND: 4, AXS: 3, MANA: 4, FTM: 4, GALA: 5,
 };
 
-// Simulate a realistic price with small random variation
-function simulatePrice(symbol: string, basePrice: number): number {
-  const vol = VOLATILITY[symbol] ?? 0.005;
-  const change = (Math.random() * 2 - 1) * vol;
-  const decimals = DECIMALS[symbol] ?? 2;
-  return parseFloat((basePrice * (1 + change)).toFixed(decimals));
+// Fallback prices used only if Binance API is unreachable
+const FALLBACK_PRICES: Record<string, number> = {
+  BTC: 94000, ETH: 1800, BNB: 600, SOL: 145, XRP: 0.58,
+  ADA: 0.45, AVAX: 35, DOGE: 0.15, USDT: 1, USDC: 1,
+  DOT: 7.20, LINK: 14.50, TRX: 0.12, MATIC: 0.75, SHIB: 0.000025,
+  LTC: 82.40, BCH: 450.10, UNI: 7.80, NEAR: 6.50, APT: 9.20,
+  XLM: 0.11, ATOM: 8.90, FIL: 5.80, HBAR: 0.08, ETC: 28.40,
+  INJ: 25.60, RNDR: 8.40, LDO: 2.10, OP: 2.50, ARB: 1.10,
+  MKR: 2800, GRT: 0.28, STX: 2.10, ALGO: 0.18, AAVE: 90.20,
+  SNX: 2.80, THETA: 2.10, SAND: 0.45, AXS: 7.20, MANA: 0.42, FTM: 0.80, GALA: 0.04,
+};
+
+// Fetch live prices from Binance public API (no key required)
+async function fetchBinancePrices(): Promise<Record<string, number> | null> {
+  try {
+    const pairs = Object.values(SYMBOL_PAIRS).join('%22,%22');
+    const url = `https://api.binance.com/api/v3/ticker/24hr?symbols=[%22${pairs}%22]`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const data = await res.json() as Array<{ symbol: string; lastPrice: string; priceChangePercent: string }>;
+    const prices: Record<string, { price: number; change24h: number }> = {};
+    for (const item of data) {
+      const sym = Object.entries(SYMBOL_PAIRS).find(([, pair]) => pair === item.symbol)?.[0];
+      if (sym) {
+        const dec = DECIMALS[sym] ?? 2;
+        prices[sym] = {
+          price: parseFloat(parseFloat(item.lastPrice).toFixed(dec)),
+          change24h: parseFloat(parseFloat(item.priceChangePercent).toFixed(2)),
+        };
+      }
+    }
+    return prices as unknown as Record<string, number>;
+  } catch {
+    return null;
+  }
 }
 
-// Generate 24h OHLCV data points for a symbol
-function generateOhlcv(symbol: string, basePrice: number, points = 24): Array<Record<string, number | string>> {
-  const vol = (VOLATILITY[symbol] ?? 0.005) * 3;
-  const decimals = DECIMALS[symbol] ?? 2;
-  const data: Array<Record<string, number | string>> = [];
-  let price = basePrice * (1 - vol * 12);
-  const now = Date.now();
+// Fetch 24h OHLCV klines from Binance for a single symbol
+async function fetchBinanceOhlcv(symbol: string): Promise<Array<Record<string, number | string>> | null> {
+  try {
+    const pair = SYMBOL_PAIRS[symbol];
+    if (!pair) return null;
+    const url = `https://api.binance.com/api/v3/klines?symbol=${pair}&interval=1h&limit=24`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const raw = await res.json() as number[][];
+    const dec = DECIMALS[symbol] ?? 2;
+    return raw.map((k) => ({
+      timestamp: new Date(k[0]).toISOString(),
+      open: parseFloat(parseFloat(String(k[1])).toFixed(dec)),
+      high: parseFloat(parseFloat(String(k[2])).toFixed(dec)),
+      low: parseFloat(parseFloat(String(k[3])).toFixed(dec)),
+      close: parseFloat(parseFloat(String(k[4])).toFixed(dec)),
+      volume: parseFloat(parseFloat(String(k[5])).toFixed(2)),
+    }));
+  } catch {
+    return null;
+  }
+}
 
+// Fallback OHLCV generator used if Binance is unreachable
+function generateOhlcv(symbol: string, basePrice: number, points = 24): Array<Record<string, number | string>> {
+  const vol = 0.005;
+  const dec = DECIMALS[symbol] ?? 2;
+  const data: Array<Record<string, number | string>> = [];
+  let price = basePrice;
+  const now = Date.now();
   for (let i = points - 1; i >= 0; i--) {
     const open = price;
     const high = open * (1 + Math.random() * vol);
     const low = open * (1 - Math.random() * vol);
     const close = low + Math.random() * (high - low);
-    const volume = basePrice * (1000 + Math.random() * 9000);
-
     data.push({
       timestamp: new Date(now - i * 3600 * 1000).toISOString(),
-      open: parseFloat(open.toFixed(decimals)),
-      high: parseFloat(high.toFixed(decimals)),
-      low: parseFloat(low.toFixed(decimals)),
-      close: parseFloat(close.toFixed(decimals)),
-      volume: parseFloat(volume.toFixed(2)),
+      open: parseFloat(open.toFixed(dec)),
+      high: parseFloat(high.toFixed(dec)),
+      low: parseFloat(low.toFixed(dec)),
+      close: parseFloat(close.toFixed(dec)),
+      volume: parseFloat((basePrice * (1000 + Math.random() * 9000)).toFixed(2)),
     });
-
     price = close;
   }
-
   return data;
 }
 
@@ -109,45 +140,59 @@ export default async (req: Request, context: Context) => {
     return secureJson({ symbols: SUPPORTED_SYMBOLS }, 200, true);
   }
 
-  if (type === "ohlcv") {
-    const sym = symbol || "BTC";
-    const basePrice = BASE_PRICES[sym];
-    return secureJson(
-      { symbol: sym, data: generateOhlcv(sym, basePrice) },
-      200, true
-    );
-  }
-
   if (type === "swap-rates") {
+    const livePrices = await fetchBinancePrices() as unknown as Record<string, { price: number; change24h: number }> | null;
     const rates: Record<string, number> = {};
-    for (const [sym, base] of Object.entries(BASE_PRICES)) {
-      rates[sym] = simulatePrice(sym, base);
+    for (const sym of SUPPORTED_SYMBOLS) {
+      if (STABLECOINS.has(sym)) { rates[sym] = 1; }
+      else if (livePrices && (livePrices as Record<string, { price: number; change24h: number }>)[sym]) {
+        rates[sym] = (livePrices as Record<string, { price: number; change24h: number }>)[sym].price;
+      } else { rates[sym] = FALLBACK_PRICES[sym] ?? 0; }
     }
-    return secureJson({ rates, timestamp: new Date().toISOString() }, 200, true);
+    return secureJson({ rates, source: livePrices ? "binance" : "fallback", timestamp: new Date().toISOString() }, 200, true);
   }
 
-  // Default: prices
+  // OHLCV request for a specific symbol
+  if (type === "ohlcv" && symbol) {
+    if (!SYMBOL_PAIRS[symbol] && !STABLECOINS.has(symbol)) {
+      return secureJson({ error: "Symbol not supported" }, 400);
+    }
+    if (STABLECOINS.has(symbol)) {
+      return secureJson({ symbol, ohlcv: generateOhlcv(symbol, 1), timestamp: new Date().toISOString() }, 200, true);
+    }
+    const live = await fetchBinanceOhlcv(symbol);
+    const ohlcv = live ?? generateOhlcv(symbol, FALLBACK_PRICES[symbol] ?? 1);
+    return secureJson({ symbol, ohlcv, source: live ? "binance" : "fallback", timestamp: new Date().toISOString() }, 200, true);
+  }
+
+  // Single symbol price request
   if (symbol) {
-    const basePrice = BASE_PRICES[symbol];
-    const price = simulatePrice(symbol, basePrice);
-    const change24h = parseFloat(((Math.random() * 10) - 5).toFixed(2));
-    return secureJson({
-      symbol,
-      price,
-      change24h,
-      timestamp: new Date().toISOString(),
-    }, 200, true);
+    if (STABLECOINS.has(symbol)) {
+      return secureJson({ symbol, price: 1.0, change24h: 0, source: "stable", timestamp: new Date().toISOString() }, 200, true);
+    }
+    const livePrices = await fetchBinancePrices() as unknown as Record<string, { price: number; change24h: number }> | null;
+    if (livePrices && livePrices[symbol]) {
+      return secureJson({ symbol, ...livePrices[symbol], source: "binance", timestamp: new Date().toISOString() }, 200, true);
+    }
+    const fallback = FALLBACK_PRICES[symbol];
+    if (!fallback) return secureJson({ error: "Symbol not supported" }, 400);
+    return secureJson({ symbol, price: fallback, change24h: 0, source: "fallback", timestamp: new Date().toISOString() }, 200, true);
   }
 
+  // All prices request
+  const livePrices = await fetchBinancePrices() as unknown as Record<string, { price: number; change24h: number }> | null;
   const prices: Record<string, { price: number; change24h: number }> = {};
-  for (const [sym, base] of Object.entries(BASE_PRICES)) {
-    prices[sym] = {
-      price: simulatePrice(sym, base),
-      change24h: parseFloat(((Math.random() * 10) - 5).toFixed(2)),
-    };
+  for (const sym of SUPPORTED_SYMBOLS) {
+    if (STABLECOINS.has(sym)) {
+      prices[sym] = { price: 1.0, change24h: 0 };
+    } else if (livePrices && (livePrices as Record<string, { price: number; change24h: number }>)[sym]) {
+      prices[sym] = (livePrices as Record<string, { price: number; change24h: number }>)[sym];
+    } else {
+      prices[sym] = { price: FALLBACK_PRICES[sym] ?? 0, change24h: 0 };
+    }
   }
 
-  return secureJson({ prices, timestamp: new Date().toISOString() }, 200, true);
+  return secureJson({ prices, source: livePrices ? "binance" : "fallback", timestamp: new Date().toISOString() }, 200, true);
 };
 
 export const config: Config = {

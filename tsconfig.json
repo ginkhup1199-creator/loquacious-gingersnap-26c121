@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "lib": ["ES2022"],
+    "outDir": ".build"
+  },
+  "include": ["netlify/**/*.mts", "src/**/*.ts"],
+  "exclude": ["node_modules", ".build"]
+}

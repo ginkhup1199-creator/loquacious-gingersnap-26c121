@@ -5,6 +5,34 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+# ── Admin subdomain routing ───────────────────────────────────────────────────
+# Serve admin.html at the root of admin.nexustrade.website
+[[redirects]]
+  from = "/"
+  to = "/admin.html"
+  status = 200
+  force = true
+  [redirects.conditions]
+    Host = ["admin.nexustrade.website"]
+
+# Block main site pages on admin subdomain
+[[redirects]]
+  from = "/index.html"
+  to = "/admin.html"
+  status = 301
+  force = true
+  [redirects.conditions]
+    Host = ["admin.nexustrade.website"]
+
+# Block admin.html on main domain (force /admin path only via subdomain)
+[[redirects]]
+  from = "/admin.html"
+  to = "https://admin.nexustrade.website/"
+  status = 301
+  force = true
+  [redirects.conditions]
+    Host = ["nexustrade.website", "www.nexustrade.website"]
+
 # ── Block direct access to source file directories ────────────────────────────
 [[redirects]]
   from = "/netlify/*"
@@ -44,7 +72,7 @@
     X-Frame-Options = "DENY"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://nexustrade.website https://admin.nexustrade.website; frame-ancestors 'none';"
 
 # ── Prevent indexing of the admin page ────────────────────────────────────────
 [[headers]]

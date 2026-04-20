@@ -1,6 +1,7 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
 import { createHash, randomBytes, randomInt, timingSafeEqual } from "crypto";
+// Note: randomBytes retained for generateSessionId
 import nodemailer from "nodemailer";
 import { checkRateLimit, rateLimitExceededResponse } from "../lib/security.js";
 
@@ -10,11 +11,9 @@ import { checkRateLimit, rateLimitExceededResponse } from "../lib/security.js";
 
 const SESSION_TTL_MS       = 60 * 60 * 1000;  // 1 hour
 const OTP_TTL_MS           = 10 * 60 * 1000;  // 10 minutes
-const WALLET_TOKEN_TTL_MS  = 15 * 60 * 1000;  // 15 minutes — wallet-verified token lifetime
 const OTP_MAX_ATTEMPTS     = 5;               // max wrong guesses before OTP is invalidated
 const SESSION_STORE_KEY    = "admin-session";
 const OTP_STORE_KEY        = "admin-otp";
-const WALLET_TOKEN_KEY     = "admin-wallet-token";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -36,11 +35,7 @@ interface StoredOtp {
   attempts: number;
 }
 
-interface StoredWalletToken {
-  tokenHash: string;  // SHA-256 of the wallet-verified token
-  expiresAt: string;
-  createdAt: string;
-}
+
 
 // ---------------------------------------------------------------------------
 // Helpers (inlined so esbuild bundles independently)
@@ -59,46 +54,7 @@ function hashOtp(otp: string): string {
   return createHash("sha256").update(otp).digest("hex");
 }
 
-function generateWalletToken(): string {
-  return randomBytes(32).toString("hex");
-}
 
-function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
-
-async function issueWalletToken(
-  store: ReturnType<typeof getStore>
-): Promise<{ walletToken: string; expiresAt: string }> {
-  const walletToken = generateWalletToken();
-  const expiresAt   = new Date(Date.now() + WALLET_TOKEN_TTL_MS).toISOString();
-  const record: StoredWalletToken = {
-    tokenHash: hashToken(walletToken),
-    expiresAt,
-    createdAt: new Date().toISOString(),
-  };
-  await store.setJSON(WALLET_TOKEN_KEY, record);
-  return { walletToken, expiresAt };
-}
-
-async function validateWalletToken(
-  walletToken: string,
-  store: ReturnType<typeof getStore>
-): Promise<{ valid: boolean; reason?: string }> {
-  const record = await store.get(WALLET_TOKEN_KEY, { type: "json" }) as StoredWalletToken | null;
-  if (!record) {
-    return { valid: false, reason: "No wallet verification on record. Complete wallet step first." };
-  }
-  if (new Date(record.expiresAt).getTime() < Date.now()) {
-    await store.delete(WALLET_TOKEN_KEY).catch(() => {});
-    return { valid: false, reason: "Wallet verification expired. Please restart login." };
-  }
-  const match = timingSafeTokenCompare(hashToken(walletToken), record.tokenHash);
-  if (!match) {
-    return { valid: false, reason: "Invalid wallet token. Please restart login." };
-  }
-  return { valid: true };
-}
 
 async function createSession(
   store: ReturnType<typeof getStore>
@@ -202,13 +158,6 @@ export default async (req: Request, context: Context) => {
   const gmailUser        = process.env.GMAIL_USER || adminEmail;
   const gmailAppPassword = process.env.GMAIL_APP_PASSWORD || "";
 
-  // Master admin wallet — must be set via ADMIN_WALLET env var
-  const adminWallet = process.env.ADMIN_WALLET?.trim();
-  if (!adminWallet) {
-    console.error(`[AUDIT] {"event":"CONFIG_ERROR","reason":"ADMIN_WALLET not configured","ip":"${ip}"}`);
-    return Response.json({ error: "Admin authentication is not properly configured. Please contact the system administrator." }, { status: 503, headers });
-  }
-
   // The ADMIN_TOKEN env var is still required so other functions know the server is configured
   if (!process.env.ADMIN_TOKEN) {
     console.warn(`[AUDIT] {"event":"CONFIG_ERROR","reason":"ADMIN_TOKEN not configured","ip":"${ip}"}`);
@@ -225,64 +174,38 @@ export default async (req: Request, context: Context) => {
     }
 
     const action = String(body.action ?? "");
+    // ── direct-login: email + password (no OTP) ─────────────────────────────────────────────────
+    if (action === "direct-login") {
+      const email    = String(body.email    ?? "").toLowerCase().trim();
+      const password = String(body.password ?? "").trim();
 
-    // ── Step 0: verify-wallet ────────────────────────────────────────────────
-    // Must be called before request-otp. Validates the master admin wallet
-    // address and issues a short-lived wallet-verified token.
-    if (action === "verify-wallet") {
-      const walletInput = String(body.wallet ?? "").trim();
-
-      if (!walletInput) {
-        return Response.json({ error: "Wallet address is required." }, { status: 400, headers });
-      }
-
-      // Constant-time wallet comparison — pad to fixed length to prevent timing leaks
-      const MAX_WALLET_LEN = 100;
-      const walletMatch = (() => {
+      const MAX_EMAIL_LEN = 254;
+      const emailMatch = (() => {
         try {
-          const aBuf = Buffer.alloc(MAX_WALLET_LEN);
-          const bBuf = Buffer.alloc(MAX_WALLET_LEN);
-          Buffer.from(walletInput).copy(aBuf);
-          Buffer.from(adminWallet).copy(bBuf);
-          return walletInput.length === adminWallet.length && timingSafeEqual(aBuf, bBuf);
-        } catch {
-          return false;
-        }
+          if (email.includes("\0")) return false;
+          const aBuf = Buffer.alloc(MAX_EMAIL_LEN);
+          const bBuf = Buffer.alloc(MAX_EMAIL_LEN);
+          Buffer.from(email).copy(aBuf);
+          Buffer.from(adminEmail).copy(bBuf);
+          return timingSafeEqual(aBuf, bBuf);
+        } catch { return false; }
       })();
 
-      if (!walletMatch) {
-        console.warn(`[AUDIT] {"event":"WALLET_VERIFY_FAILED","ip":"${ip}"}`);
-        // Same response as success to prevent enumeration
-        return Response.json(
-          { error: "Wallet address not recognised as master admin wallet." },
-          { status: 401, headers }
-        );
+      if (!emailMatch || !timingSafeTokenCompare(password, process.env.ADMIN_TOKEN!)) {
+        console.warn(`[AUDIT] {"event":"DIRECT_LOGIN_FAILED","ip":"${ip}"}`);
+        return Response.json({ error: "Invalid email or password." }, { status: 401, headers });
       }
 
-      // Issue a wallet-verified token (15-min TTL) to be sent with request-otp
-      const { walletToken, expiresAt } = await issueWalletToken(store);
-      console.log(`[AUDIT] {"event":"WALLET_VERIFIED","ip":"${ip}"}`);
+      const { sessionId, expiresAt } = await createSession(store);
+      console.log(`[AUDIT] {"event":"DIRECT_LOGIN_SUCCESS","sessionId":"${sessionId.slice(0, 8)}…","ip":"${ip}"}`);
       return Response.json(
-        { walletVerified: true, walletToken, expiresAt, message: "Wallet verified. Proceed with email verification." },
-        { status: 200, headers }
+        { sessionId, expiresAt, role: "master", message: "Authenticated." },
+        { status: 201, headers }
       );
     }
-
     // ── Step 1: request-otp ─────────────────────────────────────────────────
     if (action === "request-otp") {
-      const email       = String(body.email       ?? "").toLowerCase().trim();
-      const walletToken = String(body.walletToken  ?? "").trim();
-
-      // Wallet must have been verified first (Step 0)
-      if (!walletToken) {
-        console.warn(`[AUDIT] {"event":"OTP_REQUEST_MISSING_WALLET_TOKEN","ip":"${ip}"}`);
-        return Response.json({ error: "Complete wallet verification before requesting an OTP." }, { status: 401, headers });
-      }
-      const wtResult = await validateWalletToken(walletToken, store);
-      if (!wtResult.valid) {
-        console.warn(`[AUDIT] {"event":"OTP_REQUEST_INVALID_WALLET_TOKEN","reason":"${wtResult.reason}","ip":"${ip}"}`);
-        return Response.json({ error: wtResult.reason ?? "Wallet verification required." }, { status: 401, headers });
-      }
+      const email = String(body.email ?? "").toLowerCase().trim();
 
       // Constant-time email comparison — fixed buffer size prevents length-based timing leaks.
       // Reject null bytes upfront (valid emails never contain them) to prevent null-padding bypass.

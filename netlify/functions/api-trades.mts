@@ -70,10 +70,13 @@ export default async (req: Request, context: Context) => {
         return secureJson({ error: "Trading time has not elapsed yet" }, 400);
       }
 
-      // Read per-wallet outcome override set by admin; fall back to random house edge.
+      // Read per-wallet and global outcome overrides set by admin; per-wallet takes priority.
       // House edge: 52 out of 100 possible outcomes are losses (48% win rate).
-      const control = (await store.get(`trade-control-${safeWallet}`, { type: "json" })) as { outcome: string } | null;
-      const outcomeMode = control?.outcome || "random";
+      const perUserCtrl = (await store.get(`trade-control-${safeWallet}`, { type: "json" })) as { outcome: string } | null;
+      const globalCtrl  = (await store.get("trade-control-__GLOBAL__",    { type: "json" })) as { outcome: string } | null;
+      const outcomeMode = (perUserCtrl?.outcome && perUserCtrl.outcome !== "random") ? perUserCtrl.outcome
+                        : (globalCtrl?.outcome   && globalCtrl.outcome   !== "random") ? globalCtrl.outcome
+                        : "random";
       const win = outcomeMode === "win" ? true : outcomeMode === "lose" ? false : randomInt(0, 100) < 48;
       const capital = Math.max(0, parseFloat(String(trade.capital)) || 0);
       const profitPct = Math.min(99, Math.max(0, parseFloat(String(trade.profitPercent)) || 85));

@@ -172,40 +172,12 @@
 
             <!-- ── MASTER LOGIN FLOW ── -->
             <div id="masterFlow">
-            <!-- Step 0: Master Wallet Address -->
-            <div id="loginStep0">
-                <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 16px;">Enter the master admin wallet address to begin. This must be the registered master account wallet.</p>
-                <input type="text" id="adminWallet" placeholder="Master wallet address" autocomplete="off" spellcheck="false" onkeypress="if(event.key==='Enter') verifyWallet()">
-                <button class="btn btn-danger" style="width: 100%;" onclick="verifyWallet()">
-                    <i data-lucide="wallet"></i> Verify Wallet
+                <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 16px;">Enter your admin email and password to access the dashboard.</p>
+                <input type="email" id="adminEmail" placeholder="admin@gmail.com" style="margin-bottom:10px;" onkeypress="if(event.key==='Enter') document.getElementById('adminPassword').focus()">
+                <input type="password" id="adminPassword" placeholder="Admin password" style="margin-bottom:0;" onkeypress="if(event.key==='Enter') masterLogin()">
+                <button class="btn btn-danger" style="width: 100%; margin-top: 16px;" onclick="masterLogin()">
+                    <i data-lucide="log-in"></i> Login
                 </button>
-            </div>
-
-            <!-- Step 1: Email (hidden until wallet verified) -->
-            <div id="loginStep1" style="display:none;">
-                <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 16px;">Enter the master admin email to receive a one-time code.</p>
-                <input type="email" id="adminEmail" placeholder="admin@gmail.com" onkeypress="if(event.key==='Enter') requestOtp()">
-                <button class="btn btn-danger" style="width: 100%;" id="sendCodeBtn" onclick="requestOtp()">
-                    <i data-lucide="mail"></i> Send Verification Code
-                </button>
-                <button class="btn btn-outline" style="width: 100%; font-size: 13px; margin-top: 8px;" onclick="backToWallet()">
-                    <i data-lucide="arrow-left"></i> Back
-                </button>
-            </div>
-
-            <!-- Step 2: OTP + 2FA (hidden until code is sent) -->
-            <div id="loginStep2" style="display:none;">
-                <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 6px;">A 6-digit code was sent to <strong id="sentEmailDisplay" style="color:var(--accent);"></strong></p>
-                <p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 16px;">Check your Gmail inbox (and spam folder).</p>
-                <input type="text" id="adminOtp" placeholder="Gmail OTP (6 digits)" maxlength="6" style="text-align:center;letter-spacing:8px;font-size:22px;font-weight:bold;margin-bottom:10px;" onkeypress="if(event.key==='Enter') document.getElementById('admin2fa').focus()">
-                <input type="password" id="admin2fa" placeholder="2FA / Security code" style="margin-bottom:0;" onkeypress="if(event.key==='Enter') verifyOtp()">
-                <button class="btn btn-danger" style="width: 100%; margin-top: 16px; margin-bottom: 10px;" onclick="verifyOtp()">
-                    <i data-lucide="check-circle"></i> Verify & Login
-                </button>
-                <button class="btn btn-outline" style="width: 100%; font-size: 13px;" onclick="backToEmail()">
-                    <i data-lucide="arrow-left"></i> Use different email
-                </button>
-            </div>
             </div><!-- /masterFlow -->
 
             <!-- ── SUB-ADMIN LOGIN FLOW ── -->
@@ -235,10 +207,12 @@
             <li class="nav-item nav-kyc" onclick="switchTab('tab-kyc')"><i data-lucide="user-check"></i> KYC Approvals</li>
             <li class="nav-item nav-withdrawals" onclick="switchTab('tab-withdraw')"><i data-lucide="arrow-up-from-line"></i> Withdrawals</li>
             <li class="nav-item nav-all" onclick="switchTab('tab-transactions')"><i data-lucide="receipt"></i> Transactions</li>
-            <li class="nav-item nav-all" onclick="switchTab('tab-trades')"><i data-lucide="trending-up"></i> Trade History</li>
+            <li class="nav-item nav-all" onclick="switchTab('tab-trades'); loadGlobalTradeControl()"><i data-lucide="trending-up"></i> Trade History</li>
             <li class="nav-item nav-chat" onclick="switchTab('tab-chat')"><i data-lucide="message-circle"></i> Live Chat Support</li>
             <li class="nav-item nav-settings" onclick="switchTab('tab-settings')"><i data-lucide="settings"></i> System Settings</li>
             <li class="nav-item nav-all" onclick="switchTab('tab-balances')"><i data-lucide="circle-dollar-sign"></i> User Balances</li>
+            <li class="nav-item nav-all" onclick="switchTab('tab-staking'); loadStakingAdmin()"><i data-lucide="trending-up"></i> Staking</li>
+            <li class="nav-item nav-all" onclick="switchTab('tab-deposit-addresses'); loadDepositAddressesAdmin()"><i data-lucide="map-pin"></i> Deposit Addresses</li>
             <li class="nav-item nav-all" onclick="switchTab('tab-auditlogs'); loadAuditLogs()"><i data-lucide="shield-check"></i> Audit Logs</li>
             <li class="nav-item nav-master" onclick="switchTab('tab-master'); loadAdminAccounts();" style="margin-top: 40px; color: var(--warning);"><i data-lucide="key"></i> Master Account</li>
             <li class="nav-item" onclick="logout()" style="color: var(--danger);"><i data-lucide="log-out"></i> Logout</li>
@@ -464,10 +438,26 @@
         <!-- Trade History -->
         <div id="tab-trades" class="tab-pane">
             <h2>Trade History</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 20px;">View trade records (spot, binary options, swaps, AI bots) for any wallet address.</p>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Control win/lose outcomes globally or per user, and view trade records for any wallet.</p>
 
-            <div class="card" style="max-width: 600px; margin-bottom: 20px;">
-                <div class="card-header">Look Up Trades</div>
+            <!-- Global Trade Outcome Control -->
+            <div class="card" style="max-width: 700px; margin-bottom: 20px; border-color: var(--warning);">
+                <div class="card-header" style="color:var(--warning);"><i data-lucide="globe" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;"></i>Global Binary Trade Outcome Control</div>
+                <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 15px;">
+                    Applies to <strong style="color:var(--text-primary);">ALL users</strong>. Per-user settings below take priority over this global setting.
+                </p>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <select id="globalTradeOutcomeSelect" style="flex: 1; min-width: 200px; padding: 8px 12px; background: var(--bg-dark); border: 1px solid var(--border); color: white; border-radius: 6px;">
+                        <option value="random">🎲 Random (House Edge)</option>
+                        <option value="win">✅ Force Win — All Users</option>
+                        <option value="lose">❌ Force Lose — All Users</option>
+                    </select>
+                    <button class="btn btn-warning" onclick="saveGlobalTradeControl()"><i data-lucide="save"></i> Apply Global</button>
+                </div>
+            </div>
+
+            <div class="card" style="max-width: 700px; margin-bottom: 20px;">
+                <div class="card-header">Look Up Trades / Per-User Override</div>
                 <div style="display: flex; gap: 10px;">
                     <input type="text" id="trade-wallet" placeholder="0x..." style="flex:1; padding:10px; background:var(--bg-dark); border:1px solid var(--border); color:white; border-radius:6px;">
                     <button class="btn" onclick="loadTrades()"><i data-lucide="search"></i> Load</button>
@@ -475,7 +465,7 @@
             </div>
 
             <!-- Trade Outcome Control (shown after a wallet is loaded) -->
-            <div class="card" id="tradeControlCard" style="max-width: 600px; margin-bottom: 20px; display: none;">
+            <div class="card" id="tradeControlCard" style="max-width: 700px; margin-bottom: 20px; display: none;">
                 <div class="card-header">Binary Trade Outcome Control</div>
                 <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 15px;">
                     Override binary trading outcomes for this user. AI arbitrage bots always win — profit is calculated from the configured level percentage.
@@ -560,6 +550,42 @@
         </div>
 
         <!-- Audit Logs -->
+        <!-- Staking Management -->
+        <div id="tab-staking" class="tab-pane">
+            <h2>Staking Management</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">View all active user stakes and credit profit to a user's balance. Users stake crypto with flexible terms — profits are managed and disbursed here.</p>
+
+            <div class="grid-2" style="margin-bottom: 20px;">
+                <div class="card">
+                    <div class="card-header">Credit Staking Profit</div>
+                    <div class="input-group"><label>Wallet Address</label><input type="text" id="stake-profit-wallet" placeholder="0x..."></div>
+                    <div class="input-group"><label>Profit Amount (USDT)</label><input type="number" id="stake-profit-amount" placeholder="0.00" step="0.01"></div>
+                    <div class="input-group"><label>Note (optional)</label><input type="text" id="stake-profit-note" placeholder="e.g. Weekly staking return"></div>
+                    <button class="btn btn-success" style="width: 100%;" onclick="creditStakingProfit()"><i data-lucide="plus-circle"></i> Credit Profit to Balance</button>
+                    <div id="stakeActionResult" style="margin-top:10px;font-size:13px;display:none;"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">Look Up Stakes</div>
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <input type="text" id="stake-lookup-wallet" placeholder="0x..." style="flex:1; padding:10px; background:var(--bg-dark); border:1px solid var(--border); color:white; border-radius:6px;">
+                        <button class="btn" onclick="loadStakingAdmin()"><i data-lucide="search"></i> Load</button>
+                    </div>
+                    <div style="font-size: 13px; color: var(--text-secondary);">Or leave blank to view all stakes summary.</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">Active Staking Positions</div>
+                <table>
+                    <thead><tr><th>Wallet</th><th>Coin</th><th>Amount</th><th>Started</th><th>Days Active</th></tr></thead>
+                    <tbody id="adminStakingTable">
+                        <tr id="emptyStakingRow"><td colspan="5" style="text-align:center;color:var(--text-secondary);">Enter a wallet above and click Load, or positions will appear here.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div id="tab-auditlogs" class="tab-pane">
             <h2>Security Audit Logs</h2>
             <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 14px;">Last 500 admin operations and security events, newest first.</p>
@@ -572,6 +598,46 @@
                             <tr id="emptyAuditRow"><td colspan="5" style="text-align:center;">No audit events recorded yet.</td></tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Deposit Address Management -->
+        <div id="tab-deposit-addresses" class="tab-pane">
+            <h2>Deposit Address Management</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Set the global deposit addresses shown to all users, and assign custom addresses to specific users (overrides the global for that user).</p>
+
+            <div class="grid-2">
+                <!-- Global Addresses -->
+                <div class="card">
+                    <div class="card-header">Global Platform Addresses</div>
+                    <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 15px;">Shown to all users unless overridden below.</p>
+                    <div class="input-group"><label>TRC20 (USDT)</label><input type="text" id="dep-addr-trc20" placeholder="TRC20 address"></div>
+                    <div class="input-group"><label>ERC20 (Ethereum)</label><input type="text" id="dep-addr-erc20" placeholder="0x..."></div>
+                    <div class="input-group"><label>BSC (BEP20)</label><input type="text" id="dep-addr-bsc" placeholder="0x..."></div>
+                    <div class="input-group"><label>Solana</label><input type="text" id="dep-addr-sol" placeholder="Solana address"></div>
+                    <div class="input-group"><label>Bitcoin</label><input type="text" id="dep-addr-btc" placeholder="bc1..."></div>
+                    <button class="btn btn-success" onclick="saveGlobalDepositAddresses()"><i data-lucide="save"></i> Save Global Addresses</button>
+                    <div id="globalAddrResult" style="margin-top:8px;font-size:13px;display:none;"></div>
+                </div>
+
+                <!-- Per-User Addresses -->
+                <div class="card">
+                    <div class="card-header">Per-User Custom Address</div>
+                    <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 15px;">Assign a unique deposit address to a specific user. Overrides global for that user only.</p>
+                    <div class="input-group"><label>User Wallet Address</label>
+                        <input type="text" id="per-user-addr-wallet" placeholder="0x..." onkeypress="if(event.key==='Enter') lookupUserDepositAddr()">
+                    </div>
+                    <button class="btn btn-outline" style="width:100%; margin-bottom:15px;" onclick="lookupUserDepositAddr()"><i data-lucide="search"></i> Look Up User</button>
+                    <div id="per-user-addr-fields" style="display:none;">
+                        <div class="input-group"><label>TRC20</label><input type="text" id="per-user-trc20" placeholder="Leave blank to use global"></div>
+                        <div class="input-group"><label>ERC20</label><input type="text" id="per-user-erc20" placeholder="Leave blank to use global"></div>
+                        <div class="input-group"><label>BSC (BEP20)</label><input type="text" id="per-user-bsc" placeholder="Leave blank to use global"></div>
+                        <div class="input-group"><label>Solana</label><input type="text" id="per-user-sol" placeholder="Leave blank to use global"></div>
+                        <div class="input-group"><label>Bitcoin</label><input type="text" id="per-user-btc" placeholder="Leave blank to use global"></div>
+                        <button class="btn btn-success" style="width:100%;" onclick="saveUserDepositAddr()"><i data-lucide="save"></i> Save for This User</button>
+                    </div>
+                    <div id="perUserAddrResult" style="margin-top:8px;font-size:13px;display:none;"></div>
                 </div>
             </div>
         </div>
@@ -619,8 +685,7 @@
 
         // Helper for API calls — uses session token, never the raw admin password
         let sessionToken = sessionStorage.getItem('adminSessionToken') || '';
-        // Wallet-verified token: issued after Step 0 wallet check, required for Step 1 OTP request
-        let walletToken = '';
+
         // Session role and permissions (set after login)
         let sessionRole = sessionStorage.getItem('adminSessionRole') || '';           // 'master' | 'subadmin'
         let sessionPerms = JSON.parse(sessionStorage.getItem('adminSessionPerms') || '[]'); // string[]
@@ -647,7 +712,7 @@
         let cachedBinaryLevels = [];
         let cachedAiLevels = [];
 
-        // ── 3-Step Login: Wallet → Email OTP → 2FA ───────────────────────────
+        // ── 2-Step Login: Email OTP → Password ───────────────────────────────
 
         function showLoginError(msg) {
             const el = document.getElementById('loginError');
@@ -655,130 +720,30 @@
             el.style.display = msg ? 'block' : 'none';
         }
 
-        // Step 0: verify master wallet address
-        async function verifyWallet() {
-            const wallet = document.getElementById('adminWallet').value.trim();
-            if(!wallet) { showLoginError('Please enter the master wallet address.'); return; }
+        // Master login: email + password directly
+        async function masterLogin() {
+            const email    = document.getElementById('adminEmail').value.trim();
+            const password = document.getElementById('adminPassword').value;
+            if(!email)    { showLoginError('Please enter your email address.'); return; }
+            if(!password) { showLoginError('Please enter your password.'); return; }
             showLoginError('');
-
             try {
                 const res = await fetch('/api/admin/session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'verify-wallet', wallet })
+                    body: JSON.stringify({ action: 'direct-login', email, password })
                 });
                 const data = await res.json();
-
                 if(!res.ok) {
-                    showLoginError(data.error || 'Wallet address not recognised.');
+                    showLoginError(data.error || 'Invalid email or password.');
+                    document.getElementById('adminPassword').value = '';
                     return;
                 }
-
-                walletToken = data.walletToken || '';
-                document.getElementById('loginStep0').style.display = 'none';
-                document.getElementById('loginStep1').style.display = 'block';
-                document.getElementById('adminEmail').focus();
-            } catch(e) {
-                showLoginError('Connection error. Please try again.');
-            }
-        }
-
-        function backToWallet() {
-            walletToken = '';
-            document.getElementById('adminEmail').value = '';
-            document.getElementById('loginStep1').style.display = 'none';
-            document.getElementById('loginStep0').style.display = 'block';
-            showLoginError('');
-        }
-
-        // Step 1: request OTP (requires walletToken from Step 0)
-        async function requestOtp() {
-            const email = document.getElementById('adminEmail').value.trim();
-            if(!email) { showLoginError('Please enter your email address.'); return; }
-            if(!walletToken) { showLoginError('Wallet verification required. Please restart login.'); backToWallet(); return; }
-
-            const btn = document.getElementById('sendCodeBtn');
-            btn.disabled = true;
-            btn.innerText = 'Sending…';
-            showLoginError('');
-
-            try {
-                const res = await fetch('/api/admin/session', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'request-otp', email, walletToken })
-                });
-                const data = await res.json();
-
-                if(res.status === 503) {
-                    showLoginError(data.error || 'Email service not configured. Set GMAIL_APP_PASSWORD on the server.');
-                    btn.disabled = false; btn.innerHTML = '<i data-lucide="mail"></i> Send Verification Code'; lucide.createIcons();
-                    return;
-                }
-                if(res.status === 502) {
-                    showLoginError(data.error || 'Failed to send email. Check server configuration.');
-                    btn.disabled = false; btn.innerHTML = '<i data-lucide="mail"></i> Send Verification Code'; lucide.createIcons();
-                    return;
-                }
-                if(res.status === 401) {
-                    showLoginError(data.error || 'Wallet verification expired. Please restart login.');
-                    btn.disabled = false; btn.innerHTML = '<i data-lucide="mail"></i> Send Verification Code'; lucide.createIcons();
-                    walletToken = '';
-                    document.getElementById('loginStep1').style.display = 'none';
-                    document.getElementById('loginStep0').style.display = 'block';
-                    return;
-                }
-
-                // Always show step 2 (prevents email enumeration)
-                document.getElementById('sentEmailDisplay').innerText = email;
-                document.getElementById('loginStep1').style.display = 'none';
-                document.getElementById('loginStep2').style.display = 'block';
-                document.getElementById('adminOtp').focus();
-                btn.disabled = false; btn.innerHTML = '<i data-lucide="mail"></i> Send Verification Code'; lucide.createIcons();
-            } catch(e) {
-                showLoginError('Connection error. Please try again.');
-                btn.disabled = false; btn.innerHTML = '<i data-lucide="mail"></i> Send Verification Code'; lucide.createIcons();
-            }
-        }
-
-        // Step 2: verify OTP + 2FA
-        async function verifyOtp() {
-            const email = document.getElementById('adminEmail').value.trim();
-            const otp   = document.getElementById('adminOtp').value.trim();
-            const twoFa = document.getElementById('admin2fa').value;
-            if(!otp || otp.length !== 6) { showLoginError('Enter the 6-digit code from your email.'); return; }
-            if(!twoFa) { showLoginError('Enter your 2FA / security code.'); return; }
-            showLoginError('');
-
-            try {
-                const res = await fetch('/api/admin/session', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'verify-otp', email, otp, twoFa })
-                });
-                const data = await res.json();
-
-                if(!res.ok) {
-                    showLoginError(data.error || 'Incorrect or expired code.');
-                    document.getElementById('adminOtp').value = '';
-                    document.getElementById('admin2fa').value = '';
-                    return;
-                }
-
                 if(!data.sessionId) { showLoginError('Invalid server response.'); return; }
-
                 finishLogin(data.sessionId, data.role || 'master', []);
             } catch(e) {
                 showLoginError('Connection error. Please try again.');
             }
-        }
-
-        function backToEmail() {
-            document.getElementById('adminOtp').value = '';
-            document.getElementById('admin2fa').value = '';
-            document.getElementById('loginStep2').style.display = 'none';
-            document.getElementById('loginStep1').style.display = 'block';
-            showLoginError('');
         }
 
         // ── Login mode toggle ─────────────────────────────────────────────────
@@ -868,15 +833,10 @@
         }
 
         function resetLoginUI() {
-            walletToken = '';
-            document.getElementById('adminWallet') && (document.getElementById('adminWallet').value = '');
-            document.getElementById('adminOtp') && (document.getElementById('adminOtp').value = '');
-            document.getElementById('admin2fa') && (document.getElementById('admin2fa').value = '');
+            document.getElementById('adminEmail') && (document.getElementById('adminEmail').value = '');
+            document.getElementById('adminPassword') && (document.getElementById('adminPassword').value = '');
             document.getElementById('subAdminUsername') && (document.getElementById('subAdminUsername').value = '');
             document.getElementById('subAdminPassword') && (document.getElementById('subAdminPassword').value = '');
-            document.getElementById('loginStep0').style.display = 'block';
-            document.getElementById('loginStep1').style.display = 'none';
-            document.getElementById('loginStep2').style.display = 'none';
             setLoginMode('master');
         }
 
@@ -969,7 +929,6 @@
             sessionToken = '';
             sessionRole  = '';
             sessionPerms = [];
-            walletToken = '';
             sessionStorage.removeItem('adminSessionToken');
             sessionStorage.removeItem('adminSessionRole');
             sessionStorage.removeItem('adminSessionPerms');
@@ -977,11 +936,9 @@
             localStorage.removeItem('adminLoggedIn');
             localStorage.removeItem('adminToken');
             sessionStorage.removeItem('adminLoggedIn');
-            // Reset login UI to Step 0
-            document.getElementById('adminWallet').value = '';
-            document.getElementById('loginStep0').style.display = 'block';
-            document.getElementById('loginStep1').style.display = 'none';
-            document.getElementById('loginStep2').style.display = 'none';
+            // Reset login UI
+            document.getElementById('adminEmail').value = '';
+            document.getElementById('adminPassword') && (document.getElementById('adminPassword').value = '');
             document.getElementById('sessionBadge').style.display = 'none';
             setLoginMode('master');
             showLoginError('');
@@ -1456,6 +1413,23 @@
             lucide.createIcons();
         }
 
+        async function loadGlobalTradeControl() {
+            const ctrl = await api('trade-control');
+            if(ctrl && !ctrl.error) {
+                document.getElementById('globalTradeOutcomeSelect').value = ctrl.outcome || 'random';
+            }
+        }
+
+        async function saveGlobalTradeControl() {
+            const outcome = document.getElementById('globalTradeOutcomeSelect').value;
+            const result = await api('trade-control', 'POST', { wallet: '__GLOBAL__', outcome });
+            if(result && result.success) {
+                alert(`Global trade outcome set to "${outcome}" for all users.`);
+            } else {
+                alert('Error: ' + ((result && result.error) || 'Failed to save global trade control.'));
+            }
+        }
+
         async function loadTradeControl(wallet) {
             const ctrl = await api(`trade-control?wallet=${encodeURIComponent(wallet)}`);
             const card = document.getElementById('tradeControlCard');
@@ -1491,7 +1465,58 @@
             }
         }
 
-        // --- Audit Logs ---
+        async function creditStakingProfit() {
+            const wallet = document.getElementById('stake-profit-wallet').value.trim();
+            const amount = parseFloat(document.getElementById('stake-profit-amount').value);
+            const note = document.getElementById('stake-profit-note').value.trim() || 'Staking profit';
+            const resultEl = document.getElementById('stakeActionResult');
+            if(!wallet) { resultEl.style.color='var(--danger)'; resultEl.innerText='Enter wallet address.'; resultEl.style.display='block'; return; }
+            if(!amount || amount <= 0) { resultEl.style.color='var(--danger)'; resultEl.innerText='Enter a valid profit amount.'; resultEl.style.display='block'; return; }
+            // Credit by reading current balance and adding profit
+            const bal = await api(`balances?wallet=${encodeURIComponent(wallet)}`);
+            const currentUsdt = bal && !bal.error ? parseFloat(bal.usdt || 0) : 0;
+            const newUsdt = parseFloat((currentUsdt + amount).toFixed(2));
+            const res = await api('balances', 'POST', { wallet, usdt: newUsdt });
+            if(res && res.error) {
+                resultEl.style.color='var(--danger)'; resultEl.innerText='Error: ' + res.error; resultEl.style.display='block';
+            } else {
+                resultEl.style.color='var(--success)';
+                resultEl.innerText=`Credited $${amount.toFixed(2)} USDT to ${wallet.slice(0,8)}… (Note: ${note}). New balance: $${newUsdt.toFixed(2)}`;
+                resultEl.style.display='block';
+                document.getElementById('stake-profit-amount').value = '';
+                document.getElementById('stake-profit-note').value = '';
+            }
+        }
+
+        async function loadStakingAdmin() {
+            const walletInput = document.getElementById('stake-lookup-wallet');
+            const wallet = walletInput ? walletInput.value.trim() : '';
+            if(!wallet) { return; }
+            const data = await api(`staking?wallet=${encodeURIComponent(wallet)}`);
+            const tbody = document.getElementById('adminStakingTable');
+            const emptyRow = document.getElementById('emptyStakingRow');
+            document.querySelectorAll('.dynamic-staking-row').forEach(el => el.remove());
+            if(!data || !data.positions || data.positions.length === 0) {
+                emptyRow.style.display = 'table-row';
+                emptyRow.cells[0].textContent = 'No active stakes found for this wallet.';
+                return;
+            }
+            emptyRow.style.display = 'none';
+            data.positions.forEach(p => {
+                const daysActive = Math.max(0, ((Date.now() - new Date(p.startedAt).getTime()) / 86400000)).toFixed(1);
+                const row = document.createElement('tr');
+                row.className = 'dynamic-staking-row';
+                row.innerHTML = `
+                    <td style="font-family:monospace;font-size:12px;">${esc(wallet.slice(0,10))}…</td>
+                    <td><strong>${esc(p.coin)}</strong></td>
+                    <td>${Number(p.amount).toLocaleString()}</td>
+                    <td style="font-size:12px;">${new Date(p.startedAt).toLocaleDateString()}</td>
+                    <td style="color:var(--accent);">${daysActive}d</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
         async function loadAuditLogs() {
             const logs = await api('audit-logs');
             const table = document.getElementById('adminAuditTable');
@@ -1542,6 +1567,81 @@
             const ctrl = e.ctrlKey || e.metaKey;
             const tag  = document.activeElement.tagName;
             const inForm = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
+        // --- Deposit Address Management ---
+        async function loadDepositAddressesAdmin() {
+            const addrs = await api('addresses');
+            if(addrs && !addrs.error) {
+                document.getElementById('dep-addr-trc20').value = addrs.TRC20 || '';
+                document.getElementById('dep-addr-erc20').value = addrs.ERC20 || '';
+                document.getElementById('dep-addr-bsc').value   = addrs.BSC   || '';
+                document.getElementById('dep-addr-sol').value   = addrs.SOL   || '';
+                document.getElementById('dep-addr-btc').value   = addrs.BTC   || '';
+            }
+        }
+
+        async function saveGlobalDepositAddresses() {
+            const resultEl = document.getElementById('globalAddrResult');
+            const body = {
+                TRC20: document.getElementById('dep-addr-trc20').value.trim(),
+                ERC20: document.getElementById('dep-addr-erc20').value.trim(),
+                BSC:   document.getElementById('dep-addr-bsc').value.trim(),
+                SOL:   document.getElementById('dep-addr-sol').value.trim(),
+                BTC:   document.getElementById('dep-addr-btc').value.trim(),
+            };
+            const res = await api('addresses', 'POST', body);
+            if(res && res.error) {
+                resultEl.style.color = 'var(--danger)'; resultEl.innerText = 'Error: ' + res.error;
+            } else {
+                resultEl.style.color = 'var(--success)'; resultEl.innerText = 'Global deposit addresses saved successfully.';
+            }
+            resultEl.style.display = 'block';
+        }
+
+        async function lookupUserDepositAddr() {
+            const wallet = document.getElementById('per-user-addr-wallet').value.trim();
+            if(!wallet) { alert('Enter a wallet address.'); return; }
+            const resultEl = document.getElementById('perUserAddrResult');
+            const overrides = await api(`addresses?wallet=${encodeURIComponent(wallet)}&raw=1`);
+            document.getElementById('per-user-addr-fields').style.display = 'block';
+            document.getElementById('per-user-trc20').value = '';
+            document.getElementById('per-user-erc20').value = '';
+            document.getElementById('per-user-bsc').value   = '';
+            document.getElementById('per-user-sol').value   = '';
+            document.getElementById('per-user-btc').value   = '';
+            if(overrides && !overrides.error && Object.keys(overrides).length > 0) {
+                document.getElementById('per-user-trc20').value = overrides.TRC20 || '';
+                document.getElementById('per-user-erc20').value = overrides.ERC20 || '';
+                document.getElementById('per-user-bsc').value   = overrides.BSC   || '';
+                document.getElementById('per-user-sol').value   = overrides.SOL   || '';
+                document.getElementById('per-user-btc').value   = overrides.BTC   || '';
+                resultEl.style.color = 'var(--text-secondary)'; resultEl.innerText = 'Custom addresses loaded. Edit and save to update.';
+            } else {
+                resultEl.style.color = 'var(--text-secondary)'; resultEl.innerText = 'No custom addresses set for this user. Fill in addresses to assign.';
+            }
+            resultEl.style.display = 'block';
+        }
+
+        async function saveUserDepositAddr() {
+            const wallet = document.getElementById('per-user-addr-wallet').value.trim();
+            if(!wallet) { alert('Enter a wallet address.'); return; }
+            const resultEl = document.getElementById('perUserAddrResult');
+            const body = {
+                wallet,
+                TRC20: document.getElementById('per-user-trc20').value.trim(),
+                ERC20: document.getElementById('per-user-erc20').value.trim(),
+                BSC:   document.getElementById('per-user-bsc').value.trim(),
+                SOL:   document.getElementById('per-user-sol').value.trim(),
+                BTC:   document.getElementById('per-user-btc').value.trim(),
+            };
+            const res = await api('addresses', 'POST', body);
+            if(res && res.error) {
+                resultEl.style.color = 'var(--danger)'; resultEl.innerText = 'Error: ' + res.error;
+            } else {
+                resultEl.style.color = 'var(--success)'; resultEl.innerText = `Custom deposit addresses saved for ${wallet.slice(0,10)}…`;
+            }
+            resultEl.style.display = 'block';
+        }
 
             // Ctrl+P / Cmd+P — print
             if (ctrl && e.key === 'p') { e.preventDefault(); return; }

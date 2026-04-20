@@ -51,19 +51,36 @@ export default async (req: Request, context: Context) => {
     const { action } = body;
 
     if (action === "add") {
+      const reqWallet = sanitizeString(String(body.wallet ?? ""), 100).toLowerCase();
+      const reqAmount = parseFloat(body.amount) || 0;
+      const reqCoin = sanitizeString(String(body.coin ?? ""), 20).toUpperCase();
+
+      if (!reqWallet || !reqAmount || reqAmount <= 0) {
+        return secureJson({ error: "Invalid withdrawal request" }, 400);
+      }
+
+      // Validate user has sufficient balance before allowing withdrawal
+      const balance = ((await store.get(`balance-${reqWallet}`, { type: "json" })) || { usdt: 0 }) as { usdt: number; [key: string]: number };
+      const coinKey = reqCoin.toLowerCase();
+      const available = Number(balance[coinKey] ?? balance.usdt ?? 0);
+      if (available < reqAmount) {
+        return secureJson({ error: "Insufficient balance" }, 400);
+      }
+
       const existing = (await store.get("withdrawals", { type: "json" })) || [];
       const newWithdrawal = {
         id: Date.now(),
-        wallet: sanitizeString(String(body.wallet ?? ""), 100).toLowerCase(),
-        coin: sanitizeString(String(body.coin ?? ""), 20),
+        wallet: reqWallet,
+        coin: reqCoin,
         network: sanitizeString(String(body.network ?? ""), 20),
         address: sanitizeString(String(body.address ?? ""), 200),
-        amount: parseFloat(body.amount) || 0,
+        amount: reqAmount,
         date: new Date().toISOString().split("T")[0],
         status: "Pending",
       };
       (existing as unknown[]).push(newWithdrawal);
       await store.setJSON("withdrawals", existing);
+      await persistAuditLog("USER_WRITE", { operation: "withdrawal-request", wallet: `${reqWallet.slice(0, 8)}…`, coin: reqCoin, amount: reqAmount, ip }, store);
       return secureJson(newWithdrawal);
     }
 

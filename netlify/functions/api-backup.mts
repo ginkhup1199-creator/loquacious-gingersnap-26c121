@@ -27,9 +27,15 @@ import {
 const BLOB_KEYS = [
   "features",
   "levels",
+  "binary-levels",
+  "ai-levels",
   "settings",
   "audit-log",
   "kyc-pending",
+  "withdrawals",
+  "deposit-addresses",
+  "all-users",
+  "chat-messages",
 ];
 
 // Per-wallet key patterns are discovered dynamically during export.
@@ -37,10 +43,12 @@ const BLOB_KEYS = [
 const DYNAMIC_KEY_PREFIXES = [
   "balance-",
   "kyc-",
-  "withdrawal-",
   "user-",
+  "userid-",
+  "staking-",
+  "trades-",
+  "transactions-",
   "trade-control-",
-  "deposit-address-",
 ];
 
 // Maximum keys scanned per prefix to bound export duration.
