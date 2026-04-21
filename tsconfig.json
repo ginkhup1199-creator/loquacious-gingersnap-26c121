@@ -7,8 +7,8 @@
     "skipLibCheck": true,
     "types": ["node"],
     "lib": ["ES2022"],
-    "outDir": ".build"
+    "noEmit": true
   },
   "include": ["netlify/**/*.mts", "src/**/*.ts"],
-  "exclude": ["node_modules", ".build"]
+  "exclude": ["node_modules"]
 }

@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+    <meta name="googlebot" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
     <title>NexusTrade - Web3 Wallet Trading DApp</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -927,9 +930,131 @@
 
         <!-- TAB: About Us -->
         <div id="tab-about" class="tab-pane">
-            <h2 style="margin-bottom: 15px; color: var(--accent);">About NexusTrade</h2>
-            <div class="card" style="margin-bottom: 15px;">
-                <p style="color: var(--text-secondary); line-height: 1.6;">NexusTrade is a next-generation Web3 trading platform offering Spot, Swap, Binary Options, and AI Arbitrage directly from your decentralized wallet.</p>
+            <h2 style="margin-bottom: 20px; color: var(--accent);">About NexusTrade</h2>
+
+            <!-- Trust Banner -->
+            <div class="card" style="background: linear-gradient(135deg, #0a1325 0%, #111d36 100%); border-color: var(--accent); margin-bottom: 20px; text-align: center; padding: 36px 24px;">
+                <div style="font-size: 48px; margin-bottom: 14px;">🔐</div>
+                <h2 style="color: var(--accent); font-size: 24px; margin-bottom: 10px;">Secure. Transparent. Non-Custodial.</h2>
+                <p style="color: var(--text-secondary); font-size: 15px; max-width: 600px; margin: 0 auto; line-height: 1.7;">NexusTrade is a fully non-custodial Web3 trading platform. We never hold your funds, never store your private keys, and never require personal identification to trade.</p>
+            </div>
+
+            <!-- Who We Are -->
+            <div class="grid-2" style="margin-bottom: 20px;">
+                <div class="card">
+                    <div class="card-header" style="color: var(--accent);">🌐 Who We Are</div>
+                    <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.8;">
+                        NexusTrade is an independent, owner-operated Web3 trading platform built to give individuals direct access to global crypto markets without intermediaries.<br><br>
+                        We are not a bank, not an exchange, and not a broker. We are a decentralized access layer connecting your wallet to live on-chain and off-chain market data, trading instruments, and earning strategies.
+                    </p>
+                </div>
+                <div class="card">
+                    <div class="card-header" style="color: var(--accent);">📍 Company Address</div>
+                    <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.8;">
+                        <strong style="color: var(--text-primary);">NexusTrade Ltd.</strong><br>
+                        20-22 Wenlock Road<br>
+                        London, England<br>
+                        N1 7GU, United Kingdom<br><br>
+                        <strong style="color: var(--text-primary);">Support:</strong><br>
+                        support@nexustrade.website<br><br>
+                        <strong style="color: var(--text-primary);">Platform:</strong><br>
+                        nexustrade.website
+                    </p>
+                </div>
+            </div>
+
+            <!-- Core Values -->
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="card-header" style="color: var(--accent);">⚙️ Our Core Principles</div>
+                <div class="grid-3" style="margin-top: 10px; gap: 16px;">
+                    <div style="background: var(--bg-dark); border: 1px solid var(--border); border-radius: 10px; padding: 18px;">
+                        <div style="font-size: 28px; margin-bottom: 8px;">🔒</div>
+                        <h4 style="color: var(--text-primary); margin-bottom: 6px;">Non-Custodial</h4>
+                        <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.6;">Your wallet, your keys, your funds. We never take custody of your assets at any point.</p>
+                    </div>
+                    <div style="background: var(--bg-dark); border: 1px solid var(--border); border-radius: 10px; padding: 18px;">
+                        <div style="font-size: 28px; margin-bottom: 8px;">⚡</div>
+                        <h4 style="color: var(--text-primary); margin-bottom: 6px;">Instant Access</h4>
+                        <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.6;">No registration, no email, no KYC required to start. Connect your wallet and trade in seconds.</p>
+                    </div>
+                    <div style="background: var(--bg-dark); border: 1px solid var(--border); border-radius: 10px; padding: 18px;">
+                        <div style="font-size: 28px; margin-bottom: 8px;">🌍</div>
+                        <h4 style="color: var(--text-primary); margin-bottom: 6px;">Global Access</h4>
+                        <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.6;">Available to anyone, anywhere. No geo-restrictions. Any wallet, any device, any network.</p>
+                    </div>
+                    <div style="background: var(--bg-dark); border: 1px solid var(--border); border-radius: 10px; padding: 18px;">
+                        <div style="font-size: 28px; margin-bottom: 8px;">📊</div>
+                        <h4 style="color: var(--text-primary); margin-bottom: 6px;">Live Market Data</h4>
+                        <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.6;">Real-time prices powered by Binance public feeds. Always accurate, always current.</p>
+                    </div>
+                    <div style="background: var(--bg-dark); border: 1px solid var(--border); border-radius: 10px; padding: 18px;">
+                        <div style="font-size: 28px; margin-bottom: 8px;">🛡️</div>
+                        <h4 style="color: var(--text-primary); margin-bottom: 6px;">Privacy First</h4>
+                        <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.6;">No tracking, no analytics, no third-party scripts. Your activity on this platform is yours alone.</p>
+                    </div>
+                    <div style="background: var(--bg-dark); border: 1px solid var(--border); border-radius: 10px; padding: 18px;">
+                        <div style="font-size: 28px; margin-bottom: 8px;">💡</div>
+                        <h4 style="color: var(--text-primary); margin-bottom: 6px;">Independent</h4>
+                        <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.6;">Owner-operated. No VC funding, no board of directors, no external influence over platform decisions.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Features -->
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="card-header" style="color: var(--accent);">🚀 Platform Features</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
+                        <span style="color: var(--success); font-size: 18px;">✓</span>
+                        <span style="color: var(--text-secondary); font-size: 14px;">Spot Trading — 50+ coin pairs</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
+                        <span style="color: var(--success); font-size: 18px;">✓</span>
+                        <span style="color: var(--text-secondary); font-size: 14px;">Web3 Swap — multi-network</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
+                        <span style="color: var(--success); font-size: 18px;">✓</span>
+                        <span style="color: var(--text-secondary); font-size: 14px;">Binary Options — 5 levels</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
+                        <span style="color: var(--success); font-size: 18px;">✓</span>
+                        <span style="color: var(--text-secondary); font-size: 14px;">AI Arbitrage Bots — 5 levels</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
+                        <span style="color: var(--success); font-size: 18px;">✓</span>
+                        <span style="color: var(--text-secondary); font-size: 14px;">Flexible Staking — admin-managed yields</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
+                        <span style="color: var(--success); font-size: 18px;">✓</span>
+                        <span style="color: var(--text-secondary); font-size: 14px;">Live K-Line Charts (TradingView)</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
+                        <span style="color: var(--success); font-size: 18px;">✓</span>
+                        <span style="color: var(--text-secondary); font-size: 14px;">Deposits — TRC20, ERC20, BSC, SOL, BTC</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
+                        <span style="color: var(--success); font-size: 18px;">✓</span>
+                        <span style="color: var(--text-secondary); font-size: 14px;">KYC Verification (optional)</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
+                        <span style="color: var(--success); font-size: 18px;">✓</span>
+                        <span style="color: var(--text-secondary); font-size: 14px;">24/7 Live Chat Support</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
+                        <span style="color: var(--success); font-size: 18px;">✓</span>
+                        <span style="color: var(--text-secondary); font-size: 14px;">Wallet Connect — any address, any chain</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legal Disclaimer -->
+            <div class="card" style="border-color: var(--warning);">
+                <div class="card-header" style="color: var(--warning);">⚠️ Risk Disclaimer</div>
+                <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.8;">
+                    Cryptocurrency trading involves significant risk. Binary options and AI arbitrage products are high-risk instruments and may not be suitable for all users. Past performance does not guarantee future results. You may lose some or all of your invested capital.<br><br>
+                    NexusTrade does not provide investment advice. Nothing on this platform constitutes financial, legal, or tax advice. Always conduct your own research before engaging in any trading activity.<br><br>
+                    By using this platform you confirm you are at least 18 years of age and that trading cryptocurrencies is legal in your jurisdiction.
+                </p>
             </div>
         </div>
 
