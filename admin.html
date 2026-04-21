@@ -683,6 +683,10 @@
     <script>
         lucide.createIcons();
 
+        // Centralised API base — change this one constant to point the admin panel at a
+        // different backend without touching individual call sites.
+        const API_BASE = '';
+
         // Helper for API calls — uses session token, never the raw admin password
         let sessionToken = sessionStorage.getItem('adminSessionToken') || '';
 
@@ -696,7 +700,7 @@
             const opts = { method: method || 'GET', headers };
             if(body) opts.body = JSON.stringify(body);
             try {
-                const res = await fetch('/api/' + endpoint, opts);
+                const res = await fetch(API_BASE + '/api/' + endpoint, opts);
                 if(res.status === 401) {
                     console.warn('Session rejected for', endpoint, '— please log in again.');
                     sessionToken = '';
@@ -728,7 +732,7 @@
             if(!password) { showLoginError('Please enter your password.'); return; }
             showLoginError('');
             try {
-                const res = await fetch('/api/admin/session', {
+                const res = await fetch(API_BASE + '/api/admin/session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'direct-login', email, password })
@@ -765,7 +769,7 @@
             if(!username || !password) { showLoginError('Enter username and password.'); return; }
             showLoginError('');
             try {
-                const res = await fetch('/api/admin-accounts', {
+                const res = await fetch(API_BASE + '/api/admin-accounts', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'login', username, password })
@@ -920,7 +924,7 @@
         function logout() {
             // Destroy the session server-side
             if(sessionToken) {
-                const endpoint = sessionRole === 'subadmin' ? '/api/admin-accounts' : '/api/admin/session';
+                const endpoint = sessionRole === 'subadmin' ? API_BASE + '/api/admin-accounts' : API_BASE + '/api/admin/session';
                 fetch(endpoint, {
                     method: 'DELETE',
                     headers: { 'X-Session-Token': sessionToken }

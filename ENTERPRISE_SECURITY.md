@@ -1,50 +1,52 @@
 # Enterprise Security Architecture
 
-## NexusTrade - Enterprise-Grade Security Implementation
+## NexusTrade — Security Implementation
 
-This document describes the enterprise security architecture implemented in NexusTrade.
+This document describes the security architecture implemented in NexusTrade.
 
 ---
 
-## 🔐 Session-Based One-Time Token System
+## 🔐 Session-Based Authentication System
 
 ### Overview
 
-Admin authentication uses a **multi-layer session system** where:
-1. The admin authenticates once per session with `ENTERPRISE_SECRET` to create a server-side session
-2. Every subsequent **write operation** requires a fresh **one-time token** that is immediately invalidated after use
-3. Sessions expire automatically after 30 minutes of inactivity
-4. Tokens expire after 5 minutes if not used
+Admin authentication uses a **2-step email OTP flow**:
+
+1. The admin requests a 6-digit OTP code sent to the configured `ADMIN_EMAIL`.
+2. The code is verified server-side. On success, a session token with a 1-hour TTL is returned.
+3. Every subsequent write operation carries the session token in the `X-Session-Token` header.
+4. Sessions are stored server-side in Netlify Blobs and expire automatically.
 
 ### Authentication Flow
 
 ```
-Admin enters password
+Admin navigates to /admin.html
        ↓
-POST /api/admin?action=login
-(with ENTERPRISE_SECRET credential)
+POST /api/admin/session { action:"request-otp", email }
        ↓
-Server creates session → returns sessionId
+Server sends 6-digit OTP to ADMIN_EMAIL (10-minute TTL)
        ↓
-For each write operation:
-  POST /api/admin?action=issue-token
-  (with sessionId)
+POST /api/admin/session { action:"verify-otp", email, otp }
+(+ ADMIN_TOKEN as 2FA code)
        ↓
-  Server issues one-time token (valid 5 min)
+Server returns { sessionId, expiresAt, role:"master" }
        ↓
-  Admin uses token in X-Admin-Token header
-       ↓
-  Token is IMMEDIATELY INVALIDATED after first use
-       ↓
-  Next write requires a NEW token request
+Admin uses X-Session-Token: <sessionId> for all write operations
 ```
 
-### Why One-Time Tokens?
+Alternatively, for direct password login (no OTP):
 
-- **Replay attack prevention**: Captured tokens cannot be reused
-- **Session isolation**: Each admin action is explicitly re-authorized
-- **Audit trail**: Every token issuance and use is logged
-- **Time-bound**: Tokens expire even if not used
+```
+POST /api/admin/session { action:"direct-login", email, password }
+(password is compared against ADMIN_TOKEN with timing-safe comparison)
+```
+
+### Why Session Tokens?
+
+- **Replay attack prevention**: Tokens are server-side and expire automatically
+- **No client-side secrets**: Session IDs are not the raw ADMIN_TOKEN
+- **Timing-safe comparison**: `crypto.timingSafeEqual()` on all token checks
+- **Audit trail**: Every login attempt and session creation is logged
 
 ---
 
@@ -154,16 +156,17 @@ All API endpoints validate inputs:
 
 | Variable | Purpose | Required |
 |----------|---------|----------|
-| `ADMIN_TOKEN` | Validates admin write requests (X-Admin-Token header) | ✅ Yes |
-| `ENTERPRISE_SECRET` | Creates admin sessions (defaults to ADMIN_TOKEN) | Optional |
+| `ADMIN_TOKEN` | Server-configuration flag + password for `direct-login` and 2FA step in OTP flow | ✅ Yes |
+| `ADMIN_EMAIL` | Email address that receives OTP login codes | ✅ Yes |
+| `GMAIL_USER` | Gmail account used to send OTP emails | ✅ Yes |
+| `GMAIL_APP_PASSWORD` | Gmail App Password (16 chars) | ✅ Yes |
 | `NODE_ENV` | Application environment | No |
 
 ### Setting Up in Netlify
 
-1. Go to **Site Settings → Build & Deploy → Environment Variables**
-2. Add `ADMIN_TOKEN` with a strong random value (minimum 32 characters)
-3. Optionally add `ENTERPRISE_SECRET` for additional separation
-4. Trigger a new deployment
+1. Go to **Site Settings → Environment Variables**
+2. Add all required variables with real values (see `.env.production.example` for guidance)
+3. Trigger a new deployment — environment variables take effect on the next deploy
 
 ---
 
@@ -175,17 +178,21 @@ All token comparisons use `crypto.timingSafeEqual()` to prevent timing-based att
 
 ## 📋 Security Checklist
 
-- ✅ Session-based admin authentication (no persistent tokens in localStorage)
-- ✅ One-time tokens for each write operation
+- ✅ 2-step email OTP admin authentication (no static passwords)
+- ✅ Session-based auth with 1-hour server-side TTL (no persistent tokens in localStorage)
+- ✅ Session tokens stored server-side in Netlify Blobs
 - ✅ LLM/prompt injection detection and blocking
 - ✅ Input sanitization on all user fields
 - ✅ Rate limiting per IP on all endpoints
-- ✅ Constant-time token comparison
+- ✅ Constant-time token comparison (`crypto.timingSafeEqual()`)
 - ✅ Audit logging for all security events
-- ✅ Admin token never stored in browser after login
-- ✅ Session expires automatically (30 min)
-- ✅ Tokens expire after 5 minutes
+- ✅ ADMIN_TOKEN never sent to browser
+- ✅ Sessions expire automatically after 1 hour
+- ✅ OTP codes expire after 10 minutes and are single-use
+- ✅ OTP locked out after 5 failed attempts
 - ✅ HTML injection prevention (tags stripped)
 - ✅ Numeric bounds validation
+- ✅ Enum validation for controlled fields
+- ✅ `.env` files excluded from Git
 - ✅ Enum validation for controlled fields
 - ✅ `.env` files excluded from Git

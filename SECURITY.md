@@ -31,10 +31,13 @@ All secrets are managed through environment variables and **must never be commit
 
 ## Admin Token Management
 
-- The `ADMIN_TOKEN` is required for all write operations on admin-protected endpoints.
-- All requests must include the token in the `X-Admin-Token` request header.
-- If the token is missing or incorrect, the API returns `401 Unauthorized`.
-- If the token is not configured on the server, the API returns `503 Service Unavailable`.
+- The `ADMIN_TOKEN` is used as a server-configuration flag (returns 503 if absent) and as the password/2FA code in the admin login flow.
+- It is compared server-side only — it is **never** sent back to the browser.
+- If `ADMIN_TOKEN` is missing or incorrect, the login API returns `401 Unauthorized`.
+- If `ADMIN_TOKEN` is not configured on the server, protected endpoints return `503 Service Unavailable`.
+
+All admin write operations use the `X-Session-Token` request header, which carries the session ID
+returned by a successful OTP or direct-login authentication call.
 
 ### Token Rotation
 

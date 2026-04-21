@@ -65,6 +65,9 @@ jobs:
             "netlify.toml"
             "package.json"
             "package-lock.json"
+            "tsconfig.json"
+            ".github/"
+            ".gitignore"
           )
 
           ACTOR="${{ github.actor }}"

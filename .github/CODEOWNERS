@@ -13,7 +13,16 @@
 /index.html         @ginkhup1199-creator
 /admin.html         @ginkhup1199-creator
 
-# Deployment & configuration
+# TypeScript configuration — changes here affect all type-checking
+/tsconfig.json      @ginkhup1199-creator
+
+# Deployment & build configuration
 /netlify.toml       @ginkhup1199-creator
 /package.json       @ginkhup1199-creator
 /package-lock.json  @ginkhup1199-creator
+
+# GitHub configuration — workflows, branch protection, CODEOWNERS itself
+/.github/           @ginkhup1199-creator
+
+# Repository root configuration files
+/.gitignore         @ginkhup1199-creator

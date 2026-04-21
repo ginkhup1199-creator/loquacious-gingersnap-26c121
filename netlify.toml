@@ -6,14 +6,18 @@
   node_bundler = "esbuild"
 
 # ── Admin subdomain routing ───────────────────────────────────────────────────
-# Serve admin.html at the root of admin.nexustrade.website
+# Update the Host conditions below to match your production domain(s).
+# The defaults below are placeholders — replace admin.example.com and
+# example.com with the custom domain(s) configured in Netlify.
+
+# Serve admin.html at the root of the admin subdomain
 [[redirects]]
   from = "/"
   to = "/admin.html"
   status = 200
   force = true
   [redirects.conditions]
-    Host = ["admin.nexustrade.website"]
+    Host = ["admin.example.com"]
 
 # Block main site pages on admin subdomain
 [[redirects]]
@@ -22,16 +26,16 @@
   status = 301
   force = true
   [redirects.conditions]
-    Host = ["admin.nexustrade.website"]
+    Host = ["admin.example.com"]
 
-# Block admin.html on main domain (force /admin path only via subdomain)
+# Block admin.html on main domain (force access via admin subdomain only)
 [[redirects]]
   from = "/admin.html"
-  to = "https://admin.nexustrade.website/"
+  to = "https://admin.example.com/"
   status = 301
   force = true
   [redirects.conditions]
-    Host = ["nexustrade.website", "www.nexustrade.website"]
+    Host = ["example.com", "www.example.com"]
 
 # ── Block direct access to source file directories ────────────────────────────
 [[redirects]]
@@ -65,6 +69,12 @@
   force = true
 
 # ── Security headers on all pages ─────────────────────────────────────────────
+# CSP notes:
+#   script-src  — 'unsafe-inline' required for the inline <script> blocks in
+#                 index.html / admin.html; https://unpkg.com serves lucide icons.
+#   img-src     — cdn.jsdelivr.net serves cryptocurrency icon SVGs.
+#   connect-src — 'self' covers all /api/* Netlify Function calls (same-origin).
+#                 wss://stream.binance.com:9443 is used for the live BTC price feed.
 [[headers]]
   for = "/*"
   [headers.values]
@@ -72,7 +82,7 @@
     X-Frame-Options = "DENY"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://nexustrade.website https://admin.nexustrade.website; frame-ancestors 'none';"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' wss://stream.binance.com:9443; frame-ancestors 'none';"
 
 # ── Prevent indexing of the admin page ────────────────────────────────────────
 [[headers]]

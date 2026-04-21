@@ -6,10 +6,12 @@ A fully-featured mobile wallet and trading platform built on Netlify, using Netl
 
 ## Live Demo
 
+> Update these URLs with your own Netlify site URL after deployment.
+
 | URL | Description |
 |-----|-------------|
-| https://loquacious-gingersnap-26c121.netlify.app/ | User-facing DApp |
-| https://loquacious-gingersnap-26c121.netlify.app/admin.html | Admin dashboard |
+| `https://your-site.netlify.app/` | User-facing DApp |
+| `https://your-site.netlify.app/admin.html` | Admin dashboard |
 
 ---
 
@@ -157,6 +159,17 @@ The admin panel uses 2-step email OTP authentication:
 - **Constant-time OTP response** — Both valid and invalid emails return 200 to prevent enumeration
 
 See [SECURITY.md](SECURITY.md) and [ENTERPRISE_SECURITY.md](ENTERPRISE_SECURITY.md) for full details.
+
+---
+
+## API Base URL
+
+Both `index.html` and `admin.html` share a single `API_BASE` constant (an empty string by default, which means same-origin `/api/*` calls). To point the frontend at a different backend — for example a production Netlify site URL during local development — change that one constant:
+
+```js
+// In index.html or admin.html (near the top of the <script> block)
+const API_BASE = 'https://your-site.netlify.app'; // or '' for same-origin
+```
 
 ---
 

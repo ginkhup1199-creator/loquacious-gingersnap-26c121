@@ -7,6 +7,17 @@ node_modules/
 .env.*.local
 .env.production
 .env.development
+.env.*.production
+
+# Runtime lock files not relevant to this project
+deno.lock
+
+# Platform-specific deployment config (use netlify.toml only)
+railway.json
+railway.toml
+
+# Agent planning artefacts
+*.prompt.md
 
 # Build artifacts
 dist/

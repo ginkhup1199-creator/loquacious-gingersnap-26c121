@@ -1,15 +1,14 @@
 # NexusTrade Admin Dashboard — Production Deployment Guide
 
-This document covers everything needed to deploy the NexusTrade admin backend
-to **Railway.app** and connect it to the frontend hosted on **globalbinance.com**
-(Netlify).
+This document covers everything needed to deploy NexusTrade to **Netlify** and
+operate the admin backend.
 
 ---
 
 ## Architecture Overview
 
 ```
-globalbinance.com (Netlify)
+your-site.netlify.app  (or your custom domain)
   ├─ index.html        → user-facing wallet app
   ├─ admin.html        → admin dashboard (protected by 2-step OTP)
   └─ /api/*            → Netlify Functions (serverless)
@@ -115,68 +114,12 @@ Or push to `main` branch — Netlify auto-deploys on every push.
 
 ---
 
-## Step 3 — Deploy to Railway.app (Admin-Dedicated Backend)
-
-Use Railway when you need a dedicated admin backend domain separate from the
-main Netlify site.
-
-### 3a. Prerequisites
-
-```bash
-# Install Railway CLI
-npm install -g @railway/cli
-
-# Authenticate
-railway login
-```
-
-### 3b. Create a New Railway Project
-
-```bash
-# Initialise from the repo root
-railway init
-
-# Link to an existing project (if already created in the dashboard)
-# railway link
-```
-
-### 3c. Set Environment Variables
-
-In the Railway dashboard → your project → **Variables** tab, add all variables
-from `.env.production.example`.  Also add the Netlify Blobs connection variables
-so the Railway process can reach the same data store as Netlify:
-
-```
-NETLIFY_SITE_ID   = <your Netlify site ID>
-NETLIFY_TOKEN     = <your Netlify personal access token>
-```
-
-Find these at:
-- **Site ID** → Netlify dashboard → Site settings → General
-- **Token** → Netlify dashboard → User settings → Applications → Personal access tokens
-
-### 3d. Deploy
-
-```bash
-railway up
-```
-
-Railway will detect `railway.toml` at the repo root and use the configuration
-defined there (Node.js via Nixpacks, `npm install`, health check on `/api/health`).
-
-The resulting URL will be something like:
-`https://nexustrade-admin-production.up.railway.app`
-
-Use this as the `ADMIN_BACKEND_URL` in your frontend configuration if needed.
-
----
-
-## Step 4 — Verify the Deployment
+## Step 3 — Verify the Deployment
 
 ### Health Check
 
 ```bash
-BASE=https://your-site.netlify.app   # or your Railway URL
+BASE=https://your-site.netlify.app
 
 curl $BASE/api/health
 # Expected: { "status": "ok", "timestamp": "...", "version": "1.0.0" }
@@ -217,7 +160,7 @@ curl -I $BASE/api/health
 
 ---
 
-## Step 5 — Admin Operations Reference
+## Step 4 — Admin Operations Reference
 
 All admin write operations require the `X-Session-Token` header with the
 session ID obtained from the OTP login flow.
@@ -326,7 +269,7 @@ curl $BASE/api/audit-logs \
 
 ---
 
-## Step 6 — Security Hardening
+## Step 5 — Security Hardening
 
 ### Rate Limiting
 
@@ -375,12 +318,6 @@ To rotate `ADMIN_TOKEN` or `GMAIL_APP_PASSWORD`:
 - Audit events appear as `[AUDIT] {...}` JSON lines
 - Watch for repeated `AUTH_FAILURE` events (brute-force indicator)
 
-### Railway Logs
-
-```bash
-railway logs
-```
-
 ### Regular Backups
 
 Schedule a periodic backup export using a cron service or Netlify Scheduled
@@ -397,17 +334,11 @@ curl -s $BASE/api/backup \
 
 ## Rollback
 
-### Netlify Rollback
-
 ```bash
 netlify rollback
 ```
 
 Or in Netlify dashboard: **Deploys → select a previous deploy → Publish deploy**
-
-### Railway Rollback
-
-In Railway dashboard: **Deployments → select a previous deployment → Redeploy**
 
 ---
 
@@ -417,7 +348,6 @@ In Railway dashboard: **Deployments → select a previous deployment → Redeplo
 PRE-DEPLOYMENT
 [ ] Gmail App Password ready
 [ ] ADMIN_TOKEN generated (32+ chars, openssl rand -hex 32)
-[ ] .env.production created from .env.production.example
 [ ] No secrets committed to Git
 
 NETLIFY DEPLOYMENT
@@ -425,12 +355,6 @@ NETLIFY DEPLOYMENT
 [ ] All environment variables set in Netlify dashboard
 [ ] netlify deploy --prod succeeded
 [ ] /api/health returns { "status": "ok" }
-
-RAILWAY DEPLOYMENT (optional separate admin domain)
-[ ] Railway project created and linked
-[ ] Environment variables set in Railway (include NETLIFY_SITE_ID + NETLIFY_TOKEN)
-[ ] railway up succeeded
-[ ] Health check passes on Railway URL
 
 ADMIN VERIFICATION
 [ ] OTP login flow works end-to-end
@@ -442,6 +366,7 @@ ADMIN VERIFICATION
 
 SECURITY
 [ ] Branch protection enabled on main
+[ ] CODEOWNERS review required for all protected paths
 [ ] Rate limiting confirmed (verify 429 after >30 rapid requests)
 [ ] Security headers present (curl -I /api/health)
 [ ] LLM injection blocked (curl /api/chat with injection payload → 400)
