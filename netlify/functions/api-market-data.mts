@@ -123,10 +123,6 @@ function generateOhlcv(symbol: string, basePrice: number, points = 24): Array<Re
 }
 
 export default async (req: Request, context: Context) => {
-  if (!process.env.ADMIN_TOKEN) {
-    return secureJson({ error: "Service not configured" }, 503);
-  }
-
   if (req.method !== "GET") {
     return new Response("Method not allowed", { status: 405 });
   }
