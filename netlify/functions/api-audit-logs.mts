@@ -35,6 +35,6 @@ export default async (req: Request, context: Context) => {
 };
 
 export const config: Config = {
-  path: "/api/audit-logs",
+  path: "/api/v2/audit-logs",
   method: ["GET"],
 };

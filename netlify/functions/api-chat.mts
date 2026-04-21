@@ -11,6 +11,7 @@ import {
   checkRateLimit,
   rateLimitExceededResponse,
 } from "../lib/security.js";
+import { parseJsonObject } from "../lib/validation.js";
 
 const MAX_CHAT_MESSAGES = 200;
 
@@ -32,7 +33,7 @@ export default async (req: Request, context: Context) => {
 
     let body: Record<string, unknown>;
     try {
-      body = await req.json();
+      body = await parseJsonObject(req);
     } catch {
       return secureJson({ error: "Invalid JSON" }, 400);
     }
@@ -68,6 +69,6 @@ export default async (req: Request, context: Context) => {
 };
 
 export const config: Config = {
-  path: "/api/chat",
+  path: "/api/v2/chat",
   method: ["GET", "POST"],
 };

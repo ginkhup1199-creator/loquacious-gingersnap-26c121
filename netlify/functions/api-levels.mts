@@ -99,6 +99,6 @@ export default async (req: Request, context: Context) => {
 };
 
 export const config: Config = {
-  path: "/api/levels",
+  path: "/api/v2/levels",
   method: ["GET", "POST"],
 };

@@ -34,6 +34,8 @@ jobs:
             ".github/workflows/integrity-check.yml"
             ".github/workflows/auto-deploy.yml"
             ".github/workflows/workflow-guard.yml"
+            ".github/workflows/type-check.yml"
+            ".github/workflows/security-audit.yml"
           )
 
           # Build a lookup string

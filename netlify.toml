@@ -84,8 +84,15 @@
 
 # ── API route headers (keep strong cache/CORS controls) ───────────────────────
 [[headers]]
-  for = "/api/*"
+  for = "/api/v2/*"
   [headers.values]
     X-Content-Type-Options = "nosniff"
     X-Frame-Options = "DENY"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# ── Backward-compatible redirect from v1-style paths to v2 ────────────────────
+[[redirects]]
+  from = "/api/*"
+  to = "/api/v2/:splat"
+  status = 308
+  force = false

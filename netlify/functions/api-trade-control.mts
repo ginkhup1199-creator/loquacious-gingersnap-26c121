@@ -78,6 +78,6 @@ export default async (req: Request, context: Context) => {
 };
 
 export const config: Config = {
-  path: "/api/trade-control",
+  path: "/api/v2/trade-control",
   method: ["GET", "POST"],
 };

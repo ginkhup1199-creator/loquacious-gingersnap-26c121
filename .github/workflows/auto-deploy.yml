@@ -20,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
 
       - name: Install dependencies
@@ -43,21 +43,21 @@ jobs:
         run: |
           echo "Waiting 15 seconds for CDN propagation..."
           sleep 15
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://nexustrade.website/api/health)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://nexustrade.website/api/v2/system/health)
           if [ "$STATUS" = "200" ]; then
-            echo "✅ Health check passed — /api/health returned HTTP 200"
+            echo "✅ Health check passed — /api/v2/system/health returned HTTP 200"
           else
-            echo "❌ Health check FAILED — /api/health returned HTTP $STATUS"
+            echo "❌ Health check FAILED — /api/v2/system/health returned HTTP $STATUS"
             exit 1
           fi
 
       - name: Verify all critical API endpoints respond
         run: |
           ENDPOINTS=(
-            "https://nexustrade.website/api/health"
-            "https://nexustrade.website/api/market-data?type=prices"
-            "https://nexustrade.website/api/features"
-            "https://nexustrade.website/api/levels"
+            "https://nexustrade.website/api/v2/system/version"
+            "https://nexustrade.website/api/v2/market-data?type=prices"
+            "https://nexustrade.website/api/v2/features"
+            "https://nexustrade.website/api/v2/levels"
           )
           ALL_OK=true
           for URL in "${ENDPOINTS[@]}"; do

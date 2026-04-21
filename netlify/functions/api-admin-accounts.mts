@@ -27,6 +27,7 @@ import {
   checkRateLimit,
   rateLimitExceededResponse,
 } from "../lib/security.js";
+import { parseJsonObject } from "../lib/validation.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -133,7 +134,7 @@ export default async (req: Request, context: Context) => {
   if (req.method === "POST") {
     let body: Record<string, unknown>;
     try {
-      body = await req.json();
+      body = await parseJsonObject(req);
     } catch {
       return secureJson({ error: "Invalid JSON" }, 400);
     }
@@ -250,7 +251,11 @@ export default async (req: Request, context: Context) => {
         return secureJson({ error: "Account not found." }, 404);
       }
 
-      accounts[idx].active = false;
+      const account = accounts[idx];
+      if (!account) {
+        return secureJson({ error: "Account not found." }, 404);
+      }
+      account.active = false;
       await store.setJSON(SUB_ADMIN_ACCOUNTS_KEY, accounts);
 
       await persistAuditLog("ADMIN_WRITE", { operation: "revoke-subadmin", username, ip }, store);
@@ -277,6 +282,6 @@ export default async (req: Request, context: Context) => {
 };
 
 export const config: Config = {
-  path: "/api/admin-accounts",
+  path: "/api/v2/admin-accounts",
   method: ["GET", "POST", "DELETE"],
 };

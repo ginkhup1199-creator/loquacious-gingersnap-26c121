@@ -349,6 +349,6 @@ export default async (req: Request, context: Context) => {
 };
 
 export const config: Config = {
-  path: "/api/admin/session",
+  path: "/api/v2/admin/session",
   method: ["POST", "DELETE"],
 };

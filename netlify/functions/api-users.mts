@@ -93,6 +93,6 @@ export default async (req: Request, context: Context) => {
 };
 
 export const config: Config = {
-  path: "/api/users",
+  path: "/api/v2/users",
   method: ["GET", "POST"],
 };

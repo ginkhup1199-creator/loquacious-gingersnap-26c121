@@ -200,6 +200,6 @@ export default async (req: Request, context: Context) => {
 };
 
 export const config: Config = {
-  path: "/api/market-data",
+  path: "/api/v2/market-data",
   method: ["GET"],
 };

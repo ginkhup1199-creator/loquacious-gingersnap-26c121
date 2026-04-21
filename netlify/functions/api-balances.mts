@@ -8,6 +8,7 @@ import {
   persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
+import { parseJsonObject } from "../lib/validation.js";
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
@@ -34,8 +35,14 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Unauthorized" }, 401);
     }
 
-    const body = await req.json();
-    const { wallet, usdt } = body;
+    let body: Record<string, unknown>;
+    try {
+      body = await parseJsonObject(req);
+    } catch {
+      return secureJson({ error: "Invalid JSON" }, 400);
+    }
+    const wallet = body.wallet;
+    const usdt = body.usdt;
     if (!wallet) {
       return secureJson({ error: "Wallet address required" }, 400);
     }
@@ -46,7 +53,7 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Invalid wallet address" }, 400);
     }
 
-    const parsedUsdt = parseFloat(usdt);
+    const parsedUsdt = parseFloat(String(usdt ?? ""));
     if (isNaN(parsedUsdt) || parsedUsdt < 0) {
       return secureJson({ error: "Invalid balance value" }, 400);
     }
@@ -62,6 +69,6 @@ export default async (req: Request, context: Context) => {
 };
 
 export const config: Config = {
-  path: "/api/balances",
+  path: "/api/v2/balances",
   method: ["GET", "POST"],
 };

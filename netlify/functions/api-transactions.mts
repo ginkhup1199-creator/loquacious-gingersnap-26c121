@@ -8,6 +8,7 @@ import {
   persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
+import { parseJsonObject } from "../lib/validation.js";
 
 const ALLOWED_TYPES = ["deposit", "withdrawal", "trade", "swap", "earn", "ai-bot"] as const;
 const ALLOWED_STATUSES = ["Pending", "Completed", "Failed", "Cancelled"] as const;
@@ -51,7 +52,7 @@ export default async (req: Request, context: Context) => {
 
     let body: Record<string, unknown>;
     try {
-      body = await req.json();
+      body = await parseJsonObject(req);
     } catch {
       return secureJson({ error: "Invalid JSON" }, 400);
     }
@@ -106,6 +107,6 @@ export default async (req: Request, context: Context) => {
 };
 
 export const config: Config = {
-  path: "/api/transactions",
+  path: "/api/v2/transactions",
   method: ["GET", "POST"],
 };

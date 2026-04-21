@@ -7,6 +7,7 @@ import {
   persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
+import { parseJsonObject } from "../lib/validation.js";
 
 const DEFAULTS = {
   fiat: true,
@@ -40,7 +41,7 @@ export default async (req: Request, context: Context) => {
 
     let body: Record<string, unknown>;
     try {
-      body = await req.json();
+      body = await parseJsonObject(req);
     } catch {
       return secureJson({ error: "Invalid JSON" }, 400);
     }
@@ -60,6 +61,6 @@ export default async (req: Request, context: Context) => {
 };
 
 export const config: Config = {
-  path: "/api/features",
+  path: "/api/v2/features",
   method: ["GET", "POST"],
 };

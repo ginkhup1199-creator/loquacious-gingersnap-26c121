@@ -21,6 +21,6 @@ export default async (_req: Request) => {
 };
 
 export const config: Config = {
-  path: "/api/health",
+  path: "/api/v2/health",
   method: ["GET"],
 };

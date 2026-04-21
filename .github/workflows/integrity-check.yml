@@ -19,14 +19,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
       - name: Run TypeScript type-check
-        run: npx tsc --noEmit --strict --target ES2022 --module NodeNext --moduleResolution NodeNext netlify/functions/*.mts netlify/lib/*.ts 2>&1 || true
+        run: npx tsc --noEmit
 
   workflow-allowlist:
     name: Workflow Directory Lockdown
@@ -44,6 +44,8 @@ jobs:
             ".github/workflows/integrity-check.yml"
             ".github/workflows/auto-deploy.yml"
             ".github/workflows/workflow-guard.yml"
+            ".github/workflows/type-check.yml"
+            ".github/workflows/security-audit.yml"
           )
           APPROVED_STR=$(printf "\n%s" "${APPROVED[@]}")
           FAIL=false

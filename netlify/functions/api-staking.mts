@@ -9,6 +9,7 @@ import {
   persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
+import { parseJsonObject } from "../lib/validation.js";
 
 type StakePosition = {
   id: string;
@@ -59,7 +60,7 @@ export default async (req: Request, context: Context) => {
   if (req.method === "POST") {
     let body: Record<string, unknown>;
     try {
-      body = await req.json();
+      body = await parseJsonObject(req);
     } catch {
       return secureJson({ error: "Invalid JSON body" }, 400);
     }
@@ -140,7 +141,7 @@ export default async (req: Request, context: Context) => {
         return secureJson({ error: "Unauthorized" }, 401);
       }
 
-      const nextStatus = action === "admin-complete" ? "completed" : "cancelled";
+      const nextStatus: StakePosition["status"] = action === "admin-complete" ? "completed" : "cancelled";
       const updated = positions.map((position) =>
         position.status === "active"
           ? { ...position, status: nextStatus, settledAt: new Date().toISOString() }
@@ -158,6 +159,6 @@ export default async (req: Request, context: Context) => {
 };
 
 export const config: Config = {
-  path: "/api/staking",
+  path: "/api/v2/staking",
   method: ["GET", "POST"],
 };

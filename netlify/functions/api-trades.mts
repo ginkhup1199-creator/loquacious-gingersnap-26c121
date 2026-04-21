@@ -201,6 +201,6 @@ export default async (req: Request, context: Context) => {
 };
 
 export const config: Config = {
-  path: "/api/trades",
+  path: "/api/v2/trades",
   method: ["GET", "POST"],
 };

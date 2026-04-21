@@ -10,6 +10,7 @@ import {
   persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
+import { parseJsonObject } from "../lib/validation.js";
 
 const ALLOWED_STATES = ["pending", "approved", "unverified"] as const;
 
@@ -57,7 +58,7 @@ export default async (req: Request, context: Context) => {
   if (req.method === "POST") {
     let body: Record<string, unknown>;
     try {
-      body = await req.json();
+      body = await parseJsonObject(req);
     } catch {
       return secureJson({ error: "Invalid JSON" }, 400);
     }
@@ -129,6 +130,6 @@ export default async (req: Request, context: Context) => {
 };
 
 export const config: Config = {
-  path: "/api/kyc",
+  path: "/api/v2/kyc",
   method: ["GET", "POST"],
 };

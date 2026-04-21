@@ -129,6 +129,6 @@ export default async (req: Request, context: Context) => {
 };
 
 export const config: Config = {
-  path: "/api/addresses",
+  path: "/api/v2/addresses",
   method: ["GET", "POST"],
 };
