@@ -14,6 +14,8 @@ const SYMBOL_PAIRS: Record<string, string> = {
   LDO: "LDOUSDT", OP: "OPUSDT", ARB: "ARBUSDT", MKR: "MKRUSDT", GRT: "GRTUSDT",
   STX: "STXUSDT", ALGO: "ALGOUSDT", AAVE: "AAVEUSDT", SNX: "SNXUSDT", THETA: "THETAUSDT",
   SAND: "SANDUSDT", AXS: "AXSUSDT", MANA: "MANAUSDT", FTM: "FTMUSDT", GALA: "GALAUSDT",
+  XMR: "XMRUSDT", IMX: "IMXUSDT", KAS: "KASUSDT", VET: "VETUSDT",
+  CRO: "CROUSDT", MNT: "MNTUSDT", QNT: "QNTUSDT", EGLD: "EGLDUSDT",
 };
 
 // Stablecoins — always return 1.0000
@@ -31,6 +33,7 @@ const DECIMALS: Record<string, number> = {
   INJ: 2, RNDR: 3, LDO: 3, OP: 3, ARB: 3,
   MKR: 2, GRT: 4, STX: 3, ALGO: 4, AAVE: 2,
   SNX: 3, THETA: 3, SAND: 4, AXS: 3, MANA: 4, FTM: 4, GALA: 5,
+  XMR: 2, IMX: 3, KAS: 4, VET: 5, CRO: 4, MNT: 3, QNT: 2, EGLD: 2,
 };
 
 // Fallback prices used only if Binance API is unreachable
@@ -43,6 +46,7 @@ const FALLBACK_PRICES: Record<string, number> = {
   INJ: 25.60, RNDR: 8.40, LDO: 2.10, OP: 2.50, ARB: 1.10,
   MKR: 2800, GRT: 0.28, STX: 2.10, ALGO: 0.18, AAVE: 90.20,
   SNX: 2.80, THETA: 2.10, SAND: 0.45, AXS: 7.20, MANA: 0.42, FTM: 0.80, GALA: 0.04,
+  XMR: 215.00, IMX: 1.40, KAS: 0.12, VET: 0.028, CRO: 0.09, MNT: 0.80, QNT: 105.00, EGLD: 30.00,
 };
 
 // Fetch live prices from Binance public API (no key required)

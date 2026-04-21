@@ -8,6 +8,8 @@ import {
   sanitizeString,
   auditLog,
   getClientIp,
+  checkRateLimit,
+  rateLimitExceededResponse,
 } from "../lib/security.js";
 
 const MAX_CHAT_MESSAGES = 200;
@@ -22,6 +24,12 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "POST") {
+    // Rate-limit: max 10 messages per minute per IP to prevent flooding
+    const rl = checkRateLimit(`chat-post:${ip}`);
+    if (!rl.allowed) {
+      return rateLimitExceededResponse(rl.retryAfterMs);
+    }
+
     let body: Record<string, unknown>;
     try {
       body = await req.json();

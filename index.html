@@ -243,6 +243,7 @@
         
         .overlay-disabled::after { content: "Temporarily Disabled by Admin"; color: var(--danger); }
         .disabled-feature .overlay-disabled::after { display: flex; }
+        .overlay-disabled.disabled-feature::after { display: flex; }
 
         /* Live Ticker List */
         .ticker-list {
@@ -902,10 +903,6 @@
                                 <option value="National ID Card">National ID Card</option>
                             </select>
                         </div>
-                        <div class="input-group">
-                            <label>Upload Document</label>
-                            <input type="file" accept="image/*" style="padding: 8px;">
-                        </div>
                         <button class="btn btn-success" style="width: 100%;" onclick="submitKYC()"><i data-lucide="upload-cloud"></i> Submit Verification</button>
                     </div>
                     <div class="card">
@@ -1246,6 +1243,7 @@
         let isConnected = localStorage.getItem('walletConnected') === 'true';
         let currentKycState = 'unverified';
         let cachedWithdrawals = [];
+        let cachedTransactions = [];
         let cachedMessages = [];
         let currentUserId = localStorage.getItem('userId') || null;
         let selectedBinaryLevel = null;
@@ -1269,6 +1267,7 @@
             if(body) opts.body = JSON.stringify(body);
             try {
                 const res = await fetch('/api/' + endpoint, opts);
+                if (!res.ok) return null;
                 return await res.json();
             } catch(e) { console.error('API error:', e); return null; }
         }
@@ -1499,6 +1498,25 @@
             const userTable = document.getElementById('user-history-table');
             document.querySelectorAll('.dynamic-withdraw-row').forEach(el => el.remove());
 
+            // Render admin-recorded transactions (deposits, credits, etc.)
+            cachedTransactions.forEach(tx => {
+                const isDeposit = tx.type === 'deposit';
+                const statusColor = tx.status === 'Completed' ? 'var(--success)' : tx.status === 'Failed' ? 'var(--danger)' : 'var(--warning)';
+                const amtColor = isDeposit ? 'var(--success)' : 'var(--warning)';
+                const amtSign = isDeposit ? '+' : '-';
+                const userRow = document.createElement('tr');
+                userRow.className = 'dynamic-withdraw-row';
+                userRow.innerHTML = `
+                    <td><span style="color:${amtColor};text-transform:capitalize;">${tx.type || 'tx'}</span></td>
+                    <td>${tx.coin || 'USDT'}</td><td>${tx.network || '-'}</td>
+                    <td style="color:${amtColor};">${amtSign}${Number(tx.amount).toLocaleString()}</td>
+                    <td>${tx.date || '-'}</td>
+                    <td><span style="color:${statusColor};font-weight:bold;font-size:12px;">${tx.status || '-'}</span></td>
+                `;
+                userTable.insertBefore(userRow, userTable.firstChild);
+            });
+
+            // Render user-submitted withdrawals
             cachedWithdrawals.forEach(w => {
                 const statusColor = w.status === 'Completed' ? 'var(--success)' : w.status === 'Rejected' ? 'var(--danger)' : 'var(--warning)';
                 const userRow = document.createElement('tr');
@@ -1586,13 +1604,19 @@
             pollBackend();
         }
 
+        function decodeHTML(str) {
+            const ta = document.createElement('textarea');
+            ta.innerHTML = str;
+            return ta.value;
+        }
+
         function renderChat() {
             const body = document.getElementById('chatBody');
             body.innerHTML = '<div class="chat-message admin">Hello! How can we help you today?</div>';
             cachedMessages.forEach(msg => {
                 const div = document.createElement('div');
                 div.className = `chat-message ${msg.sender}`;
-                div.innerText = msg.text;
+                div.innerText = decodeHTML(msg.text);
                 body.appendChild(div);
             });
             scrollToBottom();
@@ -1860,7 +1884,7 @@
             if(type === 'market') {
                 limitBtn.style.background = 'transparent'; limitBtn.style.borderColor = 'var(--border)'; limitBtn.style.color = 'var(--text-secondary)';
                 marketBtn.style.background = 'var(--accent-glow)'; marketBtn.style.borderColor = 'var(--accent)'; marketBtn.style.color = 'var(--accent)';
-                priceInput.value = liveBtcPrice.toFixed(2); priceInput.readOnly = true;
+                priceInput.value = (SWAP_RATES[currentSpotPair] || liveBtcPrice).toFixed(2); priceInput.readOnly = true;
             } else {
                 limitBtn.style.background = 'var(--accent-glow)'; limitBtn.style.borderColor = 'var(--accent)'; limitBtn.style.color = 'var(--accent)';
                 marketBtn.style.background = 'transparent'; marketBtn.style.borderColor = 'var(--border)'; marketBtn.style.color = 'var(--text-secondary)';
@@ -1900,8 +1924,9 @@
             if(orderHeader) orderHeader.innerText = `Place Order (${symbol}/USDT)`;
             const buyBtn = document.getElementById('spotBuyBtn');
             const sellBtn = document.getElementById('spotSellBtn');
-            if(buyBtn) buyBtn.innerText = 'Buy ' + symbol;
-            if(sellBtn) sellBtn.innerText = 'Sell ' + symbol;
+            if(buyBtn) { buyBtn.innerHTML = `<i data-lucide="trending-up" style="width:14px;display:inline-block;vertical-align:middle;"></i> Buy ${symbol}`; }
+            if(sellBtn) { sellBtn.innerHTML = `<i data-lucide="trending-down" style="width:14px;display:inline-block;vertical-align:middle;"></i> Sell ${symbol}`; }
+            lucide.createIcons();
             // Update market order price if in market mode
             const priceVal = SWAP_RATES[symbol] || liveBtcPrice;
             const priceInput = document.getElementById('tradePrice');
@@ -1967,16 +1992,17 @@
             try {
                 const requests = [
                     (isConnected && walletAddr ? api('kyc?wallet=' + encodeURIComponent(walletAddr)) : api('kyc')),
-                    api('wallet'),
+                    (isConnected && walletAddr ? api('addresses?wallet=' + encodeURIComponent(walletAddr)) : api('addresses')),
                     (isConnected && walletAddr ? api('withdrawals?wallet=' + encodeURIComponent(walletAddr)) : Promise.resolve([])),
                     api('features'), api('settings'), api('levels'), api('chat')
                 ];
-                // Also fetch balance if wallet is connected
+                // Also fetch balance + transactions if wallet is connected
                 if(isConnected && walletAddr) {
                     requests.push(api('balances?wallet=' + encodeURIComponent(walletAddr)));
+                    requests.push(api('transactions?wallet=' + encodeURIComponent(walletAddr)));
                 }
                 const results = await Promise.all(requests);
-                const [kycData, addresses, withdrawals, features, settings, levels, messages, balanceData] = results;
+                const [kycData, addresses, withdrawals, features, settings, levels, messages, balanceData, transactionsData] = results;
 
                 // 1. KYC State
                 if(kycData) {
@@ -2000,11 +2026,10 @@
                     updateDepositUI();
                 }
 
-                // 3. Withdrawals
-                if(withdrawals) {
-                    cachedWithdrawals = withdrawals;
-                    renderWithdrawals();
-                }
+                // 3. Withdrawals + Transactions
+                if(withdrawals) cachedWithdrawals = withdrawals;
+                if(transactionsData && Array.isArray(transactionsData)) cachedTransactions = transactionsData;
+                if(withdrawals || (transactionsData && Array.isArray(transactionsData))) renderWithdrawals();
 
                 // 4. Feature Toggles
                 if(features) {
@@ -2012,8 +2037,8 @@
                         const panel = document.getElementById(panelId);
                         const nav = document.getElementById(navId);
                         if(panel) {
-                            if(isEnabled) panel.parentElement.classList.remove('disabled-feature');
-                            else panel.parentElement.classList.add('disabled-feature');
+                            if(isEnabled) panel.classList.remove('disabled-feature');
+                            else panel.classList.add('disabled-feature');
                         }
                         if(nav) {
                             nav.style.display = isEnabled ? 'block' : 'none';
@@ -2028,11 +2053,8 @@
                     toggleFeature('earnPanel', null, features.earn);
                 }
 
-                // 5. Settings (rates from admin)
-                if(settings) {
-                    const stakeApy = document.getElementById('stake-apy-btc');
-                    if(stakeApy) stakeApy.innerText = settings.btcStakingApy + '% APY';
-                }
+                // 5. Settings stored for future use
+                // (no active DOM targets for settings in current UI)
 
                 // 6. Levels (Binary Options + AI Arbitrage)
                 if(levels) {

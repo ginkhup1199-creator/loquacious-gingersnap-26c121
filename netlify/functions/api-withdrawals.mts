@@ -61,8 +61,8 @@ export default async (req: Request, context: Context) => {
 
       // Validate user has sufficient balance before allowing withdrawal
       const balance = ((await store.get(`balance-${reqWallet}`, { type: "json" })) || { usdt: 0 }) as { usdt: number; [key: string]: number };
-      const coinKey = reqCoin.toLowerCase();
-      const available = Number(balance[coinKey] ?? balance.usdt ?? 0);
+      // All platform balances are tracked in USDT-equivalent
+      const available = Number(balance.usdt ?? 0);
       if (available < reqAmount) {
         return secureJson({ error: "Insufficient balance" }, 400);
       }

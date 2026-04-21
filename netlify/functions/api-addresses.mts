@@ -103,6 +103,7 @@ export default async (req: Request, context: Context) => {
     }
 
     // Global address update
+    const sanitized: Record<string, string> = {};
     for (const network of VALID_NETWORKS) {
       const addr = body[network] as string | undefined;
       if (addr !== undefined && addr !== "") {
