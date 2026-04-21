@@ -1,0 +1,83 @@
+name: Workflow File Guard
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - ".github/workflows/**"
+
+jobs:
+  guard:
+    name: Remove unauthorized workflow files
+    runs-on: ubuntu-latest
+    # Only trigger when someone OTHER than the owner touches workflow files
+    if: github.actor != 'ginkhup1199-creator'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Detect and delete unauthorized workflow changes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+          ACTOR: ${{ github.actor }}
+          SHA: ${{ github.sha }}
+        run: |
+          echo "⚠️  Non-owner '$ACTOR' pushed changes to .github/workflows/"
+          echo "Scanning for unauthorized workflow additions or modifications..."
+
+          # Get list of workflow files changed in this push
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- .github/workflows/ 2>/dev/null || git show --name-only --format="" HEAD -- .github/workflows/)
+
+          echo "Changed workflow files:"
+          echo "$CHANGED"
+
+          if [ -z "$CHANGED" ]; then
+            echo "No workflow files detected in diff — nothing to revert."
+            exit 0
+          fi
+
+          # Configure git identity for the revert commit
+          git config user.email "guard-bot@nexustrade.website"
+          git config user.name "NexusTrade Guard Bot"
+
+          REVERTED=""
+          for FILE in $CHANGED; do
+            # Skip the guard workflow itself (this file)
+            if echo "$FILE" | grep -q "workflow-guard.yml"; then
+              continue
+            fi
+            # Skip other pre-approved owner workflows
+            if echo "$FILE" | grep -qE "^\.github/workflows/(pr-guard|integrity-check|auto-deploy)\.yml$"; then
+              continue
+            fi
+
+            echo "🗑️  Reverting unauthorized file: $FILE"
+
+            # Check if file exists in the previous commit (i.e. was it newly added)
+            if git show HEAD~1:"$FILE" > /dev/null 2>&1; then
+              # File existed before — restore the previous version
+              git checkout HEAD~1 -- "$FILE"
+              echo "Restored previous version of $FILE"
+            else
+              # File is brand new — delete it entirely
+              git rm --force "$FILE"
+              echo "Deleted newly added file $FILE"
+            fi
+            REVERTED="$REVERTED $FILE"
+          done
+
+          if [ -n "$REVERTED" ]; then
+            git commit -m "security: revert unauthorized workflow change by $ACTOR [automated]"
+            git push origin HEAD
+            echo "✅ Unauthorized workflow changes reverted and pushed."
+          else
+            echo "No changes required — all modifications were to approved workflows."
+          fi
