@@ -1424,6 +1424,39 @@
             showToast('Wallet connected!');
         }
 
+        // Silently restore a previous wallet session on page load (no toast)
+        async function autoRestoreWallet() {
+            if (!isConnected || !walletAddr) {
+                // Try silent MetaMask reconnect (no permission prompt)
+                if (typeof window.ethereum !== 'undefined') {
+                    try {
+                        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                        if (accounts && accounts.length > 0) {
+                            await finishWalletConnect(accounts[0]);
+                            // finishWalletConnect shows a toast — suppress it by reverting
+                            // (wallet was already connected, not a new connection)
+                        }
+                    } catch(_) { /* no permission, stay disconnected */ }
+                }
+                return;
+            }
+            // Verify the user record still exists on the server; create it if missing
+            const user = await api('users', 'POST', { wallet: walletAddr });
+            if (user && user.userId) {
+                currentUserId = user.userId;
+                localStorage.setItem('userId', currentUserId);
+                // Refresh the userId badge if it wasn't visible yet
+                const badge = document.getElementById('userIdBadge');
+                const display = document.getElementById('userIdDisplay');
+                if (badge && display) {
+                    badge.style.display = 'block';
+                    display.innerText = currentUserId;
+                }
+            } else if (!user) {
+                // Server unreachable / returned error — keep local state, will retry on next poll
+            }
+        }
+
         // Listen for MetaMask account changes
         if(typeof window.ethereum !== 'undefined') {
             window.ethereum.on('accountsChanged', (accounts) => {
@@ -2091,10 +2124,12 @@
         setInterval(pollBackend, 5000);
 
         // Run on load
-        window.onload = () => {
+        window.onload = async () => {
             renderTickers();
             renderStakingVaults();
             updateUIState();
+            // Silently restore previous session before the first data poll
+            await autoRestoreWallet();
             pollBackend();
             loadStakePositions();
             connectPriceFeed();
