@@ -80,8 +80,8 @@ export default async (req: Request, context: Context) => {
       const rawWallet = String(body.wallet).toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 100);
       if (!rawWallet) return secureJson({ error: "Invalid wallet address" }, 400);
 
-      // Global address update
-    const sanitized: Record<string, string> = {};
+      // Per-user address update
+      const sanitized: Record<string, string> = {};
       for (const network of VALID_NETWORKS) {
         const addr = body[network] as string | undefined;
         if (addr !== undefined && addr !== "") {

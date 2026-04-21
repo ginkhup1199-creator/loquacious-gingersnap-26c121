@@ -67,6 +67,10 @@ export default async (req: Request, context: Context) => {
         return secureJson({ error: "Insufficient balance" }, 400);
       }
 
+      // Deduct balance immediately to prevent double-spend
+      balance.usdt = Number((available - reqAmount).toFixed(2));
+      await store.setJSON(`balance-${reqWallet}`, balance);
+
       const existing = (await store.get("withdrawals", { type: "json" })) || [];
       const newWithdrawal = {
         id: Date.now(),

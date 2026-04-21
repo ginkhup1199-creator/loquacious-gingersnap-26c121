@@ -80,9 +80,10 @@ export default async (req: Request, context: Context) => {
       const win = outcomeMode === "win" ? true : outcomeMode === "lose" ? false : randomInt(0, 100) < 48;
       const capital = Math.max(0, parseFloat(String(trade.capital)) || 0);
       const profitPct = Math.min(99, Math.max(0, parseFloat(String(trade.profitPercent)) || 85));
+      // Capital was already deducted at trade creation; on win add capital+profit, on loss nothing more to deduct
       const profit = win
-        ? parseFloat((capital * profitPct / 100).toFixed(2))
-        : -capital;
+        ? parseFloat((capital + capital * profitPct / 100).toFixed(2))
+        : 0;
 
       const balance = ((await store.get(`balance-${safeWallet}`, { type: "json" })) || { usdt: 0 }) as { usdt: number };
       balance.usdt = Math.max(0, balance.usdt + profit);
@@ -148,6 +149,20 @@ export default async (req: Request, context: Context) => {
 
     // ── Record a new trade ────────────────────────────────────────────────────
     const trades = ((await store.get(`trades-${safeWallet}`, { type: "json" })) as any[]) || [];
+
+    // For binary trades: validate and deduct capital before recording
+    if (type === "binary") {
+      const capital = Math.max(0, parseFloat(String(body.capital)) || 0);
+      if (capital <= 0) {
+        return secureJson({ error: "Invalid capital amount" }, 400);
+      }
+      const balance = ((await store.get(`balance-${safeWallet}`, { type: "json" })) || { usdt: 0 }) as { usdt: number };
+      if (balance.usdt < capital) {
+        return secureJson({ error: "Insufficient balance" }, 400);
+      }
+      balance.usdt = Number((balance.usdt - capital).toFixed(2));
+      await store.setJSON(`balance-${safeWallet}`, balance);
+    }
     const newTrade: Record<string, any> = {
       id: Date.now(),
       type: sanitizeString(String(type ?? ""), 32),

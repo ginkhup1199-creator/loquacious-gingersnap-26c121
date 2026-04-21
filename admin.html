@@ -1127,9 +1127,13 @@
         // --- Real-time Polling via API ---
         async function pollFrontendData() {
             try {
+                const isMaster = sessionRole === 'master';
+                const canKyc = isMaster || sessionPerms.includes('kyc');
+                const canWithdrawals = isMaster || sessionPerms.includes('withdrawals');
+
                 const [kycList, withdrawals, addresses, messages] = await Promise.all([
-                    api('kyc?list=true'),
-                    api('withdrawals'),
+                    canKyc ? api('kyc?list=true') : Promise.resolve(null),
+                    canWithdrawals ? api('withdrawals') : Promise.resolve(null),
                     api('wallet'),
                     api('chat')
                 ]);

@@ -1510,7 +1510,7 @@
                     <td><span style="color:${amtColor};text-transform:capitalize;">${tx.type || 'tx'}</span></td>
                     <td>${tx.coin || 'USDT'}</td><td>${tx.network || '-'}</td>
                     <td style="color:${amtColor};">${amtSign}${Number(tx.amount).toLocaleString()}</td>
-                    <td>${tx.date || '-'}</td>
+                    <td>${tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : '-'}</td>
                     <td><span style="color:${statusColor};font-weight:bold;font-size:12px;">${tx.status || '-'}</span></td>
                 `;
                 userTable.insertBefore(userRow, userTable.firstChild);
@@ -1723,8 +1723,8 @@
                 }
                 const profit = Math.abs(outcome.profit || 0).toFixed(2);
                 const outcomeMsg = outcome.won
-                    ? `✅ WIN! +$${profit} credited`
-                    : `❌ LOSS! -$${profit} deducted`;
+                    ? `✅ WIN! +$${profit} returned`
+                    : `❌ LOSS! Capital lost`;
                 showToast(`Trade #${result.id}: ${outcomeMsg}`, outcome.won ? null : 'error');
                 pollBackend();
             }, lvl.tradingTime * 1000);
