@@ -194,5 +194,3 @@ All token comparisons use `crypto.timingSafeEqual()` to prevent timing-based att
 - ✅ Numeric bounds validation
 - ✅ Enum validation for controlled fields
 - ✅ `.env` files excluded from Git
-- ✅ Enum validation for controlled fields
-- ✅ `.env` files excluded from Git
