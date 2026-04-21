@@ -3,7 +3,14 @@ import type { Config, Context } from "@netlify/functions";
 import { createHash, randomBytes, randomInt, timingSafeEqual } from "crypto";
 // Note: randomBytes retained for generateSessionId
 import nodemailer from "nodemailer";
-import { checkRateLimit, rateLimitExceededResponse } from "../lib/security.js";
+import {
+  checkRateLimit,
+  rateLimitExceededResponse,
+  validateAdminSession,
+  revokeSession,
+  revokeAllSessions,
+  persistAuditLog,
+} from "../lib/security.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -334,14 +341,30 @@ export default async (req: Request, context: Context) => {
       );
     }
 
+    if (action === "revoke-all") {
+      const sessionResult = await validateAdminSession(req, store);
+      if (!sessionResult.valid) {
+        await persistAuditLog("AUTH_FAILURE", { operation: "revoke-all-sessions", reason: sessionResult.reason, ip }, store);
+        return Response.json({ error: "Unauthorized" }, { status: 401, headers });
+      }
+
+      const revokedBefore = await revokeAllSessions(store);
+      await destroySession(store);
+      await persistAuditLog("ADMIN_WRITE", { operation: "revoke-all-sessions", revokedBefore, revoked: true, ip }, store);
+      return Response.json({ success: true, revokedBefore }, { status: 200, headers });
+    }
+
     return Response.json({ error: "Unknown action" }, { status: 400, headers });
   }
 
   // ── DELETE /api/admin/session → destroy session (logout) ────────────────
   if (req.method === "DELETE") {
     const sessionId = req.headers.get("X-Session-Token");
+    if (sessionId) {
+      await revokeSession(sessionId, store);
+    }
     await destroySession(store);
-    console.log(`[AUDIT] {"event":"SESSION_DESTROYED","sessionId":"${sessionId ? sessionId.slice(0, 8) + "…" : "(none)"}","ip":"${ip}"}`);
+    await persistAuditLog("ADMIN_WRITE", { operation: "logout", sessionId, revoked: Boolean(sessionId), ip }, store);
     return Response.json({ message: "Logged out" }, { status: 200, headers });
   }
 

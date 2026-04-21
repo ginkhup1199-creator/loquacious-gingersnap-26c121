@@ -4,6 +4,9 @@ import {
   validateAdminSession,
   secureJson,
   auditLog,
+  persistAuditLog,
+  revokeAllSessions,
+  revokeSession,
   getClientIp,
 } from "../lib/security.js";
 
@@ -24,11 +27,20 @@ export default async (req: Request, context: Context) => {
   }
 
   const store = getStore({ name: "app-data", consistency: "strong" });
+  const action = new URL(req.url).searchParams.get("action") || "stats";
 
   const sessionResult = await validateAdminSession(req, store);
   if (!sessionResult.valid) {
-    auditLog("AUTH_FAILURE", { operation: "admin-stats", reason: sessionResult.reason, ip });
+    auditLog("AUTH_FAILURE", { operation: action === "revoke-all" ? "admin-revoke-all" : "admin-stats", reason: sessionResult.reason, ip });
     return secureJson({ error: "Unauthorized" }, 401);
+  }
+
+  if (action === "revoke-all") {
+    const currentSessionId = req.headers.get("X-Session-Token") || "";
+    const revokedBefore = await revokeAllSessions(store);
+    if (currentSessionId) await revokeSession(currentSessionId, store);
+    await persistAuditLog("ADMIN_WRITE", { operation: "admin-revoke-all", revoked: true, revokedBefore, ip }, store);
+    return secureJson({ success: true, revokedBefore });
   }
 
   const [allUsers, withdrawals] = await Promise.all([

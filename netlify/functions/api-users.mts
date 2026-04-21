@@ -1,15 +1,17 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
+import { randomInt } from "crypto";
 import {
   validateAdminSession,
   secureJson,
   sanitizeString,
   auditLog,
+  persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
 
 function generate5DigitId(): string {
-  return String(Math.floor(10000 + Math.random() * 90000));
+  return String(randomInt(10000, 100000));
 }
 
 export default async (req: Request, context: Context) => {
@@ -64,13 +66,19 @@ export default async (req: Request, context: Context) => {
       return secureJson(existing, 200, true);
     }
 
-    let userId = generate5DigitId();
-    let attempts = 0;
-    while (attempts < 50) {
-      const taken = await store.get(`userid-${userId}`, { type: "json" });
-      if (!taken) break;
-      userId = generate5DigitId();
-      attempts++;
+    let userId = "";
+    for (let attempts = 0; attempts < 100; attempts++) {
+      const candidate = generate5DigitId();
+      const taken = await store.get(`userid-${candidate}`, { type: "json" });
+      if (!taken) {
+        userId = candidate;
+        break;
+      }
+    }
+
+    if (!userId) {
+      await persistAuditLog("SECURITY_WARNING", { operation: "user-registration-id-collision-exhausted", wallet: `${safeWallet.slice(0, 8)}…`, ip }, store);
+      return secureJson({ error: "Unable to allocate user ID. Please retry." }, 503);
     }
 
     const user = {
@@ -85,6 +93,7 @@ export default async (req: Request, context: Context) => {
     const allUsers = (await store.get("all-users", { type: "json" })) as any[] || [];
     allUsers.push(user);
     await store.setJSON("all-users", allUsers);
+    await persistAuditLog("USER_WRITE", { operation: "user-registration", wallet: `${safeWallet.slice(0, 8)}…`, userId, ip }, store);
 
     return secureJson(user);
   }

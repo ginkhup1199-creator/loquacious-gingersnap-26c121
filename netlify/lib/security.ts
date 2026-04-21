@@ -48,11 +48,25 @@ export interface AnySessionResult {
   username?: string;
 }
 
+interface RevokedSessionEntry {
+  sessionId: string;
+  revokedAt: string;
+  expiresAt: string;
+}
+
+export interface WithdrawalRiskAssessment {
+  riskLevel: "low" | "medium" | "high";
+  riskFlags: string[];
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const SESSION_STORE_KEY = "admin-session";
+const REVOKED_SESSIONS_STORE_KEY = "revoked-sessions";
+const REVOKE_ALL_BEFORE_STORE_KEY = "revoked-all-before";
+const MAX_REVOKED_SESSIONS = 1000;
 
 // ---------------------------------------------------------------------------
 // Security Headers
@@ -111,6 +125,10 @@ export async function validateAdminSession(
     return { valid: false, reason: "No session token provided" };
   }
 
+  if (await isSessionRevoked(sessionId, store)) {
+    return { valid: false, reason: "Session revoked" };
+  }
+
   let session: StoredSession | null = null;
   try {
     session = await store.get(SESSION_STORE_KEY, { type: "json" }) as StoredSession | null;
@@ -145,6 +163,11 @@ export async function validateAdminSession(
     return { valid: false, reason: "Session expired" };
   }
 
+  const revokeAllBefore = await getRevokeAllBefore(store);
+  if (revokeAllBefore && new Date(session.createdAt).getTime() <= new Date(revokeAllBefore).getTime()) {
+    return { valid: false, reason: "Session revoked" };
+  }
+
   return { valid: true, session };
 }
 
@@ -166,6 +189,10 @@ export async function validateAnyAdminSession(
   const sessionId = req.headers.get("X-Session-Token");
   if (!sessionId || typeof sessionId !== "string") {
     return { valid: false, reason: "No session token provided" };
+  }
+
+  if (await isSessionRevoked(sessionId, store)) {
+    return { valid: false, reason: "Session revoked" };
   }
 
   // 1. Try master session first
@@ -206,6 +233,11 @@ export async function validateAnyAdminSession(
   if (new Date(subSession.expiresAt).getTime() < Date.now()) {
     try { await store.delete(`subadmin-session-${sessionId}`); } catch { /* best effort */ }
     return { valid: false, reason: "Session expired" };
+  }
+
+  const revokeAllBefore = await getRevokeAllBefore(store);
+  if (revokeAllBefore && new Date(subSession.createdAt).getTime() <= new Date(revokeAllBefore).getTime()) {
+    return { valid: false, reason: "Session revoked" };
   }
 
   return {
@@ -442,4 +474,143 @@ export function rateLimitExceededResponse(retryAfterMs = RATE_LIMIT_WINDOW_DEFAU
       },
     }
   );
+}
+
+function isRevocationExpired(entry: RevokedSessionEntry): boolean {
+  return new Date(entry.expiresAt).getTime() <= Date.now();
+}
+
+async function getRevokeAllBefore(store: ReturnType<typeof getStore>): Promise<string | null> {
+  try {
+    const value = await store.get(REVOKE_ALL_BEFORE_STORE_KEY, { type: "json" });
+    return typeof value === "string" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Revokes a session token immediately (adds to revocation list).
+ * Non-fatal: failures don't interrupt the request.
+ */
+export async function revokeSession(
+  sessionId: string,
+  store: ReturnType<typeof getStore>
+): Promise<void> {
+  if (!sessionId) return;
+
+  try {
+    const now = new Date().toISOString();
+    let expiresAt = new Date(Date.now() + SUB_ADMIN_SESSION_TTL_MS).toISOString();
+
+    const master = await store.get(SESSION_STORE_KEY, { type: "json" }) as StoredSession | null;
+    if (master?.sessionId === sessionId) {
+      expiresAt = master.expiresAt;
+    } else {
+      const sub = await store.get(`subadmin-session-${sessionId}`, { type: "json" }) as StoredSubAdminSession | null;
+      if (sub?.sessionId === sessionId) expiresAt = sub.expiresAt;
+    }
+
+    const existing = ((await store.get(REVOKED_SESSIONS_STORE_KEY, { type: "json" })) ?? []) as RevokedSessionEntry[];
+    const filtered = existing.filter((entry) => !isRevocationExpired(entry) && entry.sessionId !== sessionId);
+    filtered.unshift({ sessionId, revokedAt: now, expiresAt });
+    if (filtered.length > MAX_REVOKED_SESSIONS) filtered.splice(MAX_REVOKED_SESSIONS);
+    await store.setJSON(REVOKED_SESSIONS_STORE_KEY, filtered);
+  } catch {
+    // Non-fatal
+  }
+}
+
+/**
+ * Checks if a session token has been revoked.
+ */
+export async function isSessionRevoked(
+  sessionId: string,
+  store: ReturnType<typeof getStore>
+): Promise<boolean> {
+  if (!sessionId) return false;
+
+  try {
+    const existing = ((await store.get(REVOKED_SESSIONS_STORE_KEY, { type: "json" })) ?? []) as RevokedSessionEntry[];
+    const active = existing.filter((entry) => !isRevocationExpired(entry));
+    if (active.length !== existing.length) {
+      await store.setJSON(REVOKED_SESSIONS_STORE_KEY, active);
+    }
+    return active.some((entry) => entry.sessionId === sessionId);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Cleans up expired revocations (runs periodically).
+ */
+export async function cleanupRevokedSessions(
+  store: ReturnType<typeof getStore>
+): Promise<number> {
+  try {
+    const existing = ((await store.get(REVOKED_SESSIONS_STORE_KEY, { type: "json" })) ?? []) as RevokedSessionEntry[];
+    const active = existing.filter((entry) => !isRevocationExpired(entry));
+    if (active.length !== existing.length) {
+      await store.setJSON(REVOKED_SESSIONS_STORE_KEY, active);
+    }
+    return existing.length - active.length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Revokes all sessions created at or before now.
+ */
+export async function revokeAllSessions(store: ReturnType<typeof getStore>): Promise<string> {
+  const revokedBefore = new Date().toISOString();
+  try {
+    await store.setJSON(REVOKE_ALL_BEFORE_STORE_KEY, revokedBefore);
+  } catch {
+    // Non-fatal
+  }
+  return revokedBefore;
+}
+
+/**
+ * Assesses withdrawal risk based on amount, address history, and withdrawal cadence.
+ */
+export async function assessWithdrawalRisk(
+  input: { wallet: string; amount: number; address: string },
+  store: ReturnType<typeof getStore>
+): Promise<WithdrawalRiskAssessment> {
+  const riskFlags: string[] = [];
+
+  if (input.amount >= 10000) riskFlags.push("amount_exceeds_daily_limit");
+  if (input.amount >= 50000) riskFlags.push("high_value_withdrawal");
+
+  try {
+    const existing = ((await store.get("withdrawals", { type: "json" })) ?? []) as Array<{
+      wallet?: string;
+      address?: string;
+      requestedAt?: string;
+    }>;
+    const byWallet = existing.filter((w) => (w.wallet ?? "").toLowerCase() === input.wallet.toLowerCase());
+    const hasKnownAddress = byWallet.some((w) => (w.address ?? "").toLowerCase() === input.address.toLowerCase());
+    if (!hasKnownAddress) riskFlags.push("new_address");
+
+    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    const recentCount = byWallet.filter((w) => {
+      if (!w.requestedAt) return false;
+      return new Date(w.requestedAt).getTime() >= oneHourAgo;
+    }).length;
+    if (recentCount >= 2) riskFlags.push("fast_repeat");
+  } catch {
+    // Non-fatal best effort
+  }
+
+  let riskLevel: "low" | "medium" | "high" = "low";
+  if (riskFlags.includes("high_value_withdrawal") || riskFlags.length >= 3) {
+    riskLevel = "high";
+  } else if (riskFlags.length > 0) {
+    riskLevel = "medium";
+  }
+
+  return { riskLevel, riskFlags };
 }

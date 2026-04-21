@@ -1,7 +1,6 @@
 import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
 import {
-  validateAdminSession,
   validateAnyAdminSession,
   hasPermission,
   secureJson,
@@ -9,7 +8,30 @@ import {
   auditLog,
   persistAuditLog,
   getClientIp,
+  assessWithdrawalRisk,
 } from "../lib/security.js";
+
+type WithdrawalStatus = "Pending" | "Approved" | "Rejected" | "Completed" | "Failed";
+
+interface WithdrawalRecord {
+  id: number;
+  wallet: string;
+  coin: string;
+  network: string;
+  address: string;
+  amount: number;
+  date: string;
+  status: WithdrawalStatus;
+  requestedAt: string;
+  approvedAt?: string;
+  completedAt?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
+  approvalNote?: string;
+  processedBy?: string;
+  riskLevel?: "low" | "medium" | "high";
+  riskFlags?: string[];
+}
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
@@ -67,8 +89,13 @@ export default async (req: Request, context: Context) => {
         return secureJson({ error: "Insufficient balance" }, 400);
       }
 
-      const existing = (await store.get("withdrawals", { type: "json" })) || [];
-      const newWithdrawal = {
+      const existing = ((await store.get("withdrawals", { type: "json" })) || []) as WithdrawalRecord[];
+      const requestedAt = new Date().toISOString();
+      const risk = await assessWithdrawalRisk(
+        { wallet: reqWallet, amount: reqAmount, address: sanitizeString(String(body.address ?? ""), 200) },
+        store
+      );
+      const newWithdrawal: WithdrawalRecord = {
         id: Date.now(),
         wallet: reqWallet,
         coin: reqCoin,
@@ -77,31 +104,97 @@ export default async (req: Request, context: Context) => {
         amount: reqAmount,
         date: new Date().toISOString().split("T")[0],
         status: "Pending",
+        requestedAt,
+        riskLevel: risk.riskLevel,
+        riskFlags: risk.riskFlags,
       };
-      (existing as unknown[]).push(newWithdrawal);
+      existing.push(newWithdrawal);
       await store.setJSON("withdrawals", existing);
-      await persistAuditLog("USER_WRITE", { operation: "withdrawal-request", wallet: `${reqWallet.slice(0, 8)}…`, coin: reqCoin, amount: reqAmount, ip }, store);
+      await persistAuditLog("USER_WRITE", {
+        operation: "withdrawal-request",
+        wallet: `${reqWallet.slice(0, 8)}…`,
+        coin: reqCoin,
+        amount: reqAmount,
+        riskLevel: risk.riskLevel,
+        riskFlags: risk.riskFlags,
+        ip,
+      }, store);
       return secureJson(newWithdrawal);
     }
 
-    if (action === "process") {
+    if (action === "process" || action === "approve" || action === "reject") {
       const sessionResult = await validateAnyAdminSession(req, store);
       if (!sessionResult.valid || !hasPermission(sessionResult, "withdrawals")) {
         auditLog("AUTH_FAILURE", { operation: "process-withdrawal", reason: sessionResult.reason, ip });
         return secureJson({ error: "Unauthorized" }, 401);
       }
 
-      const newStatus = sanitizeString(String(body.status ?? "Completed"), 20);
-      const allowedStatuses = ["Completed", "Rejected"];
-      const safeStatus = allowedStatuses.includes(newStatus) ? newStatus : "Completed";
+      const processedBy = sessionResult.role === "master" ? "master-admin" : (sessionResult.username || "subadmin");
+      const statusFromBody = sanitizeString(String(body.status ?? "Completed"), 20);
+      let safeStatus: WithdrawalStatus;
+      if (action === "approve") {
+        safeStatus = "Approved";
+      } else if (action === "reject") {
+        safeStatus = "Rejected";
+      } else {
+        const allowedStatuses = new Set<WithdrawalStatus>(["Approved", "Rejected", "Completed", "Failed"]);
+        safeStatus = allowedStatuses.has(statusFromBody as WithdrawalStatus) ? statusFromBody as WithdrawalStatus : "Completed";
+      }
+      const approvalNote = sanitizeString(String(body.approvalNote ?? body.note ?? ""), 300);
+      const rejectionReason = sanitizeString(String(body.rejectionReason ?? body.reason ?? body.note ?? ""), 300);
 
-      await persistAuditLog("ADMIN_WRITE", { operation: "process-withdrawal", withdrawalId: body.id, status: safeStatus, ip }, store);
+      if (action === "approve" && !approvalNote) {
+        return secureJson({ error: "Approval note is required" }, 400);
+      }
+      if (action === "reject" && !rejectionReason) {
+        return secureJson({ error: "Rejection reason is required" }, 400);
+      }
 
-      const existing = (await store.get("withdrawals", { type: "json" })) || [];
-      const updated = (existing as { id: number; status: string }[]).map(
-        (w) => w.id === Number(body.id) ? { ...w, status: safeStatus } : w
-      );
+      const existing = ((await store.get("withdrawals", { type: "json" })) || []) as WithdrawalRecord[];
+      let found = false;
+      const now = new Date().toISOString();
+      const updated = existing.map((w) => {
+        if (w.id !== Number(body.id)) return w;
+        found = true;
+
+        const next: WithdrawalRecord = {
+          ...w,
+          status: safeStatus,
+          processedBy,
+        };
+
+        if (safeStatus === "Approved") {
+          next.approvedAt = now;
+          next.approvalNote = approvalNote || "Approved via legacy process action";
+          next.rejectionReason = undefined;
+          next.rejectedAt = undefined;
+        } else if (safeStatus === "Rejected") {
+          next.rejectedAt = now;
+          next.rejectionReason = rejectionReason || "Rejected via legacy process action";
+        } else if (safeStatus === "Completed") {
+          next.completedAt = now;
+          if (approvalNote) next.approvalNote = approvalNote;
+        } else if (safeStatus === "Failed") {
+          next.rejectionReason = rejectionReason || sanitizeString(String(body.failureReason ?? "Withdrawal failed"), 300);
+        }
+
+        return next;
+      });
+
+      if (!found) {
+        return secureJson({ error: "Withdrawal not found" }, 404);
+      }
+
       await store.setJSON("withdrawals", updated);
+      await persistAuditLog("ADMIN_WRITE", {
+        operation: "process-withdrawal",
+        withdrawalId: body.id,
+        status: safeStatus,
+        processedBy,
+        approvalNote: approvalNote || undefined,
+        rejectionReason: rejectionReason || undefined,
+        ip,
+      }, store);
       return secureJson({ success: true, status: safeStatus });
     }
 
