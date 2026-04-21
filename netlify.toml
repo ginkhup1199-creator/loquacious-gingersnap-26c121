@@ -73,7 +73,7 @@
     Referrer-Policy = "no-referrer"
     Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), interest-cohort=()"
     X-Robots-Tag = "noindex, nofollow, noarchive, nosnippet, noimageindex"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://nexustrade.website https://admin.nexustrade.website https://api.binance.com; frame-ancestors 'none';"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://nexustrade.website https://admin.nexustrade.website https://api.binance.com wss://stream.binance.com:9443; frame-src https://s.tradingview.com https://www.tradingview.com; frame-ancestors 'none';"
 
 # ── Prevent indexing of the admin page ────────────────────────────────────────
 [[headers]]
@@ -90,9 +90,9 @@
     X-Frame-Options = "DENY"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
-# ── Backward-compatible redirect from v1-style paths to v2 ────────────────────
+# ── Block any non-v2 API paths — only /api/v2/* is supported ────────────────
 [[redirects]]
   from = "/api/*"
-  to = "/api/v2/:splat"
-  status = 308
-  force = false
+  to = "/404"
+  status = 404
+  force = true
