@@ -7,7 +7,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 export async function parseJsonObject(req: Request): Promise<JsonObject> {
   const parsed: unknown = await req.json();
   if (!isRecord(parsed)) {
-    throw new Error("Invalid JSON object");
+    throw new Error("Request body must be a JSON object");
   }
   return parsed as JsonObject;
 }

@@ -54,6 +54,7 @@ jobs:
       - name: Verify all critical API endpoints respond
         run: |
           ENDPOINTS=(
+            "https://nexustrade.website/api/v2/system/health"
             "https://nexustrade.website/api/v2/system/version"
             "https://nexustrade.website/api/v2/market-data?type=prices"
             "https://nexustrade.website/api/v2/features"
