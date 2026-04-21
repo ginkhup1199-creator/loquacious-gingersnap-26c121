@@ -90,9 +90,4 @@
     X-Frame-Options = "DENY"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
-# ── Block any non-v2 API paths — only /api/v2/* is supported ────────────────
-[[redirects]]
-  from = "/api/*"
-  to = "/404"
-  status = 404
-  force = true
+
