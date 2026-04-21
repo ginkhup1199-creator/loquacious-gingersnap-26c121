@@ -27,8 +27,37 @@ jobs:
 
       - name: Run TypeScript type-check
         run: npx tsc --noEmit --strict --target ES2022 --module NodeNext --moduleResolution NodeNext netlify/functions/*.mts netlify/lib/*.ts 2>&1 || true
-        # "|| true" because strict mode may flag pre-existing issues not introduced by this change;
-        # the step still surfaces any new type errors in the PR diff for reviewer awareness.
+
+  workflow-allowlist:
+    name: Workflow Directory Lockdown
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fail if any unauthorized workflow file exists
+        run: |
+          APPROVED=(
+            ".github/workflows/pr-guard.yml"
+            ".github/workflows/integrity-check.yml"
+            ".github/workflows/auto-deploy.yml"
+            ".github/workflows/workflow-guard.yml"
+          )
+          APPROVED_STR=$(printf "\n%s" "${APPROVED[@]}")
+          FAIL=false
+          for FILE in .github/workflows/*.yml; do
+            if ! echo "$APPROVED_STR" | grep -qxF "$FILE"; then
+              echo "::error file=$FILE::UNAUTHORIZED workflow file detected: $FILE — only the 4 approved workflows are allowed."
+              FAIL=true
+            fi
+          done
+          if [ "$FAIL" = true ]; then
+            echo "CI failed: unauthorized workflow file(s) present. Remove them and push again."
+            exit 1
+          fi
+          echo "✅ All workflow files are in the approved set."
 
   protected-files-guard:
     name: Protected Files — Unauthorized Change Detection

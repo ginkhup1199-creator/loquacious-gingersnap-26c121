@@ -10,8 +10,7 @@ jobs:
   guard:
     name: Remove unauthorized workflow files
     runs-on: ubuntu-latest
-    # Only trigger when someone OTHER than the owner touches workflow files
-    if: github.actor != 'ginkhup1199-creator'
+    # Applies to ALL actors — the 4 approved workflows are the permanent final set
     permissions:
       contents: write
 
@@ -22,62 +21,43 @@ jobs:
           fetch-depth: 2
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Detect and delete unauthorized workflow changes
+      - name: Enforce approved workflow allowlist
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OWNER: ${{ github.repository_owner }}
-          REPO: ${{ github.event.repository.name }}
           ACTOR: ${{ github.actor }}
-          SHA: ${{ github.sha }}
         run: |
-          echo "⚠️  Non-owner '$ACTOR' pushed changes to .github/workflows/"
-          echo "Scanning for unauthorized workflow additions or modifications..."
+          echo "Scanning .github/workflows/ for unauthorized files..."
 
-          # Get list of workflow files changed in this push
-          CHANGED=$(git diff --name-only HEAD~1 HEAD -- .github/workflows/ 2>/dev/null || git show --name-only --format="" HEAD -- .github/workflows/)
+          # Permanent approved set — these are the ONLY allowed workflow files
+          APPROVED=(
+            ".github/workflows/pr-guard.yml"
+            ".github/workflows/integrity-check.yml"
+            ".github/workflows/auto-deploy.yml"
+            ".github/workflows/workflow-guard.yml"
+          )
 
-          echo "Changed workflow files:"
-          echo "$CHANGED"
+          # Build a lookup string
+          APPROVED_STR=$(printf "\n%s" "${APPROVED[@]}")
 
-          if [ -z "$CHANGED" ]; then
-            echo "No workflow files detected in diff — nothing to revert."
-            exit 0
-          fi
-
-          # Configure git identity for the revert commit
+          # Configure git identity for any revert commit
           git config user.email "guard-bot@nexustrade.website"
           git config user.name "NexusTrade Guard Bot"
 
           REVERTED=""
-          for FILE in $CHANGED; do
-            # Skip the guard workflow itself (this file)
-            if echo "$FILE" | grep -q "workflow-guard.yml"; then
-              continue
-            fi
-            # Skip other pre-approved owner workflows
-            if echo "$FILE" | grep -qE "^\.github/workflows/(pr-guard|integrity-check|auto-deploy)\.yml$"; then
-              continue
-            fi
-
-            echo "🗑️  Reverting unauthorized file: $FILE"
-
-            # Check if file exists in the previous commit (i.e. was it newly added)
-            if git show HEAD~1:"$FILE" > /dev/null 2>&1; then
-              # File existed before — restore the previous version
-              git checkout HEAD~1 -- "$FILE"
-              echo "Restored previous version of $FILE"
-            else
-              # File is brand new — delete it entirely
+          for FILE in .github/workflows/*.yml; do
+            if ! echo "$APPROVED_STR" | grep -qxF "$FILE"; then
+              echo "🗑️  Deleting unauthorized workflow file: $FILE (pushed by $ACTOR)"
               git rm --force "$FILE"
-              echo "Deleted newly added file $FILE"
+              REVERTED="$REVERTED $FILE"
+            else
+              echo "  ✅  Approved: $FILE"
             fi
-            REVERTED="$REVERTED $FILE"
           done
 
           if [ -n "$REVERTED" ]; then
-            git commit -m "security: revert unauthorized workflow change by $ACTOR [automated]"
+            git commit -m "security: delete unauthorized workflow addition by $ACTOR [automated]"
             git push origin HEAD
-            echo "✅ Unauthorized workflow changes reverted and pushed."
+            echo "Unauthorized workflow files removed."
           else
-            echo "No changes required — all modifications were to approved workflows."
+            echo "All workflow files are approved. No action needed."
           fi
