@@ -306,12 +306,19 @@
         /* Mobile Responsiveness */
         @media (max-width: 768px) {
             .sidebar { display: none; }
-            .bottom-nav { display: flex; }
+            .bottom-nav { display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+            .bottom-nav::-webkit-scrollbar { display: none; }
+            .bottom-nav-item { flex: 0 0 auto; min-width: 56px; }
             .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
             .topbar .logo span { display: none; }
             .balance { display: none !important; }
             .chat-toggle-btn { bottom: 80px; right: 15px; }
             .floating-chat { bottom: 150px; right: 10px; width: calc(100% - 20px); height: 400px; }
+            #dash-chart-card { height: 270px !important; }
+            #spot-chart-card { height: 270px !important; }
+            .tab-pane { padding: 12px; padding-bottom: 90px; }
+            .card { padding: 12px; }
+            .topbar { padding: 0 12px; }
         }
 
         .chart-container { height: 400px; width: 100%; margin-bottom: 20px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
@@ -377,7 +384,7 @@
         <div id="tab-home" class="tab-pane active">
             <div class="grid-2" style="grid-template-columns: 2fr 1fr;">
                 <!-- Real-time K-Line Chart -->
-                <div class="card" style="padding: 0; overflow: hidden; height: 450px;">
+                <div id="dash-chart-card" class="card" style="padding: 0; overflow: hidden; height: 450px;">
                     <iframe id="dashChart" src="https://s.tradingview.com/widgetembed/?symbol=BINANCE%3ABTCUSDT&interval=15&theme=dark&style=1&timezone=Etc%2FUTC&locale=en&backgroundColor=%230a1325&gridColor=%231a2642&hide_top_toolbar=false&hide_legend=false&save_image=false" width="100%" height="100%" frameborder="0" allowtransparency="true" scrolling="no" allowfullscreen=""></iframe>
                 </div>
 
@@ -710,7 +717,7 @@
             </div>
             <div class="grid-2" style="grid-template-columns: 2fr 1fr;">
                 <!-- Chart for Spot Trade -->
-                <div class="card" style="padding: 0; overflow: hidden; height: 500px;">
+                <div id="spot-chart-card" class="card" style="padding: 0; overflow: hidden; height: 500px;">
                     <iframe id="spotChart" src="https://s.tradingview.com/widgetembed/?symbol=BINANCE%3ABTCUSDT&interval=15&theme=dark&style=1&timezone=Etc%2FUTC&locale=en&backgroundColor=%230a1325&gridColor=%231a2642&hide_top_toolbar=false&hide_legend=false&save_image=false" width="100%" height="100%" frameborder="0" allowtransparency="true" scrolling="no" allowfullscreen=""></iframe>
                 </div>
 
@@ -1093,6 +1100,15 @@
         <div class="bottom-nav-item" onclick="switchTab('tab-swap')">
             <i data-lucide="refresh-cw"></i><span>Swap</span>
         </div>
+        <div class="bottom-nav-item" onclick="switchTab('tab-binary')">
+            <i data-lucide="clock"></i><span>Binary</span>
+        </div>
+        <div class="bottom-nav-item" onclick="switchTab('tab-ai')">
+            <i data-lucide="cpu"></i><span>AI Bot</span>
+        </div>
+        <div class="bottom-nav-item" onclick="switchTab('tab-earn')">
+            <i data-lucide="coins"></i><span>Earn</span>
+        </div>
         <div class="bottom-nav-item" onclick="switchTab('tab-profile')">
             <i data-lucide="user"></i><span>Profile</span>
         </div>
@@ -1192,28 +1208,7 @@
             });
         }
 
-        // Simulate Live Price Fluctuations for all 50 coins
-        setInterval(() => {
-            cryptoList.forEach(coin => {
-                const priceEl = document.getElementById(`price-${coin.symbol}`);
-                const changeEl = document.getElementById(`change-${coin.symbol}`);
-                if(priceEl && changeEl) {
-                    // Fluctuate price by a tiny random percentage (-0.2% to +0.2%)
-                    const fluctuation = 1 + ((Math.random() * 0.4 - 0.2) / 100);
-                    coin.price = coin.price * fluctuation;
-                    
-                    // Update DOM
-                    priceEl.innerText = coin.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 6});
-                    
-                    // Randomly update the 24h change slightly
-                    let currentChange = parseFloat(changeEl.innerText);
-                    currentChange += (Math.random() * 0.2 - 0.1);
-                    const isPositive = currentChange >= 0;
-                    changeEl.className = isPositive ? 'text-success' : 'text-danger';
-                    changeEl.innerText = (isPositive ? '+' : '') + currentChange.toFixed(2) + '%';
-                }
-            });
-        }, 3000);
+        // Prices updated by real Binance WebSocket feed — see connectPriceFeed()
 
         // Tab Switching Logic
         function switchTab(tabId) {
@@ -1266,7 +1261,7 @@
             const opts = { method: method || 'GET', headers: { 'Content-Type': 'application/json' } };
             if(body) opts.body = JSON.stringify(body);
             try {
-                const res = await fetch('/api/' + endpoint, opts);
+                const res = await fetch('/api/v2/' + endpoint, opts);
                 if (!res.ok) return null;
                 return await res.json();
             } catch(e) { console.error('API error:', e); return null; }
@@ -1567,19 +1562,8 @@
         // Swap Functions
         const SWAP_RATES = { USDT: 1, USDC: 1, ETH: 3200, BTC: 65000, BNB: 600, SOL: 145 };
 
-        // Fetch live swap rates from market-data API
-        async function refreshSwapRates() {
-            try {
-                const data = await api('market-data?type=prices');
-                if(data && data.prices) {
-                    Object.keys(data.prices).forEach(sym => {
-                        if(data.prices[sym] && data.prices[sym].price) {
-                            SWAP_RATES[sym] = data.prices[sym].price;
-                        }
-                    });
-                }
-            } catch(e) { /* use fallback rates */ }
-        }
+        // refreshSwapRates is now handled by fetchMarketDataPrices (which also updates SWAP_RATES via updateCoinPrice)
+        async function refreshSwapRates() { await fetchMarketDataPrices(); }
 
         function updateSwapEstimate() {
             const fromAmt = parseFloat(document.getElementById('swap-from-amount')?.value) || 0;
@@ -1966,56 +1950,81 @@
             if(priceInput && spotTradeType === 'market') priceInput.value = priceVal.toFixed(2);
         }
 
-        // --- Live BTC Price via Binance WebSocket with market-data fallback ---
+        // --- Real-time Multi-Coin Price Feed via Binance Combined WebSocket ---
         let liveBtcPrice = 64230.50;
-        function connectPriceFeed() {
-            try {
-                const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@miniTicker');
-                ws.onmessage = (e) => {
-                    const data = JSON.parse(e.data);
-                    liveBtcPrice = parseFloat(data.c);
-                    const priceEl = document.getElementById('binLivePrice');
-                    if(priceEl) priceEl.innerText = '$' + liveBtcPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                    // Keep market order price and spot trade price input in sync
-                    if(spotTradeType === 'market') {
-                        const tp = document.getElementById('tradePrice');
-                        if(tp) tp.value = liveBtcPrice.toFixed(2);
-                    }
-                    const btcTicker = cryptoList.find(c => c.symbol === 'BTC');
-                    if(btcTicker) {
-                        btcTicker.price = liveBtcPrice;
-                        const priceTickerEl = document.getElementById('price-BTC');
-                        if(priceTickerEl) priceTickerEl.innerText = liveBtcPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                    }
-                };
-                ws.onerror = () => { fetchMarketDataPrices(); setTimeout(connectPriceFeed, 30000); };
-                ws.onclose = () => setTimeout(connectPriceFeed, 30000);
-            } catch(e) { fetchMarketDataPrices(); }
+        let priceFeedWs = null;
+        const STABLECOINS = new Set(['USDT', 'USDC']);
+
+        // Update a single coin's price + DOM in one place
+        function updateCoinPrice(symbol, price, change24h) {
+            const coin = cryptoList.find(c => c.symbol === symbol);
+            if (coin) { coin.price = price; coin.change = change24h; }
+            SWAP_RATES[symbol] = price;
+
+            const dec = symbol === 'SHIB' ? 8 : symbol === 'VET' ? 5 : symbol === 'GALA' ? 5 : symbol === 'XRP' || symbol === 'ADA' || symbol === 'TRX' || symbol === 'MATIC' || symbol === 'HBAR' ? 4 : 2;
+            const priceEl = document.getElementById('price-' + symbol);
+            if (priceEl) priceEl.innerText = price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: dec });
+
+            const changeEl = document.getElementById('change-' + symbol);
+            if (changeEl) {
+                const isPos = change24h >= 0;
+                changeEl.className = isPos ? 'text-success' : 'text-danger';
+                changeEl.innerText = (isPos ? '+' : '') + change24h.toFixed(2) + '%';
+            }
+
+            if (symbol === 'BTC') {
+                liveBtcPrice = price;
+                const binEl = document.getElementById('binLivePrice');
+                if (binEl) binEl.innerText = '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            if (symbol === currentSpotPair && spotTradeType === 'market') {
+                const tp = document.getElementById('tradePrice');
+                if (tp) tp.value = price.toFixed(2);
+            }
         }
 
-        // Fetch prices from our market-data API as fallback
+        function connectPriceFeed() {
+            if (priceFeedWs) { try { priceFeedWs.close(); } catch(_) {} }
+            try {
+                // Combined stream: one connection for all tradeable coins
+                const streams = cryptoList
+                    .filter(c => !STABLECOINS.has(c.symbol))
+                    .map(c => c.symbol.toLowerCase() + 'usdt@miniTicker')
+                    .join('/');
+                const ws = new WebSocket('wss://stream.binance.com:9443/stream?streams=' + streams);
+                priceFeedWs = ws;
+
+                ws.onmessage = (e) => {
+                    try {
+                        const msg = JSON.parse(e.data);
+                        const tick = msg.data || msg;
+                        if (!tick || !tick.s) return;
+                        const symbol = tick.s.replace(/USDT$/, '');
+                        const price = parseFloat(tick.c);
+                        const change24h = tick.o
+                            ? parseFloat(((price - parseFloat(tick.o)) / parseFloat(tick.o) * 100).toFixed(2))
+                            : 0;
+                        if (!isNaN(price) && price > 0) updateCoinPrice(symbol, price, change24h);
+                    } catch(_) {}
+                };
+                ws.onerror = () => { fetchMarketDataPrices(); };
+                ws.onclose = () => { priceFeedWs = null; setTimeout(connectPriceFeed, 30000); };
+            } catch(e) {
+                fetchMarketDataPrices();
+                setTimeout(connectPriceFeed, 60000);
+            }
+        }
+
+        // Fetch all live prices from our backend (which proxies Binance) — used as initial load + WebSocket fallback
         async function fetchMarketDataPrices() {
             try {
                 const data = await api('market-data?type=prices');
-                if(data && data.prices) {
-                    const btcPrice = data.prices.BTC && data.prices.BTC.price;
-                    if(btcPrice) {
-                        liveBtcPrice = btcPrice;
-                        const priceEl = document.getElementById('binLivePrice');
-                        if(priceEl) priceEl.innerText = '$' + liveBtcPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                    }
-                    // Update all tickers
-                    if(typeof cryptoList !== 'undefined') {
-                        cryptoList.forEach(c => {
-                            const priceInfo = data.prices[c.symbol];
-                            if(priceInfo) {
-                                c.price = priceInfo.price;
-                                c.change = priceInfo.change24h;
-                                const el = document.getElementById('price-' + c.symbol);
-                                if(el) el.innerText = priceInfo.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                            }
-                        });
-                    }
+                if (data && data.prices) {
+                    Object.entries(data.prices).forEach(([symbol, info]) => {
+                        if (info && typeof info.price === 'number') {
+                            updateCoinPrice(symbol, info.price, info.change24h || 0);
+                        }
+                    });
                 }
             } catch(e) { /* silent fallback */ }
         }
@@ -2128,12 +2137,16 @@
             renderTickers();
             renderStakingVaults();
             updateUIState();
+            // Load real prices immediately before wallet restore
+            await fetchMarketDataPrices();
             // Silently restore previous session before the first data poll
             await autoRestoreWallet();
             pollBackend();
             loadStakePositions();
+            // Connect multi-coin live price feed (Binance WebSocket)
             connectPriceFeed();
-            refreshSwapRates();
+            // Refresh prices from backend every 30 seconds as a safety net
+            setInterval(fetchMarketDataPrices, 30000);
         };
 
     </script>
