@@ -32,10 +32,6 @@ export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
   const ip = getClientIp(context);
 
-  if (!process.env.ADMIN_TOKEN) {
-    return secureJson({ error: "Admin token not configured" }, 503);
-  }
-
   if (req.method === "GET") {
     const [binaryLevels, aiLevels] = await Promise.all([
       store.get("binary-levels", { type: "json" }),
@@ -48,6 +44,9 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "POST") {
+    if (!process.env.ADMIN_TOKEN) {
+      return secureJson({ error: "Admin token not configured" }, 503);
+    }
     const sessionResult = await validateAdminSession(req, store);
     if (!sessionResult.valid) {
       auditLog("AUTH_FAILURE", { operation: "update-levels", reason: sessionResult.reason, ip });
