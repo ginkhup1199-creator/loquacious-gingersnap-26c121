@@ -185,6 +185,13 @@ export default async (req: Request, context: Context) => {
 
     // ── action: create — create sub-admin account (master only) ───────────
     if (action === "create") {
+      // Hard block: the master account is a singleton defined by server env vars.
+      // No API action may ever create or elevate an account to the master role.
+      if (String(body.role ?? "").toLowerCase() === "master") {
+        auditLog("SECURITY_VIOLATION", { operation: "create-master-blocked", ip });
+        return secureJson({ error: "Forbidden. The master account is a singleton and cannot be created via the API." }, 403);
+      }
+
       const masterResult = await validateAdminSession(req, store);
       if (!masterResult.valid) {
         auditLog("AUTH_FAILURE", { operation: "create-subadmin", reason: masterResult.reason, ip });

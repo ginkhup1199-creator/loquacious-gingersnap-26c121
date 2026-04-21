@@ -647,6 +647,10 @@
 
         <div id="tab-master" class="tab-pane">
             <h2 style="color: var(--warning);">Master Account Management</h2>
+            <div style="background:rgba(255,193,7,0.1);border:1px solid var(--warning);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:var(--warning);">
+                <i data-lucide="shield-alert" style="width:15px;height:15px;vertical-align:middle;margin-right:6px;"></i>
+                <strong>Singleton Master Account</strong> — There is exactly one master account. It is configured via server environment variables and cannot be created, changed, or duplicated through this panel. You can only create sub-admin accounts below.
+            </div>
             <p style="color: var(--text-secondary); margin-bottom: 20px;">Only the Master Admin can create and assign new sub-admin accounts.</p>
 
             <div class="card">
@@ -699,7 +703,7 @@
             const opts = { method: method || 'GET', headers };
             if(body) opts.body = JSON.stringify(body);
             try {
-                const res = await fetch('/api/' + endpoint, opts);
+                const res = await fetch('/api/v2/' + endpoint, opts);
                 if(res.status === 401) {
                     console.warn('Session rejected for', endpoint, '— please log in again.');
                     sessionToken = '';
@@ -731,7 +735,7 @@
             if(!password) { showLoginError('Please enter your password.'); return; }
             showLoginError('');
             try {
-                const res = await fetch('/api/admin/session', {
+                const res = await fetch('/api/v2/admin/session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'direct-login', email, password })
@@ -768,7 +772,7 @@
             if(!username || !password) { showLoginError('Enter username and password.'); return; }
             showLoginError('');
             try {
-                const res = await fetch('/api/admin-accounts', {
+                const res = await fetch('/api/v2/admin-accounts', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'login', username, password })
@@ -923,7 +927,7 @@
         function logout() {
             // Destroy the session server-side
             if(sessionToken) {
-                const endpoint = sessionRole === 'subadmin' ? '/api/admin-accounts' : '/api/admin/session';
+                const endpoint = sessionRole === 'subadmin' ? '/api/v2/admin-accounts' : '/api/v2/admin/session';
                 fetch(endpoint, {
                     method: 'DELETE',
                     headers: { 'X-Session-Token': sessionToken }
