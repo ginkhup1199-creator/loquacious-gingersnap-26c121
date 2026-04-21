@@ -43,13 +43,19 @@ jobs:
         run: |
           echo "Waiting 15 seconds for CDN propagation..."
           sleep 15
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://nexustrade.website/api/v2/system/health)
-          if [ "$STATUS" = "200" ]; then
-            echo "✅ Health check passed — /api/v2/system/health returned HTTP 200"
-          else
-            echo "❌ Health check FAILED — /api/v2/system/health returned HTTP $STATUS"
-            exit 1
-          fi
+          for i in 1 2 3; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://nexustrade.website/api/v2/system/health)
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Health check passed — /api/v2/system/health returned HTTP 200"
+              break
+            fi
+            echo "Attempt $i — HTTP $STATUS, retrying in 10s..."
+            if [ "$i" = "3" ]; then
+              echo "❌ Health check FAILED after 3 attempts — HTTP $STATUS"
+              exit 1
+            fi
+            sleep 10
+          done
 
       - name: Verify all critical API endpoints respond
         run: |
