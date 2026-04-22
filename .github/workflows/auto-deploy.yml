@@ -38,12 +38,15 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN || '' }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID || '' }}
         run: |
-          DEPLOY_OUTPUT=$(npx netlify-cli deploy --prod --dir . --site "$NETLIFY_SITE_ID" --auth "$NETLIFY_AUTH_TOKEN" 2>&1)
-          echo "$DEPLOY_OUTPUT"
-          # Extract the unique deploy URL (pinned to this exact deploy — immune to Netlify auto-deploy overwrite)
-          DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep 'Unique Deploy URL:' | sed 's/.*Unique Deploy URL:[[:space:]]*//' | tr -d '[:space:]')
-          if [ -z "$DEPLOY_URL" ]; then
-            echo "⚠️ Could not extract unique deploy URL, falling back to production domain"
+          # --json outputs clean JSON to stdout; progress goes to stderr (visible in CI log)
+          npx netlify-cli deploy --prod --dir . --site "$NETLIFY_SITE_ID" --auth "$NETLIFY_AUTH_TOKEN" --json > /tmp/deploy.json 2>/tmp/deploy.log
+          cat /tmp/deploy.log
+          echo "=== Deploy JSON ==="
+          cat /tmp/deploy.json
+          # deploy_url is the immutable per-deploy URL — immune to Netlify auto-deploy overwrite
+          DEPLOY_URL=$(jq -r '.deploy_url // .url // ""' /tmp/deploy.json | tr -d '[:space:]')
+          if [ -z "$DEPLOY_URL" ] || [ "$DEPLOY_URL" = "null" ]; then
+            echo "⚠️ Could not read deploy_url from JSON, falling back to production domain"
             DEPLOY_URL="https://nexustrade.website"
           fi
           echo "DEPLOY_VERIFY_URL=$DEPLOY_URL" >> "$GITHUB_ENV"
@@ -51,6 +54,7 @@ jobs:
 
       - name: Health check — verify deployment is live
         run: |
+          echo "Verify URL: $DEPLOY_VERIFY_URL"
           echo "Waiting 15 seconds for CDN propagation..."
           sleep 15
           for i in 1 2 3; do
@@ -72,7 +76,8 @@ jobs:
           for i in 1 2 3; do
             CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "User-Agent: NexusTrade-API-v2" "$DEPLOY_VERIFY_URL/api/v2/system/health")
             [ "$CODE" = "200" ] && echo "✅ health → 200" && exit 0
-            echo "⚠️ Attempt $i: health → $CODE"; [ "$i" -lt "3" ] && sleep 8
+            echo "⚠️ Attempt $i: health → $CODE"
+            [ "$i" -lt "3" ] && sleep 8
           done
           echo "❌ health FAILED"; exit 1
 
@@ -122,6 +127,7 @@ jobs:
             BODY=$(curl -s -w "\nHTTP:%{http_code}" -H "User-Agent: NexusTrade-API-v2" "$DEPLOY_VERIFY_URL/api/v2/docs")
             CODE=$(echo "$BODY" | tail -1 | cut -d: -f2)
             [ "$CODE" = "200" ] && echo "✅ docs → 200" && exit 0
-            echo "⚠️ Attempt $i: docs → $CODE — $(echo "$BODY" | head -3)"; [ "$i" -lt "3" ] && sleep 8
+            echo "⚠️ Attempt $i: docs → $CODE — $(echo "$BODY" | head -3)"
+            [ "$i" -lt "3" ] && sleep 8
           done
           echo "❌ docs FAILED"; exit 1
