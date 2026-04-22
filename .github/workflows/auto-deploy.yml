@@ -68,16 +68,26 @@ jobs:
           )
           ALL_OK=true
           for URL in "${ENDPOINTS[@]}"; do
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
-            if [ "$CODE" = "200" ]; then
-              echo "  ✅  $URL → $CODE"
-            else
-              echo "  ❌  $URL → $CODE"
+            PASSED=false
+            for i in 1 2 3; do
+              BODY=$(curl -s -w "\nHTTP_STATUS:%{http_code}" "$URL")
+              CODE=$(echo "$BODY" | grep "HTTP_STATUS:" | cut -d: -f2)
+              if [ "$CODE" = "200" ]; then
+                echo "  ✅  $URL → $CODE"
+                PASSED=true
+                break
+              fi
+              echo "  ⚠️  Attempt $i: $URL → $CODE"
+              echo "      Response: $(echo "$BODY" | head -5)"
+              if [ "$i" -lt "3" ]; then sleep 8; fi
+            done
+            if [ "$PASSED" = false ]; then
+              echo "  ❌  $URL FAILED after 3 attempts"
               ALL_OK=false
             fi
           done
           if [ "$ALL_OK" = false ]; then
-            echo "One or more endpoints are not responding — check Netlify function logs."
+            echo "One or more endpoints failed — see response bodies above."
             exit 1
           fi
           echo "All endpoints healthy."
