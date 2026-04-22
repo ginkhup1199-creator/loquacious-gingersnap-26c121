@@ -37,14 +37,24 @@ jobs:
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN || '' }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID || '' }}
-        run: npx netlify-cli deploy --prod --dir . --site "$NETLIFY_SITE_ID" --auth "$NETLIFY_AUTH_TOKEN"
+        run: |
+          DEPLOY_OUTPUT=$(npx netlify-cli deploy --prod --dir . --site "$NETLIFY_SITE_ID" --auth "$NETLIFY_AUTH_TOKEN" 2>&1)
+          echo "$DEPLOY_OUTPUT"
+          # Extract the unique deploy URL (pinned to this exact deploy — immune to Netlify auto-deploy overwrite)
+          DEPLOY_URL=$(echo "$DEPLOY_OUTPUT" | grep 'Unique Deploy URL:' | sed 's/.*Unique Deploy URL:[[:space:]]*//' | tr -d '[:space:]')
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "⚠️ Could not extract unique deploy URL, falling back to production domain"
+            DEPLOY_URL="https://nexustrade.website"
+          fi
+          echo "DEPLOY_VERIFY_URL=$DEPLOY_URL" >> "$GITHUB_ENV"
+          echo "✅ Will verify against: $DEPLOY_URL"
 
       - name: Health check — verify deployment is live
         run: |
           echo "Waiting 15 seconds for CDN propagation..."
           sleep 15
           for i in 1 2 3; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "User-Agent: NexusTrade-API-v2" https://nexustrade.website/api/v2/system/health)
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "User-Agent: NexusTrade-API-v2" "$DEPLOY_VERIFY_URL/api/v2/system/health")
             if [ "$STATUS" = "200" ]; then
               echo "✅ Health check passed — /api/v2/system/health returned HTTP 200"
               break
@@ -60,7 +70,7 @@ jobs:
       - name: "Verify: system/health"
         run: |
           for i in 1 2 3; do
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "User-Agent: NexusTrade-API-v2" https://nexustrade.website/api/v2/system/health)
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "User-Agent: NexusTrade-API-v2" "$DEPLOY_VERIFY_URL/api/v2/system/health")
             [ "$CODE" = "200" ] && echo "✅ health → 200" && exit 0
             echo "⚠️ Attempt $i: health → $CODE"; [ "$i" -lt "3" ] && sleep 8
           done
@@ -69,7 +79,7 @@ jobs:
       - name: "Verify: system/version"
         run: |
           for i in 1 2 3; do
-            BODY=$(curl -s -w "\nHTTP:%{http_code}" -H "User-Agent: NexusTrade-API-v2" https://nexustrade.website/api/v2/system/version)
+            BODY=$(curl -s -w "\nHTTP:%{http_code}" -H "User-Agent: NexusTrade-API-v2" "$DEPLOY_VERIFY_URL/api/v2/system/version")
             CODE=$(echo "$BODY" | tail -1 | cut -d: -f2)
             [ "$CODE" = "200" ] && echo "✅ version → 200" && exit 0
             echo "⚠️ Attempt $i: version → $CODE — $(echo "$BODY" | head -3)"; [ "$i" -lt "3" ] && sleep 8
@@ -79,7 +89,7 @@ jobs:
       - name: "Verify: market-data"
         run: |
           for i in 1 2 3; do
-            BODY=$(curl -s -w "\nHTTP:%{http_code}" -H "User-Agent: NexusTrade-API-v2" "https://nexustrade.website/api/v2/market-data?type=prices")
+            BODY=$(curl -s -w "\nHTTP:%{http_code}" -H "User-Agent: NexusTrade-API-v2" "$DEPLOY_VERIFY_URL/api/v2/market-data?type=prices")
             CODE=$(echo "$BODY" | tail -1 | cut -d: -f2)
             [ "$CODE" = "200" ] && echo "✅ market-data → 200" && exit 0
             echo "⚠️ Attempt $i: market-data → $CODE — $(echo "$BODY" | head -3)"; [ "$i" -lt "3" ] && sleep 8
@@ -89,7 +99,7 @@ jobs:
       - name: "Verify: features"
         run: |
           for i in 1 2 3; do
-            BODY=$(curl -s -w "\nHTTP:%{http_code}" -H "User-Agent: NexusTrade-API-v2" https://nexustrade.website/api/v2/features)
+            BODY=$(curl -s -w "\nHTTP:%{http_code}" -H "User-Agent: NexusTrade-API-v2" "$DEPLOY_VERIFY_URL/api/v2/features")
             CODE=$(echo "$BODY" | tail -1 | cut -d: -f2)
             [ "$CODE" = "200" ] && echo "✅ features → 200" && exit 0
             echo "⚠️ Attempt $i: features → $CODE — $(echo "$BODY" | head -3)"; [ "$i" -lt "3" ] && sleep 8
@@ -99,7 +109,7 @@ jobs:
       - name: "Verify: levels"
         run: |
           for i in 1 2 3; do
-            BODY=$(curl -s -w "\nHTTP:%{http_code}" -H "User-Agent: NexusTrade-API-v2" https://nexustrade.website/api/v2/levels)
+            BODY=$(curl -s -w "\nHTTP:%{http_code}" -H "User-Agent: NexusTrade-API-v2" "$DEPLOY_VERIFY_URL/api/v2/levels")
             CODE=$(echo "$BODY" | tail -1 | cut -d: -f2)
             [ "$CODE" = "200" ] && echo "✅ levels → 200" && exit 0
             echo "⚠️ Attempt $i: levels → $CODE — $(echo "$BODY" | head -3)"; [ "$i" -lt "3" ] && sleep 8
@@ -109,7 +119,7 @@ jobs:
       - name: "Verify: docs"
         run: |
           for i in 1 2 3; do
-            BODY=$(curl -s -w "\nHTTP:%{http_code}" -H "User-Agent: NexusTrade-API-v2" https://nexustrade.website/api/v2/docs)
+            BODY=$(curl -s -w "\nHTTP:%{http_code}" -H "User-Agent: NexusTrade-API-v2" "$DEPLOY_VERIFY_URL/api/v2/docs")
             CODE=$(echo "$BODY" | tail -1 | cut -d: -f2)
             [ "$CODE" = "200" ] && echo "✅ docs → 200" && exit 0
             echo "⚠️ Attempt $i: docs → $CODE — $(echo "$BODY" | head -3)"; [ "$i" -lt "3" ] && sleep 8
