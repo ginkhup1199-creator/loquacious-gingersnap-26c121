@@ -123,6 +123,7 @@ function generateOhlcv(symbol: string, basePrice: number, points = 24): Array<Re
 }
 
 export default async (req: Request, context: Context) => {
+  try {
   if (req.method !== "GET") {
     return new Response("Method not allowed", { status: 405 });
   }
@@ -193,6 +194,9 @@ export default async (req: Request, context: Context) => {
   }
 
   return secureJson({ prices, source: livePrices ? "binance" : "fallback", timestamp: new Date().toISOString() }, 200, true);
+  } catch {
+    return secureJson({ prices: {}, source: "fallback", timestamp: new Date().toISOString() }, 200, true);
+  }
 };
 
 export const config: Config = {
