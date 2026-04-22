@@ -57,37 +57,51 @@ jobs:
             sleep 10
           done
 
-      - name: Verify all critical API endpoints respond
+      - name: "Verify: system/health"
         run: |
-          ENDPOINTS=(
-            "https://nexustrade.website/api/v2/system/health"
-            "https://nexustrade.website/api/v2/system/version"
-            "https://nexustrade.website/api/v2/market-data?type=prices"
-            "https://nexustrade.website/api/v2/features"
-            "https://nexustrade.website/api/v2/levels"
-          )
-          ALL_OK=true
-          for URL in "${ENDPOINTS[@]}"; do
-            PASSED=false
-            for i in 1 2 3; do
-              BODY=$(curl -s -w "\nHTTP_STATUS:%{http_code}" "$URL")
-              CODE=$(echo "$BODY" | grep "HTTP_STATUS:" | cut -d: -f2)
-              if [ "$CODE" = "200" ]; then
-                echo "  ✅  $URL → $CODE"
-                PASSED=true
-                break
-              fi
-              echo "  ⚠️  Attempt $i: $URL → $CODE"
-              echo "      Response: $(echo "$BODY" | head -5)"
-              if [ "$i" -lt "3" ]; then sleep 8; fi
-            done
-            if [ "$PASSED" = false ]; then
-              echo "  ❌  $URL FAILED after 3 attempts"
-              ALL_OK=false
-            fi
+          for i in 1 2 3; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" https://nexustrade.website/api/v2/system/health)
+            [ "$CODE" = "200" ] && echo "✅ health → 200" && exit 0
+            echo "⚠️ Attempt $i: health → $CODE"; [ "$i" -lt "3" ] && sleep 8
           done
-          if [ "$ALL_OK" = false ]; then
-            echo "One or more endpoints failed — see response bodies above."
-            exit 1
-          fi
-          echo "All endpoints healthy."
+          echo "❌ health FAILED"; exit 1
+
+      - name: "Verify: system/version"
+        run: |
+          for i in 1 2 3; do
+            BODY=$(curl -s -w "\nHTTP:%{http_code}" https://nexustrade.website/api/v2/system/version)
+            CODE=$(echo "$BODY" | tail -1 | cut -d: -f2)
+            [ "$CODE" = "200" ] && echo "✅ version → 200" && exit 0
+            echo "⚠️ Attempt $i: version → $CODE — $(echo "$BODY" | head -3)"; [ "$i" -lt "3" ] && sleep 8
+          done
+          echo "❌ version FAILED"; exit 1
+
+      - name: "Verify: market-data"
+        run: |
+          for i in 1 2 3; do
+            BODY=$(curl -s -w "\nHTTP:%{http_code}" "https://nexustrade.website/api/v2/market-data?type=prices")
+            CODE=$(echo "$BODY" | tail -1 | cut -d: -f2)
+            [ "$CODE" = "200" ] && echo "✅ market-data → 200" && exit 0
+            echo "⚠️ Attempt $i: market-data → $CODE — $(echo "$BODY" | head -3)"; [ "$i" -lt "3" ] && sleep 8
+          done
+          echo "❌ market-data FAILED"; exit 1
+
+      - name: "Verify: features"
+        run: |
+          for i in 1 2 3; do
+            BODY=$(curl -s -w "\nHTTP:%{http_code}" https://nexustrade.website/api/v2/features)
+            CODE=$(echo "$BODY" | tail -1 | cut -d: -f2)
+            [ "$CODE" = "200" ] && echo "✅ features → 200" && exit 0
+            echo "⚠️ Attempt $i: features → $CODE — $(echo "$BODY" | head -3)"; [ "$i" -lt "3" ] && sleep 8
+          done
+          echo "❌ features FAILED"; exit 1
+
+      - name: "Verify: levels"
+        run: |
+          for i in 1 2 3; do
+            BODY=$(curl -s -w "\nHTTP:%{http_code}" https://nexustrade.website/api/v2/levels)
+            CODE=$(echo "$BODY" | tail -1 | cut -d: -f2)
+            [ "$CODE" = "200" ] && echo "✅ levels → 200" && exit 0
+            echo "⚠️ Attempt $i: levels → $CODE — $(echo "$BODY" | head -3)"; [ "$i" -lt "3" ] && sleep 8
+          done
+          echo "❌ levels FAILED"; exit 1

@@ -20,12 +20,16 @@ const DEFAULTS = {
 };
 
 export default async (req: Request, context: Context) => {
-  const store = getStore({ name: "app-data", consistency: "strong" });
+  const store = getStore({ name: "app-data", consistency: "eventual" });
   const ip = getClientIp(context);
 
   if (req.method === "GET") {
-    const features = await store.get("features", { type: "json" });
-    return secureJson(features || DEFAULTS, 200, true);
+    try {
+      const features = await store.get("features", { type: "json" });
+      return secureJson(features || DEFAULTS, 200, true);
+    } catch {
+      return secureJson(DEFAULTS, 200, true);
+    }
   }
 
   if (req.method === "POST") {

@@ -29,18 +29,25 @@ const MAX_BINARY_LEVELS = 10;
 const MAX_AI_LEVELS = 10;
 
 export default async (req: Request, context: Context) => {
-  const store = getStore({ name: "app-data", consistency: "strong" });
+  const store = getStore({ name: "app-data", consistency: "eventual" });
   const ip = getClientIp(context);
 
   if (req.method === "GET") {
-    const [binaryLevels, aiLevels] = await Promise.all([
-      store.get("binary-levels", { type: "json" }),
-      store.get("ai-levels", { type: "json" }),
-    ]);
-    return secureJson({
-      binaryLevels: binaryLevels || DEFAULT_BINARY_LEVELS,
-      aiLevels: aiLevels || DEFAULT_AI_LEVELS,
-    }, 200, true);
+    try {
+      const [binaryLevels, aiLevels] = await Promise.all([
+        store.get("binary-levels", { type: "json" }),
+        store.get("ai-levels", { type: "json" }),
+      ]);
+      return secureJson({
+        binaryLevels: binaryLevels || DEFAULT_BINARY_LEVELS,
+        aiLevels: aiLevels || DEFAULT_AI_LEVELS,
+      }, 200, true);
+    } catch {
+      return secureJson({
+        binaryLevels: DEFAULT_BINARY_LEVELS,
+        aiLevels: DEFAULT_AI_LEVELS,
+      }, 200, true);
+    }
   }
 
   if (req.method === "POST") {
