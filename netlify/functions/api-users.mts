@@ -7,6 +7,17 @@ import {
   auditLog,
   getClientIp,
 } from "../lib/security.js";
+import { normalizeWallet, parseJsonObject, sanitizeWalletLegacy, toArray } from "../lib/validation.js";
+
+type AppUser = {
+  userId: string;
+  wallet: string;
+  createdAt: string;
+};
+
+function loadUsers(value: unknown): AppUser[] {
+  return toArray<AppUser>(value);
+}
 
 function generate5DigitId(): string {
   return String(Math.floor(10000 + Math.random() * 90000));
@@ -26,7 +37,16 @@ export default async (req: Request, context: Context) => {
 
     if (wallet) {
       // Per-wallet lookup: public (used by user frontend on connect)
-      const user = await store.get(`user-${wallet}`, { type: "json" });
+      const walletKey = normalizeWallet(String(wallet));
+      if (!walletKey) {
+        return secureJson({ error: "Invalid wallet address" }, 400);
+      }
+      // Legacy fallback preserves access to users created before normalization.
+      const [normalizedUser, legacyUser] = await Promise.all([
+        store.get(`user-${walletKey}`, { type: "json" }),
+        store.get(`user-${sanitizeWalletLegacy(wallet)}`, { type: "json" }),
+      ]);
+      const user = normalizedUser || legacyUser;
       return secureJson(user || null, 200, true);
     }
 
@@ -37,24 +57,24 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Unauthorized" }, 401);
     }
 
-    const allUsers = await store.get("all-users", { type: "json" });
-    return secureJson(allUsers || [], 200, true);
+    const allUsers = loadUsers(await store.get("all-users", { type: "json" }));
+    return secureJson(allUsers, 200, true);
   }
 
   if (req.method === "POST") {
-    let body: any;
+    let body: Record<string, unknown>;
     try {
-      body = await req.json();
+      body = await parseJsonObject(req);
     } catch {
       return secureJson({ error: "Invalid JSON body" }, 400);
     }
-    const { wallet } = body;
+    const wallet = body.wallet;
 
     if (!wallet) {
       return secureJson({ error: "Wallet address required" }, 400);
     }
 
-    const safeWallet = sanitizeString(String(wallet), 100);
+    const safeWallet = normalizeWallet(String(wallet));
     if (!safeWallet) {
       return secureJson({ error: "Invalid wallet address" }, 400);
     }
@@ -73,7 +93,7 @@ export default async (req: Request, context: Context) => {
       attempts++;
     }
 
-    const user = {
+    const user: AppUser = {
       userId,
       wallet: safeWallet,
       createdAt: new Date().toISOString(),
@@ -82,7 +102,7 @@ export default async (req: Request, context: Context) => {
     await store.setJSON(`user-${safeWallet}`, user);
     await store.setJSON(`userid-${userId}`, { wallet: safeWallet });
 
-    const allUsers = (await store.get("all-users", { type: "json" })) as any[] || [];
+    const allUsers = loadUsers(await store.get("all-users", { type: "json" }));
     allUsers.push(user);
     await store.setJSON("all-users", allUsers);
 

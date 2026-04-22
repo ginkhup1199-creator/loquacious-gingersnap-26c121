@@ -13,6 +13,7 @@ const crypto = require("crypto");
 const requestCounts = new Map();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 30;
+const MIN_ADMIN_TOKEN_LENGTH = 32;
 
 /**
  * Checks if the request IP has exceeded the rate limit.
@@ -57,6 +58,16 @@ function validateAdminToken(req) {
       valid: false,
       response: Response.json(
         { error: "Admin token not configured" },
+        { status: 503 }
+      ),
+    };
+  }
+
+  if (adminToken.length < MIN_ADMIN_TOKEN_LENGTH) {
+    return {
+      valid: false,
+      response: Response.json(
+        { error: "Admin token is misconfigured" },
         { status: 503 }
       ),
     };

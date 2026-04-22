@@ -24,4 +24,19 @@ jobs:
         run: npm ci
 
       - name: TypeScript check
-        run: npx tsc --noEmit
+        run: npm run typecheck
+
+      - name: JavaScript syntax check
+        run: npm run check:js
+
+      - name: HTML structure check
+        run: npm run check:html
+
+      - name: Endpoint uniqueness check
+        run: npm run check:endpoints
+
+      - name: Validation utility tests
+        run: npm run test:validation
+
+      - name: Source security tests
+        run: npm run test:src-security

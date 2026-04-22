@@ -8,13 +8,14 @@ import {
   persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
+import { isRecord, parseJsonObject, toInteger, toNumber } from "../lib/validation.js";
 
 const DEFAULT_BINARY_LEVELS = [
   { id: 1, name: "Level 1", capital: 300, minCapital: 300, maxCapital: 20000, tradingTime: 240, profitPercent: 18 },
   { id: 2, name: "Level 2", capital: 20001, minCapital: 20001, maxCapital: 50000, tradingTime: 360, profitPercent: 23 },
   { id: 3, name: "Level 3", capital: 50001, minCapital: 50001, maxCapital: 100000, tradingTime: 360, profitPercent: 35 },
   { id: 4, name: "Level 4", capital: 100001, minCapital: 100001, maxCapital: 300000, tradingTime: 7200, profitPercent: 50 },
-  { id: 5, name: "Level 5", capital: 300000, minCapital: 300000, maxCapital: null, tradingTime: 14400, profitPercent: 100 },
+  { id: 5, name: "Level 5", capital: 300001, minCapital: 300001, maxCapital: null, tradingTime: 14400, profitPercent: 100 },
 ];
 
 const DEFAULT_AI_LEVELS = [
@@ -27,6 +28,24 @@ const DEFAULT_AI_LEVELS = [
 
 const MAX_BINARY_LEVELS = 10;
 const MAX_AI_LEVELS = 10;
+
+type BinaryLevel = {
+  id: number;
+  name: string;
+  capital: number;
+  minCapital: number;
+  maxCapital: number | null;
+  tradingTime: number;
+  profitPercent: number;
+};
+
+type AiLevel = {
+  id: number;
+  name: string;
+  capital: number;
+  cycleTime: number;
+  profitPercent: number;
+};
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "eventual" });
@@ -60,40 +79,44 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Unauthorized" }, 401);
     }
 
-    let body: any;
+    let body: Record<string, unknown>;
     try {
-      body = await req.json();
+      body = await parseJsonObject(req);
     } catch {
       return secureJson({ error: "Invalid JSON body" }, 400);
     }
 
     if (body.binaryLevels && Array.isArray(body.binaryLevels)) {
-      const validated = (body.binaryLevels as any[]).slice(0, MAX_BINARY_LEVELS).map((lvl: any, idx: number) => {
-        const minCapital = Math.max(1, Math.min(1_000_000, parseFloat(lvl.minCapital ?? lvl.capital) || 300));
-        const parsedMax = lvl.maxCapital === null || lvl.maxCapital === undefined || lvl.maxCapital === ""
+      const validated: BinaryLevel[] = body.binaryLevels.slice(0, MAX_BINARY_LEVELS).map((lvl, idx) => {
+        const level = isRecord(lvl) ? lvl : {};
+        const minCapital = Math.max(1, Math.min(1_000_000, toNumber(level.minCapital ?? level.capital, 300)));
+        const parsedMax = level.maxCapital === null || level.maxCapital === undefined || level.maxCapital === ""
           ? null
-          : Math.max(minCapital, Math.min(1_000_000, parseFloat(lvl.maxCapital) || minCapital));
+          : Math.max(minCapital, Math.min(1_000_000, toNumber(level.maxCapital, minCapital)));
         return {
-          id: Number(lvl.id) || idx + 1,
-          name: sanitizeString(String(lvl.name ?? ""), 32) || `Level ${idx + 1}`,
+          id: toInteger(level.id, idx + 1),
+          name: sanitizeString(String(level.name ?? ""), 32) || `Level ${idx + 1}`,
           capital: minCapital,
           minCapital,
           maxCapital: parsedMax,
-          tradingTime: Math.max(5, Math.min(14400, parseInt(lvl.tradingTime) || 240)),
-          profitPercent: Math.max(1, Math.min(100, parseFloat(lvl.profitPercent) || 18)),
+          tradingTime: Math.max(5, Math.min(14400, toInteger(level.tradingTime, 240))),
+          profitPercent: Math.max(1, Math.min(100, toNumber(level.profitPercent, 18))),
         };
       });
       await store.setJSON("binary-levels", validated);
     }
 
     if (body.aiLevels && Array.isArray(body.aiLevels)) {
-      const validated = (body.aiLevels as any[]).slice(0, MAX_AI_LEVELS).map((lvl: any, idx: number) => ({
-        id: Number(lvl.id) || idx + 1,
-        name: sanitizeString(String(lvl.name ?? ""), 32) || `Level ${idx + 1}`,
-        capital:       Math.max(1,   Math.min(1_000_000, parseFloat(lvl.capital)       || 200)),
-        cycleTime:     Math.max(1,   Math.min(720,        parseInt(lvl.cycleTime)       || 24)),
-        profitPercent: Math.max(0.1, Math.min(50,         parseFloat(lvl.profitPercent) || 2.5)),
-      }));
+      const validated: AiLevel[] = body.aiLevels.slice(0, MAX_AI_LEVELS).map((lvl, idx) => {
+        const level = isRecord(lvl) ? lvl : {};
+        return {
+          id: toInteger(level.id, idx + 1),
+          name: sanitizeString(String(level.name ?? ""), 32) || `Level ${idx + 1}`,
+          capital: Math.max(1, Math.min(1_000_000, toNumber(level.capital, 200))),
+          cycleTime: Math.max(1, Math.min(720, toInteger(level.cycleTime, 24))),
+          profitPercent: Math.max(0.1, Math.min(50, toNumber(level.profitPercent, 2.5))),
+        };
+      });
       await store.setJSON("ai-levels", validated);
     }
 

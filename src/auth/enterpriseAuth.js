@@ -13,6 +13,7 @@
  */
 
 const crypto = require("crypto");
+const MIN_ADMIN_TOKEN_LENGTH = 32;
 
 /**
  * Validates the provided token against the enterprise admin credential.
@@ -26,6 +27,10 @@ function validateEnterpriseToken(token) {
 
   if (!adminToken) {
     return { authorized: false, reason: "Enterprise admin token not configured" };
+  }
+
+  if (adminToken.length < MIN_ADMIN_TOKEN_LENGTH) {
+    return { authorized: false, reason: "Enterprise admin token is misconfigured" };
   }
 
   if (!token || typeof token !== "string" || token.trim() === "") {

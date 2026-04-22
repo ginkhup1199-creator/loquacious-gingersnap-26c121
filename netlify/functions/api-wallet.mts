@@ -8,7 +8,7 @@ import {
   persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
-import { parseJsonObject } from "../lib/validation.js";
+import { loadUsdtBalance, normalizeWallet, parseJsonObject, sanitizeWalletLegacy } from "../lib/validation.js";
 
 const DEFAULT_ADDRESSES: Record<string, string> = {
   TRC20: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
@@ -51,20 +51,23 @@ export default async (req: Request, context: Context) => {
     }
 
     // Get wallet info for a specific wallet
-    const walletKey = sanitizeString(walletParam, 100).toLowerCase();
+    const legacyWalletKey = sanitizeWalletLegacy(walletParam);
+    const walletKey = normalizeWallet(walletParam);
     if (!walletKey) {
       return secureJson({ error: "Invalid wallet address" }, 400);
     }
 
-    const [user, balance] = await Promise.all([
+    const [userNormalized, userLegacy, balance] = await Promise.all([
       store.get(`user-${walletKey}`, { type: "json" }),
-      store.get(`balance-${walletKey}`, { type: "json" }),
+      store.get(`user-${legacyWalletKey}`, { type: "json" }),
+      loadUsdtBalance(store, walletKey),
     ]);
+    const user = userNormalized || userLegacy;
 
     return secureJson({
       wallet: walletKey,
       user: user || null,
-      balance: balance || { usdt: 0 },
+      balance,
     }, 200, true);
   }
 

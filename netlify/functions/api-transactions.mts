@@ -8,7 +8,22 @@ import {
   persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
-import { parseJsonObject } from "../lib/validation.js";
+import { normalizeWallet, parseJsonObject, toArray, toNumber } from "../lib/validation.js";
+
+type TransactionRecord = {
+  id: string;
+  wallet: string;
+  type: string;
+  coin: string;
+  amount: number;
+  status: string;
+  notes: string;
+  createdAt: string;
+};
+
+function loadTransactions(value: unknown): TransactionRecord[] {
+  return toArray<TransactionRecord>(value);
+}
 
 const ALLOWED_TYPES = ["deposit", "withdrawal", "trade", "swap", "earn", "ai-bot"] as const;
 const ALLOWED_STATUSES = ["Pending", "Completed", "Failed", "Cancelled"] as const;
@@ -31,14 +46,14 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Wallet address required" }, 400);
     }
 
-    const safeWallet = sanitizeString(wallet, 100).toLowerCase();
+    const safeWallet = normalizeWallet(wallet);
     if (!safeWallet) {
       return secureJson({ error: "Invalid wallet address" }, 400);
     }
 
     const txKey = `transactions-${safeWallet}`;
-    const transactions = await store.get(txKey, { type: "json" });
-    return secureJson(transactions || [], 200, true);
+    const transactions = loadTransactions(await store.get(txKey, { type: "json" }));
+    return secureJson(transactions, 200, true);
   }
 
   // ─── POST /api/transactions ───────────────────────────────────────────────
@@ -57,7 +72,7 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Invalid JSON" }, 400);
     }
 
-    const wallet = sanitizeString(body.wallet as string, 100).toLowerCase();
+    const wallet = normalizeWallet(body.wallet);
     if (!wallet) {
       return secureJson({ error: "Wallet address required" }, 400);
     }
@@ -72,8 +87,8 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Invalid status" }, 400);
     }
 
-    const amount = parseFloat(body.amount as string);
-    if (isNaN(amount)) {
+    const amount = toNumber(body.amount, Number.NaN);
+    if (Number.isNaN(amount)) {
       return secureJson({ error: "Invalid amount" }, 400);
     }
 
@@ -92,7 +107,7 @@ export default async (req: Request, context: Context) => {
     };
 
     const txKey = `transactions-${wallet}`;
-    const existing = ((await store.get(txKey, { type: "json" })) || []) as unknown[];
+    const existing = loadTransactions(await store.get(txKey, { type: "json" }));
     existing.unshift(transaction);
     // Keep only latest 100 transactions
     if (existing.length > 100) existing.splice(100);

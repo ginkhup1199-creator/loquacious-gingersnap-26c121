@@ -10,7 +10,7 @@ import {
   persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
-import { parseJsonObject } from "../lib/validation.js";
+import { normalizeWallet, parseJsonObject, toStringArray } from "../lib/validation.js";
 
 const ALLOWED_STATES = ["pending", "approved", "unverified"] as const;
 
@@ -30,7 +30,7 @@ export default async (req: Request, context: Context) => {
 
     // Per-wallet lookup (used by user frontend when connected)
     if (walletParam) {
-      const safeWallet = sanitizeString(walletParam, 100).toLowerCase();
+      const safeWallet = normalizeWallet(walletParam);
       const kyc = await store.get(`kyc-${safeWallet}`, { type: "json" });
       return secureJson(kyc || { state: "unverified", name: "", docType: "" }, 200, true);
     }
@@ -42,7 +42,7 @@ export default async (req: Request, context: Context) => {
         auditLog("AUTH_FAILURE", { operation: "list-kyc", reason: sessionResult.reason, ip });
         return secureJson({ error: "Unauthorized" }, 401);
       }
-      const pendingList = ((await store.get("kyc-pending", { type: "json" })) || []) as string[];
+      const pendingList = toStringArray(await store.get("kyc-pending", { type: "json" }));
       const submissions = await Promise.all(
         pendingList.map((w) => store.get(`kyc-${w}`, { type: "json" }))
       );
@@ -70,7 +70,7 @@ export default async (req: Request, context: Context) => {
 
     const name    = sanitizeString(String(body.name    ?? ""), 100);
     const docType = sanitizeString(String(body.docType ?? ""), 50);
-    const wallet  = sanitizeString(String(body.wallet  ?? ""), 100).toLowerCase();
+    const wallet  = normalizeWallet(body.wallet);
 
     // Admin-only: approve or reset KYC
     if (state === "approved" || state === "unverified") {
@@ -88,7 +88,7 @@ export default async (req: Request, context: Context) => {
       if (wallet) {
         await store.setJSON(`kyc-${wallet}`, kycData);
         // Remove from the pending list regardless of new state
-        const pendingList = ((await store.get("kyc-pending", { type: "json" })) || []) as string[];
+        const pendingList = toStringArray(await store.get("kyc-pending", { type: "json" }));
         const filtered = pendingList.filter((w) => w !== wallet);
         await store.setJSON("kyc-pending", filtered);
       }
@@ -114,7 +114,7 @@ export default async (req: Request, context: Context) => {
 
     if (wallet) {
       await store.setJSON(`kyc-${wallet}`, kycData);
-      const pendingList = ((await store.get("kyc-pending", { type: "json" })) || []) as string[];
+      const pendingList = toStringArray(await store.get("kyc-pending", { type: "json" }));
       if (!pendingList.includes(wallet)) {
         pendingList.push(wallet);
         await store.setJSON("kyc-pending", pendingList);

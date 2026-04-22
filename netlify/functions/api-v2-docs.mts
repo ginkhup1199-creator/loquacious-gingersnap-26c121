@@ -6,7 +6,7 @@ const ENDPOINTS = [
   { method: "GET", path: "/api/v2/system/health", description: "Detailed v2 health status" },
   { method: "GET", path: "/api/v2/status", description: "Deployment status" },
   { method: "GET", path: "/api/v2/docs", description: "API v2 documentation index" },
-  { method: "GET", path: "/api/v2/health", description: "Legacy health endpoint under v2 path" },
+  { method: "GET", path: "/api/v2/health", description: "Health endpoint" },
 ];
 
 export default async (_req: Request) => {

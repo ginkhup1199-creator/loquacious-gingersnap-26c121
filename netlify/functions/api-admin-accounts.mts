@@ -27,7 +27,7 @@ import {
   checkRateLimit,
   rateLimitExceededResponse,
 } from "../lib/security.js";
-import { parseJsonObject } from "../lib/validation.js";
+import { parseJsonObject, toArray } from "../lib/validation.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -98,6 +98,10 @@ function sanitizeUsername(raw: unknown): string {
   return s.replace(/[^a-zA-Z0-9_-]/g, "");
 }
 
+function loadSubAdminAccounts(value: unknown): SubAdminAccount[] {
+  return toArray<SubAdminAccount>(value);
+}
+
 // ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
@@ -124,7 +128,7 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Unauthorized. Master session required." }, 401);
     }
 
-    const accounts = ((await store.get(SUB_ADMIN_ACCOUNTS_KEY, { type: "json" })) ?? []) as SubAdminAccount[];
+    const accounts = loadSubAdminAccounts(await store.get(SUB_ADMIN_ACCOUNTS_KEY, { type: "json" }));
     // Strip password hashes and salts before returning
     const safe = accounts.map(({ passwordHash: _, passwordSalt: __, ...rest }) => rest);
     return secureJson(safe);
@@ -150,7 +154,7 @@ export default async (req: Request, context: Context) => {
         return secureJson({ error: "Username and password are required." }, 400);
       }
 
-      const accounts = ((await store.get(SUB_ADMIN_ACCOUNTS_KEY, { type: "json" })) ?? []) as SubAdminAccount[];
+      const accounts = loadSubAdminAccounts(await store.get(SUB_ADMIN_ACCOUNTS_KEY, { type: "json" }));
       const account  = accounts.find((a) => a.username === username && a.active);
 
       // Constant-time path: always run scrypt even when account not found (use a dummy salt)
@@ -215,7 +219,7 @@ export default async (req: Request, context: Context) => {
         return secureJson({ error: "At least one permission must be assigned." }, 400);
       }
 
-      const accounts = ((await store.get(SUB_ADMIN_ACCOUNTS_KEY, { type: "json" })) ?? []) as SubAdminAccount[];
+      const accounts = loadSubAdminAccounts(await store.get(SUB_ADMIN_ACCOUNTS_KEY, { type: "json" }));
       if (accounts.find((a) => a.username === username)) {
         return secureJson({ error: `Username '${username}' already exists.` }, 409);
       }
@@ -252,7 +256,7 @@ export default async (req: Request, context: Context) => {
         return secureJson({ error: "Username is required." }, 400);
       }
 
-      const accounts = ((await store.get(SUB_ADMIN_ACCOUNTS_KEY, { type: "json" })) ?? []) as SubAdminAccount[];
+      const accounts = loadSubAdminAccounts(await store.get(SUB_ADMIN_ACCOUNTS_KEY, { type: "json" }));
       const idx = accounts.findIndex((a) => a.username === username);
       if (idx === -1) {
         return secureJson({ error: "Account not found." }, 404);

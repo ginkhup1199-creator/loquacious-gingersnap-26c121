@@ -12,6 +12,8 @@
  *  5. Only one active session is permitted at a time
  */
 
+const crypto = require("crypto");
+
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 const SESSION_STORE_KEY = "admin-session";
 
@@ -20,8 +22,20 @@ const SESSION_STORE_KEY = "admin-session";
  * @returns {string} A hex-encoded 32-byte session ID.
  */
 function generateSessionId() {
-  const crypto = require("crypto");
   return crypto.randomBytes(32).toString("hex");
+}
+
+function timingSafeCompare(a, b) {
+  try {
+    const maxLen = Math.max(a.length, b.length);
+    const bufA = Buffer.alloc(maxLen);
+    const bufB = Buffer.alloc(maxLen);
+    Buffer.from(a).copy(bufA);
+    Buffer.from(b).copy(bufB);
+    return a.length === b.length && crypto.timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -65,7 +79,7 @@ async function validateSession(store, sessionId) {
     return { valid: false, reason: "No active session" };
   }
 
-  if (session.sessionId !== sessionId) {
+  if (!timingSafeCompare(String(session.sessionId), sessionId)) {
     return { valid: false, reason: "Invalid session token" };
   }
 

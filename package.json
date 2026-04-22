@@ -2,6 +2,21 @@
   "name": "nexustrade",
   "version": "1.0.0",
   "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "check:js": "sh scripts/check-js.sh",
+    "check:html": "sh scripts/check-html.sh",
+    "check:tab-wiring": "sh scripts/check-tab-wiring.sh",
+    "check:workflows": "sh scripts/check-workflow-allowlist.sh",
+    "check:workflow-isolation": "sh scripts/check-workflow-isolation.sh",
+    "check:endpoints": "node scripts/check-endpoints.mjs",
+    "test:validation": "sh scripts/test-validation.sh",
+    "test:workflows": "sh scripts/test-workflow-allowlist.sh",
+    "test:workflow-isolation": "sh scripts/test-workflow-isolation.sh",
+    "smoke:postdeploy": "sh scripts/post-deploy-smoke.sh",
+    "test:src-security": "node --test tests/src-security.test.cjs",
+    "check": "npm run typecheck && npm run check:js && npm run check:html && npm run check:tab-wiring && npm run check:workflows && npm run check:workflow-isolation && npm run check:endpoints && npm run test:validation && npm run test:workflows && npm run test:workflow-isolation && npm run test:src-security"
+  },
   "dependencies": {
     "@netlify/blobs": "^8.1.0",
     "@netlify/functions": "^3.0.0",

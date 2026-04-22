@@ -9,7 +9,7 @@ import {
   persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
-import { parseJsonObject } from "../lib/validation.js";
+import { loadUsdtBalance, normalizeWallet, parseJsonObject, toNumber } from "../lib/validation.js";
 
 type StakePosition = {
   id: string;
@@ -49,7 +49,7 @@ export default async (req: Request, context: Context) => {
 
   if (req.method === "GET") {
     const url = new URL(req.url);
-    const wallet = sanitizeString(String(url.searchParams.get("wallet") ?? ""), 100).toLowerCase();
+    const wallet = normalizeWallet(url.searchParams.get("wallet"));
     if (!wallet) {
       return secureJson({ error: "Wallet address required" }, 400);
     }
@@ -66,7 +66,7 @@ export default async (req: Request, context: Context) => {
     }
 
     const action = sanitizeString(String(body.action ?? ""), 40);
-    const wallet = sanitizeString(String(body.wallet ?? ""), 100).toLowerCase();
+    const wallet = normalizeWallet(body.wallet);
 
     if (!wallet) {
       return secureJson({ error: "Wallet address required" }, 400);
@@ -76,13 +76,13 @@ export default async (req: Request, context: Context) => {
 
     if (action === "stake") {
       const coin = sanitizeString(String(body.coin ?? "USDT"), 12).toUpperCase();
-      const amount = Math.max(0, parseFloat(String(body.amount ?? 0)) || 0);
+      const amount = Math.max(0, toNumber(body.amount, 0));
       if (!amount) {
         return secureJson({ error: "Invalid stake amount" }, 400);
       }
 
       // Deduct amount from wallet balance before staking
-      const balance = ((await store.get(`balance-${wallet}`, { type: "json" })) || { usdt: 0 }) as { usdt: number };
+      const balance = await loadUsdtBalance(store, wallet);
       const currentBalance = Number(balance.usdt || 0);
       if (currentBalance < amount) {
         return secureJson({ error: "Insufficient balance" }, 400);
@@ -126,7 +126,7 @@ export default async (req: Request, context: Context) => {
       await savePositions(store, wallet, positions);
 
       // Return principal + profit to wallet balance
-      const balance = ((await store.get(`balance-${wallet}`, { type: "json" })) || { usdt: 0 }) as { usdt: number };
+      const balance = await loadUsdtBalance(store, wallet);
       balance.usdt = Number((Number(balance.usdt || 0) + position.amount + profit).toFixed(2));
       await store.setJSON(`balance-${wallet}`, balance);
 

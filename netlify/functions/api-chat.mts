@@ -11,17 +11,27 @@ import {
   checkRateLimit,
   rateLimitExceededResponse,
 } from "../lib/security.js";
-import { parseJsonObject } from "../lib/validation.js";
+import { parseJsonObject, toArray } from "../lib/validation.js";
 
 const MAX_CHAT_MESSAGES = 200;
+
+type ChatMessage = {
+  sender: "admin" | "user";
+  text: string;
+  time: number;
+};
+
+function loadMessages(value: unknown): ChatMessage[] {
+  return toArray<ChatMessage>(value);
+}
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
   const ip = getClientIp(context);
 
   if (req.method === "GET") {
-    const messages = await store.get("chat-messages", { type: "json" });
-    return secureJson(messages || [], 200, true);
+    const messages = loadMessages(await store.get("chat-messages", { type: "json" }));
+    return secureJson(messages, 200, true);
   }
 
   if (req.method === "POST") {
@@ -57,7 +67,7 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Message text is required" }, 400);
     }
 
-    const existing = ((await store.get("chat-messages", { type: "json" })) || []) as unknown[];
+    const existing = loadMessages(await store.get("chat-messages", { type: "json" }));
     existing.push({ sender, text, time: Date.now() });
     // Keep last 200 messages to prevent unbounded growth
     if (existing.length > MAX_CHAT_MESSAGES) existing.splice(0, existing.length - MAX_CHAT_MESSAGES);

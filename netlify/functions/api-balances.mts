@@ -8,7 +8,7 @@ import {
   persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
-import { parseJsonObject } from "../lib/validation.js";
+import { loadUsdtBalance, normalizeWallet, parseJsonObject, toNumber } from "../lib/validation.js";
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
@@ -20,12 +20,12 @@ export default async (req: Request, context: Context) => {
 
   if (req.method === "GET") {
     const url = new URL(req.url);
-    const wallet = url.searchParams.get("wallet");
+    const wallet = normalizeWallet(url.searchParams.get("wallet"));
     if (!wallet) {
       return secureJson({ error: "Wallet address required" }, 400);
     }
-    const balance = await store.get(`balance-${wallet.toLowerCase()}`, { type: "json" });
-    return secureJson(balance || { usdt: 0 }, 200, true);
+    const balance = await loadUsdtBalance(store, wallet);
+    return secureJson(balance, 200, true);
   }
 
   if (req.method === "POST") {
@@ -48,20 +48,20 @@ export default async (req: Request, context: Context) => {
     }
 
     // Sanitize wallet address (allow only safe characters, no HTML)
-    const safeWallet = sanitizeString(String(wallet), 100);
+    const safeWallet = normalizeWallet(wallet);
     if (!safeWallet) {
       return secureJson({ error: "Invalid wallet address" }, 400);
     }
 
-    const parsedUsdt = parseFloat(String(usdt ?? ""));
-    if (isNaN(parsedUsdt) || parsedUsdt < 0) {
+    const parsedUsdt = toNumber(usdt, Number.NaN);
+    if (Number.isNaN(parsedUsdt) || parsedUsdt < 0) {
       return secureJson({ error: "Invalid balance value" }, 400);
     }
 
     await persistAuditLog("ADMIN_WRITE", { operation: "update-balance", wallet: `${safeWallet.slice(0, 8)}…`, ip }, store);
 
     const balance = { usdt: parsedUsdt };
-    await store.setJSON(`balance-${safeWallet.toLowerCase()}`, balance);
+    await store.setJSON(`balance-${safeWallet}`, balance);
     return secureJson(balance);
   }
 

@@ -336,13 +336,10 @@
         <ul class="nav-menu">
             <li class="nav-item active" onclick="switchTab('tab-home')"><i data-lucide="home"></i> Dashboard</li>
             <li class="nav-item" onclick="switchTab('tab-wallet')"><i data-lucide="wallet"></i> Wallet</li>
-            <li class="nav-item" onclick="switchTab('tab-trade')"><i data-lucide="line-chart"></i> Spot Trade</li>
-            <li class="nav-item" onclick="switchTab('tab-swap')"><i data-lucide="refresh-cw"></i> Web3 Swap</li>
             <li class="nav-item" onclick="switchTab('tab-binary')"><i data-lucide="clock"></i> Binary Options</li>
             <li class="nav-item" onclick="switchTab('tab-ai')"><i data-lucide="cpu"></i> AI Arbitrage</li>
             <li class="nav-item" onclick="switchTab('tab-earn')"><i data-lucide="coins"></i> Earn & Stake</li>
             <li class="nav-item" onclick="switchTab('tab-profile')"><i data-lucide="user"></i> Profile & KYC</li>
-            <li class="nav-item" onclick="switchTab('tab-about')"><i data-lucide="info"></i> About Us</li>
         </ul>
     </aside>
 
@@ -394,7 +391,7 @@
                     <div class="ticker-list" id="ticker-list">
                         <!-- 50 Coins will be injected here via JS -->
                     </div>
-                    <button class="btn btn-outline mt-15" style="width: 100%;" onclick="switchTab('tab-trade')">Trade Now</button>
+                    <button class="btn btn-outline mt-15" style="width: 100%;" onclick="switchTab('tab-binary')">Open Binary Options</button>
                 </div>
             </div>
 
@@ -443,7 +440,7 @@
                             <button class="btn" onclick="switchWalletTab('wallet-buy')"><i data-lucide="credit-card"></i> Buy</button>
                             <button class="btn btn-outline" onclick="switchWalletTab('wallet-receive')"><i data-lucide="arrow-down-to-line"></i> Receive</button>
                             <button class="btn btn-outline" onclick="switchWalletTab('wallet-send')"><i data-lucide="arrow-up-from-line"></i> Send</button>
-                            <button class="btn btn-outline" onclick="switchTab('tab-swap')"><i data-lucide="refresh-cw"></i> Swap</button>
+                            <button class="btn btn-outline" onclick="switchTab('tab-binary')"><i data-lucide="clock"></i> Binary</button>
                         </div>
                     </div>
 
@@ -696,10 +693,10 @@
             </div>
         </div>
 
-        <!-- TAB: Spot Trade -->
+        <!-- TAB: Trading Utilities (Secondary) -->
         <div id="tab-trade" class="tab-pane">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h2 style="color: var(--accent);">Spot Trading</h2>
+            <h2 style="color: var(--accent);">Trading Utility (Secondary)</h2>
                 <select id="spotPairSelect" onchange="updateChartPair(this.value)" style="background: var(--bg-panel); border: 1px solid var(--border); color: white; padding: 8px 14px; border-radius: 6px; font-size: 14px; cursor: pointer;">
                     <option value="BTC">BTC/USDT</option>
                     <option value="ETH">ETH/USDT</option>
@@ -716,12 +713,12 @@
                 </select>
             </div>
             <div class="grid-2" style="grid-template-columns: 2fr 1fr;">
-                <!-- Chart for Spot Trade -->
+                <!-- Secondary chart utility -->
                 <div id="spot-chart-card" class="card" style="padding: 0; overflow: hidden; height: 500px;">
                     <iframe id="spotChart" src="https://s.tradingview.com/widgetembed/?symbol=BINANCE%3ABTCUSDT&interval=15&theme=dark&style=1&timezone=Etc%2FUTC&locale=en&backgroundColor=%230a1325&gridColor=%231a2642&hide_top_toolbar=false&hide_legend=false&save_image=false" width="100%" height="100%" frameborder="0" allowtransparency="true" scrolling="no" allowfullscreen=""></iframe>
                 </div>
 
-                <!-- Order Panel -->
+                <!-- Secondary order utility -->
                 <div class="card overlay-lock overlay-disabled" id="tradePanel">
                     <div class="card-header" id="spotOrderHeader">Place Order (BTC/USDT)</div>
                     <div style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -738,9 +735,9 @@
             </div>
         </div>
 
-        <!-- TAB: Web3 Swap -->
+        <!-- TAB: Swap Utility (Secondary) -->
         <div id="tab-swap" class="tab-pane">
-            <h2 style="margin-bottom: 15px; text-align: center; color: var(--accent);">Instant Web3 Swap</h2>
+            <h2 style="margin-bottom: 15px; text-align: center; color: var(--accent);">Swap Utility (Secondary)</h2>
             <div class="card overlay-lock overlay-disabled" id="swapPanel" style="max-width: 450px; margin: 0 auto;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
                     <span style="color: var(--text-secondary); font-size: 14px;">Pay</span>
@@ -1010,15 +1007,7 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
                     <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
                         <span style="color: var(--success); font-size: 18px;">✓</span>
-                        <span style="color: var(--text-secondary); font-size: 14px;">Spot Trading — 50+ coin pairs</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
-                        <span style="color: var(--success); font-size: 18px;">✓</span>
-                        <span style="color: var(--text-secondary); font-size: 14px;">Web3 Swap — multi-network</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
-                        <span style="color: var(--success); font-size: 18px;">✓</span>
-                        <span style="color: var(--text-secondary); font-size: 14px;">Binary Options — 5 levels</span>
+                        <span style="color: var(--text-secondary); font-size: 14px;">Binary Options — tier-based returns</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
                         <span style="color: var(--success); font-size: 18px;">✓</span>
@@ -1026,7 +1015,15 @@
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
                         <span style="color: var(--success); font-size: 18px;">✓</span>
+                        <span style="color: var(--text-secondary); font-size: 14px;">Binary Options — 5 levels</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
+                        <span style="color: var(--success); font-size: 18px;">✓</span>
                         <span style="color: var(--text-secondary); font-size: 14px;">Flexible Staking — admin-managed yields</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
+                        <span style="color: var(--success); font-size: 18px;">✓</span>
+                        <span style="color: var(--text-secondary); font-size: 14px;">Trading Risk Controls — level-based exposure</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
                         <span style="color: var(--success); font-size: 18px;">✓</span>
@@ -1042,7 +1039,7 @@
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
                         <span style="color: var(--success); font-size: 18px;">✓</span>
-                        <span style="color: var(--text-secondary); font-size: 14px;">24/7 Live Chat Support</span>
+                        <span style="color: var(--text-secondary); font-size: 14px;">Portfolio and Stake Tracking</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--bg-dark); border-radius: 8px; border: 1px solid var(--border);">
                         <span style="color: var(--success); font-size: 18px;">✓</span>
@@ -1091,14 +1088,8 @@
         <div class="bottom-nav-item active" onclick="switchTab('tab-home')">
             <i data-lucide="home"></i><span>Home</span>
         </div>
-        <div class="bottom-nav-item" onclick="switchTab('tab-trade')">
-            <i data-lucide="line-chart"></i><span>Trade</span>
-        </div>
         <div class="bottom-nav-item" onclick="switchTab('tab-wallet')">
             <i data-lucide="wallet"></i><span>Wallet</span>
-        </div>
-        <div class="bottom-nav-item" onclick="switchTab('tab-swap')">
-            <i data-lucide="refresh-cw"></i><span>Swap</span>
         </div>
         <div class="bottom-nav-item" onclick="switchTab('tab-binary')">
             <i data-lucide="clock"></i><span>Binary</span>

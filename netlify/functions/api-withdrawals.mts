@@ -10,6 +10,22 @@ import {
   persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
+import { loadUsdtBalance, normalizeWallet, parseJsonObject, toArray, toNumber } from "../lib/validation.js";
+
+type WithdrawalRecord = {
+  id: number;
+  wallet: string;
+  coin: string;
+  network: string;
+  address: string;
+  amount: number;
+  date: string;
+  status: "Pending" | "Completed" | "Rejected" | string;
+};
+
+function loadWithdrawals(value: unknown): WithdrawalRecord[] {
+  return toArray<WithdrawalRecord>(value);
+}
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
@@ -25,8 +41,8 @@ export default async (req: Request, context: Context) => {
 
     if (walletParam) {
       // Return only this user's withdrawals (no auth needed for own wallet)
-      const safeWallet = sanitizeString(walletParam, 100).toLowerCase();
-      const all = ((await store.get("withdrawals", { type: "json" })) || []) as Array<{ wallet?: string }>;
+      const safeWallet = normalizeWallet(walletParam);
+      const all = loadWithdrawals(await store.get("withdrawals", { type: "json" }));
       const filtered = all.filter((w) => w.wallet === safeWallet);
       return secureJson(filtered, 200, true);
     }
@@ -42,17 +58,17 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "POST") {
-    let body: any;
+    let body: Record<string, unknown>;
     try {
-      body = await req.json();
+      body = await parseJsonObject(req);
     } catch {
       return secureJson({ error: "Invalid JSON body" }, 400);
     }
-    const { action } = body;
+    const action = String(body.action ?? "");
 
     if (action === "add") {
-      const reqWallet = sanitizeString(String(body.wallet ?? ""), 100).toLowerCase();
-      const reqAmount = parseFloat(body.amount) || 0;
+      const reqWallet = normalizeWallet(body.wallet);
+      const reqAmount = toNumber(body.amount);
       const reqCoin = sanitizeString(String(body.coin ?? ""), 20).toUpperCase();
 
       if (!reqWallet || !reqAmount || reqAmount <= 0) {
@@ -60,7 +76,7 @@ export default async (req: Request, context: Context) => {
       }
 
       // Validate user has sufficient balance before allowing withdrawal
-      const balance = ((await store.get(`balance-${reqWallet}`, { type: "json" })) || { usdt: 0 }) as { usdt: number; [key: string]: number };
+      const balance = await loadUsdtBalance(store, reqWallet);
       // All platform balances are tracked in USDT-equivalent
       const available = Number(balance.usdt ?? 0);
       if (available < reqAmount) {
@@ -71,8 +87,8 @@ export default async (req: Request, context: Context) => {
       balance.usdt = Number((available - reqAmount).toFixed(2));
       await store.setJSON(`balance-${reqWallet}`, balance);
 
-      const existing = (await store.get("withdrawals", { type: "json" })) || [];
-      const newWithdrawal = {
+      const existing = loadWithdrawals(await store.get("withdrawals", { type: "json" }));
+      const newWithdrawal: WithdrawalRecord = {
         id: Date.now(),
         wallet: reqWallet,
         coin: reqCoin,
@@ -82,7 +98,7 @@ export default async (req: Request, context: Context) => {
         date: new Date().toISOString().split("T")[0],
         status: "Pending",
       };
-      (existing as unknown[]).push(newWithdrawal);
+      existing.push(newWithdrawal);
       await store.setJSON("withdrawals", existing);
       await persistAuditLog("USER_WRITE", { operation: "withdrawal-request", wallet: `${reqWallet.slice(0, 8)}…`, coin: reqCoin, amount: reqAmount, ip }, store);
       return secureJson(newWithdrawal);
@@ -101,8 +117,8 @@ export default async (req: Request, context: Context) => {
 
       await persistAuditLog("ADMIN_WRITE", { operation: "process-withdrawal", withdrawalId: body.id, status: safeStatus, ip }, store);
 
-      const existing = (await store.get("withdrawals", { type: "json" })) || [];
-      const updated = (existing as { id: number; status: string }[]).map(
+      const existing = loadWithdrawals(await store.get("withdrawals", { type: "json" }));
+      const updated = existing.map(
         (w) => w.id === Number(body.id) ? { ...w, status: safeStatus } : w
       );
       await store.setJSON("withdrawals", updated);

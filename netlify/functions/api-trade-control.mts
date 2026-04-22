@@ -3,13 +3,18 @@ import type { Config, Context } from "@netlify/functions";
 import {
   validateAdminSession,
   secureJson,
-  sanitizeString,
   auditLog,
   getClientIp,
 } from "../lib/security.js";
+import { normalizeWallet, parseJsonObject } from "../lib/validation.js";
 
 const ALLOWED_OUTCOMES = ["random", "win", "lose"] as const;
 type Outcome = (typeof ALLOWED_OUTCOMES)[number];
+
+function parseOutcome(value: unknown): Outcome {
+  const outcome = String(value ?? "") as Outcome;
+  return ALLOWED_OUTCOMES.includes(outcome) ? outcome : "random";
+}
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
@@ -33,7 +38,7 @@ export default async (req: Request, context: Context) => {
       const globalCtrl = await store.get("trade-control-__GLOBAL__", { type: "json" });
       return secureJson(globalCtrl || { outcome: "random" });
     }
-    const safeWallet = sanitizeString(String(wallet), 100).toLowerCase();
+    const safeWallet = normalizeWallet(String(wallet));
     if (!safeWallet) {
       return secureJson({ error: "Invalid wallet address" }, 400);
     }
@@ -42,26 +47,25 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === "POST") {
-    let body: any;
+    let body: Record<string, unknown>;
     try {
-      body = await req.json();
+      body = await parseJsonObject(req);
     } catch {
       return secureJson({ error: "Invalid JSON body" }, 400);
     }
-    const { wallet, outcome } = body;
+    const wallet = body.wallet;
+    const outcome = body.outcome;
 
     // Allow __GLOBAL__ as special key for global outcome override
-    const rawWallet = String(wallet || "");
+    const rawWallet = String(wallet ?? "");
     const safeWallet = rawWallet === "__GLOBAL__"
       ? "__GLOBAL__"
-      : sanitizeString(rawWallet, 100).toLowerCase();
+      : normalizeWallet(rawWallet);
     if (!safeWallet) {
       return secureJson({ error: "Invalid wallet address" }, 400);
     }
 
-    const safeOutcome: Outcome = ALLOWED_OUTCOMES.includes(String(outcome) as Outcome)
-      ? (String(outcome) as Outcome)
-      : "random";
+    const safeOutcome = parseOutcome(outcome);
 
     auditLog("ADMIN_WRITE", {
       operation: "set-trade-control",

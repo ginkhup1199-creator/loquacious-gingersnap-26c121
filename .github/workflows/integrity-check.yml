@@ -26,7 +26,22 @@ jobs:
         run: npm ci
 
       - name: Run TypeScript type-check
-        run: npx tsc --noEmit
+        run: npm run typecheck
+
+      - name: Run JavaScript syntax check
+        run: npm run check:js
+
+      - name: Run HTML structure check
+        run: npm run check:html
+
+      - name: Run endpoint uniqueness check
+        run: npm run check:endpoints
+
+      - name: Run validation utility tests
+        run: npm run test:validation
+
+      - name: Run source security tests
+        run: npm run test:src-security
 
   workflow-allowlist:
     name: Workflow Directory Lockdown
@@ -39,27 +54,7 @@ jobs:
 
       - name: Fail if any unauthorized workflow file exists
         run: |
-          APPROVED=(
-            ".github/workflows/pr-guard.yml"
-            ".github/workflows/integrity-check.yml"
-            ".github/workflows/auto-deploy.yml"
-            ".github/workflows/workflow-guard.yml"
-            ".github/workflows/type-check.yml"
-            ".github/workflows/security-audit.yml"
-          )
-          APPROVED_STR=$(printf "\n%s" "${APPROVED[@]}")
-          FAIL=false
-          for FILE in .github/workflows/*.yml; do
-            if ! echo "$APPROVED_STR" | grep -qxF "$FILE"; then
-              echo "::error file=$FILE::UNAUTHORIZED workflow file detected: $FILE — only the 4 approved workflows are allowed."
-              FAIL=true
-            fi
-          done
-          if [ "$FAIL" = true ]; then
-            echo "CI failed: unauthorized workflow file(s) present. Remove them and push again."
-            exit 1
-          fi
-          echo "✅ All workflow files are in the approved set."
+          sh scripts/check-workflow-allowlist.sh
 
   protected-files-guard:
     name: Protected Files — Unauthorized Change Detection
