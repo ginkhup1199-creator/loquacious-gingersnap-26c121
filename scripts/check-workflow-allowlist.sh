@@ -1,13 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-REMEDIATE=false
-if [ "${1:-}" = "--remediate" ]; then
-  REMEDIATE=true
-fi
-
 APPROVED="
-.github/workflows/pr-guard.yml
 .github/workflows/integrity-check.yml
 .github/workflows/auto-deploy.yml
 .github/workflows/workflow-guard.yml
@@ -20,7 +14,6 @@ has_path() {
 }
 
 FAIL=false
-REMOVED=""
 
 for FILE in .github/workflows/*.yml .github/workflows/*.yaml; do
   if [ ! -e "$FILE" ]; then
@@ -32,24 +25,9 @@ for FILE in .github/workflows/*.yml .github/workflows/*.yaml; do
     continue
   fi
 
-  if [ "$REMEDIATE" = "true" ]; then
-    echo "Deleting unauthorized workflow file: $FILE"
-    git rm --force "$FILE"
-    REMOVED="$REMOVED $FILE"
-  else
-    echo "::error file=$FILE::UNAUTHORIZED workflow file detected: $FILE"
-    FAIL=true
-  fi
+  echo "::error file=$FILE::UNAUTHORIZED workflow file detected: $FILE"
+  FAIL=true
 done
-
-if [ "$REMEDIATE" = "true" ]; then
-  if [ -n "$REMOVED" ]; then
-    echo "Removed unauthorized workflow file(s):$REMOVED"
-  else
-    echo "All workflow files are approved. No action needed."
-  fi
-  exit 0
-fi
 
 if [ "$FAIL" = "true" ]; then
   echo "Validation failed: unauthorized workflow file(s) found."

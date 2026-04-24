@@ -16,7 +16,7 @@ jobs:
   safe:
     runs-on: ubuntu-latest
     steps:
-      - run: git push origin HEAD
+      - run: echo "hello"
 EOF
 
 if ! (cd "$TMP_DIR" && sh "$CHECKER" >/dev/null); then
@@ -79,6 +79,20 @@ jobs:
 EOF
 if (cd "$TMP_DIR" && sh "$CHECKER" >/dev/null 2>&1); then
   echo "Expected isolation check to fail for non-origin git push."
+  exit 1
+fi
+
+cat > "$TMP_DIR/.github/workflows/unsafe-git-push-origin.yml" <<'EOF'
+name: Unsafe Git Push Origin
+on: [push]
+jobs:
+  x:
+    runs-on: ubuntu-latest
+    steps:
+      - run: git push origin HEAD
+EOF
+if (cd "$TMP_DIR" && sh "$CHECKER" >/dev/null 2>&1); then
+  echo "Expected isolation check to fail for git push origin (mirror operations are prohibited)."
   exit 1
 fi
 

@@ -28,10 +28,8 @@ for FILE in .github/workflows/*.yml .github/workflows/*.yaml; do
     fi
 
     if echo "$LINE_TEXT" | grep -Eq 'git[[:space:]]+push'; then
-      if ! echo "$LINE_TEXT" | grep -Eq 'git[[:space:]]+push[[:space:]]+origin([[:space:]]|$)'; then
-        echo "::error file=$FILE,line=$LINE_NO::Only pushes to origin are allowed in workflows."
-        FAIL=true
-      fi
+      echo "::error file=$FILE,line=$LINE_NO::git push (mirror operations) is not allowed in workflows."
+      FAIL=true
     fi
   done <<EOF
 $(nl -ba "$FILE" | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]\+/:/')
