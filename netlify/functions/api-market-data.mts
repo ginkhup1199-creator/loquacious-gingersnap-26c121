@@ -161,6 +161,25 @@ async function fetchBybitTicker(symbol: string): Promise<PricePoint | null> {
   }
 }
 
+async function fetchBinanceTicker(symbol: string): Promise<PricePoint | null> {
+  try {
+    const pair = SYMBOL_PAIRS[symbol];
+    if (!pair) return null;
+    const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${pair}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const item = await res.json() as { lastPrice?: string; priceChangePercent?: string };
+    if (!item.lastPrice) return null;
+    const dec = DECIMALS[symbol] ?? 2;
+    return {
+      price: parseFloat(Number(item.lastPrice).toFixed(dec)),
+      change24h: parseFloat(Number(item.priceChangePercent ?? "0").toFixed(2)),
+    };
+  } catch {
+    return null;
+  }
+}
+
 // Fetch 24h OHLCV klines from Binance for a single symbol
 async function fetchBinanceOhlcv(symbol: string): Promise<Array<Record<string, number | string>> | null> {
   try {
@@ -206,6 +225,46 @@ async function fetchBybitOhlcv(symbol: string): Promise<Array<Record<string, num
       close: parseFloat(Number(k[4]).toFixed(dec)),
       volume: parseFloat(Number(k[5]).toFixed(2)),
     }));
+  } catch {
+    return null;
+  }
+}
+
+async function fetchCoinGeckoOhlcv(symbol: string): Promise<Array<Record<string, number | string>> | null> {
+  try {
+    const id = COINGECKO_IDS[symbol];
+    if (!id) return null;
+    const url = `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=1&interval=hourly`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const payload = await res.json() as {
+      prices?: Array<[number, number]>;
+      total_volumes?: Array<[number, number]>;
+    };
+    const prices = payload.prices;
+    if (!Array.isArray(prices) || prices.length < 2) return null;
+
+    const vols = Array.isArray(payload.total_volumes) ? payload.total_volumes : [];
+    const volMap = new Map<number, number>(vols.map(([t, v]) => [t, v]));
+
+    const dec = DECIMALS[symbol] ?? 2;
+    const out: Array<Record<string, number | string>> = [];
+    for (let i = 1; i < prices.length; i += 1) {
+      const [prevTs, prevPrice] = prices[i - 1]!;
+      const [ts, price] = prices[i]!;
+      const high = Math.max(prevPrice, price);
+      const low = Math.min(prevPrice, price);
+      const volume = volMap.get(ts) ?? volMap.get(prevTs) ?? 0;
+      out.push({
+        timestamp: new Date(ts).toISOString(),
+        open: parseFloat(prevPrice.toFixed(dec)),
+        high: parseFloat(high.toFixed(dec)),
+        low: parseFloat(low.toFixed(dec)),
+        close: parseFloat(price.toFixed(dec)),
+        volume: parseFloat(Number(volume).toFixed(2)),
+      });
+    }
+    return out.slice(-24);
   } catch {
     return null;
   }
@@ -284,8 +343,9 @@ export default async (req: Request, context: Context) => {
     }
     const live = await fetchBinanceOhlcv(symbol);
     const bybit = live ? null : await fetchBybitOhlcv(symbol);
-    const ohlcv = live ?? bybit ?? generateOhlcv(symbol, FALLBACK_PRICES[symbol] ?? 1);
-    const source = live ? "binance" : (bybit ? "bybit" : "fallback");
+    const cg = (live || bybit) ? null : await fetchCoinGeckoOhlcv(symbol);
+    const ohlcv = live ?? bybit ?? cg ?? generateOhlcv(symbol, FALLBACK_PRICES[symbol] ?? 1);
+    const source = live ? "binance" : (bybit ? "bybit" : (cg ? "coingecko" : "fallback"));
     return secureJson({ symbol, ohlcv, source, timestamp: new Date().toISOString() }, 200, true);
   }
 
@@ -294,11 +354,11 @@ export default async (req: Request, context: Context) => {
     if (STABLECOINS.has(symbol)) {
       return secureJson({ symbol, price: 1.0, change24h: 0, source: "stable", timestamp: new Date().toISOString() }, 200, true);
     }
-    const livePrices = await fetchBinancePrices();
-    const cgPrices = livePrices ? null : await fetchCoinGeckoPrices([symbol]);
-    if (livePrices && livePrices[symbol]) {
-      return secureJson({ symbol, ...livePrices[symbol], source: "binance", timestamp: new Date().toISOString() }, 200, true);
+    const live = await fetchBinanceTicker(symbol);
+    if (live) {
+      return secureJson({ symbol, ...live, source: "binance", timestamp: new Date().toISOString() }, 200, true);
     }
+    const cgPrices = await fetchCoinGeckoPrices([symbol]);
     if (cgPrices && cgPrices[symbol]) {
       return secureJson({ symbol, ...cgPrices[symbol], source: "coingecko", timestamp: new Date().toISOString() }, 200, true);
     }
