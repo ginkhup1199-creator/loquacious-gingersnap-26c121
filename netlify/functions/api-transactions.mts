@@ -23,7 +23,7 @@ export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
   const url = new URL(req.url);
 
-  // ─── GET /api/transactions ────────────────────────────────────────────────
+  // ─── GET /api/v2/transactions ─────────────────────────────────────────────
   // Returns transaction history for a wallet address
   if (req.method === "GET") {
     const wallet = url.searchParams.get("wallet");
@@ -41,7 +41,7 @@ export default async (req: Request, context: Context) => {
     return secureJson(transactions || [], 200, true);
   }
 
-  // ─── POST /api/transactions ───────────────────────────────────────────────
+  // ─── POST /api/v2/transactions ────────────────────────────────────────────
   // Records a new transaction (admin-only for manual recording)
   if (req.method === "POST") {
     const sessionResult = await validateAdminSession(req, store);

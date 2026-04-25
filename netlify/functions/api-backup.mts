@@ -12,9 +12,9 @@ import { parseJsonObject } from "../lib/validation.js";
 /**
  * Netlify Blobs Backup & Restore
  *
- * GET  /api/backup         – Export all known data blobs as a JSON snapshot.
+ * GET  /api/v2/backup      – Export all known data blobs as a JSON snapshot.
  *                            Requires admin session.
- * POST /api/backup         – Restore data from a previously exported snapshot.
+ * POST /api/v2/backup      – Restore data from a previously exported snapshot.
  *                            Requires admin session.
  *                            Body: { snapshot: <object returned by GET> }
  *

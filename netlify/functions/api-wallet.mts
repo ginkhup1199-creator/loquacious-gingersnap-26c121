@@ -39,7 +39,7 @@ export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
   const url = new URL(req.url);
 
-  // ─── GET /api/wallet ─────────────────────────────────────────────────────
+  // ─── GET /api/v2/wallet ──────────────────────────────────────────────────
   // Returns deposit addresses (public read)
   if (req.method === "GET") {
     const walletParam = url.searchParams.get("wallet");
@@ -68,7 +68,7 @@ export default async (req: Request, context: Context) => {
     }, 200, true);
   }
 
-  // ─── POST /api/wallet ─────────────────────────────────────────────────────
+  // ─── POST /api/v2/wallet ─────────────────────────────────────────────────
   // Admin-only: update deposit addresses
   if (req.method === "POST") {
     const sessionResult = await validateAdminSession(req, store);

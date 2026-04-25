@@ -8,7 +8,7 @@ import {
 } from "../lib/security.js";
 
 /**
- * GET /api/audit-logs
+ * GET /api/v2/audit-logs
  * Returns the last 500 persisted audit events (newest first).
  * Requires a valid admin session token (X-Session-Token header).
  */

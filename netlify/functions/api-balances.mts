@@ -24,7 +24,11 @@ export default async (req: Request, context: Context) => {
     if (!wallet) {
       return secureJson({ error: "Wallet address required" }, 400);
     }
-    const balance = await store.get(`balance-${wallet.toLowerCase()}`, { type: "json" });
+    const safeWallet = sanitizeString(String(wallet), 100).toLowerCase();
+    if (!safeWallet) {
+      return secureJson({ error: "Invalid wallet address" }, 400);
+    }
+    const balance = await store.get(`balance-${safeWallet}`, { type: "json" });
     return secureJson(balance || { usdt: 0 }, 200, true);
   }
 

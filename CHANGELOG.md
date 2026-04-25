@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
-- `netlify/functions/api-health.mts` — health check endpoint at `/api/health`
+- `netlify/functions/api-health.mts` — health check endpoint at `/api/v2/health`
 - `README.md` — comprehensive architecture overview and setup guide
 - `DEPLOYMENT.md` — production release checklist
 - `CONTRIBUTING.md` — developer contribution guide

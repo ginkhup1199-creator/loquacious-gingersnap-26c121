@@ -26,7 +26,11 @@ export default async (req: Request, context: Context) => {
 
     if (wallet) {
       // Per-wallet lookup: public (used by user frontend on connect)
-      const user = await store.get(`user-${wallet}`, { type: "json" });
+      const safeWallet = sanitizeString(String(wallet), 100).toLowerCase();
+      if (!safeWallet) {
+        return secureJson({ error: "Invalid wallet address" }, 400);
+      }
+      const user = await store.get(`user-${safeWallet}`, { type: "json" });
       return secureJson(user || null, 200, true);
     }
 
@@ -54,7 +58,7 @@ export default async (req: Request, context: Context) => {
       return secureJson({ error: "Wallet address required" }, 400);
     }
 
-    const safeWallet = sanitizeString(String(wallet), 100);
+    const safeWallet = sanitizeString(String(wallet), 100).toLowerCase();
     if (!safeWallet) {
       return secureJson({ error: "Invalid wallet address" }, 400);
     }
@@ -82,7 +86,8 @@ export default async (req: Request, context: Context) => {
     await store.setJSON(`user-${safeWallet}`, user);
     await store.setJSON(`userid-${userId}`, { wallet: safeWallet });
 
-    const allUsers = (await store.get("all-users", { type: "json" })) as any[] || [];
+    const allUsers = ((await store.get("all-users", { type: "json" })) as any[] || [])
+      .filter((u) => u && typeof u.wallet === "string" && u.wallet.toLowerCase() !== safeWallet);
     allUsers.push(user);
     await store.setJSON("all-users", allUsers);
 

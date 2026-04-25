@@ -54,9 +54,14 @@ export default async (req: Request, context: Context) => {
       const reqWallet = sanitizeString(String(body.wallet ?? ""), 100).toLowerCase();
       const reqAmount = parseFloat(body.amount) || 0;
       const reqCoin = sanitizeString(String(body.coin ?? ""), 20).toUpperCase();
+      const reqNetwork = sanitizeString(String(body.network ?? ""), 20).toUpperCase();
+      const reqAddress = sanitizeString(String(body.address ?? ""), 200);
 
       if (!reqWallet || !reqAmount || reqAmount <= 0) {
         return secureJson({ error: "Invalid withdrawal request" }, 400);
+      }
+      if (!reqCoin || !reqNetwork || !reqAddress) {
+        return secureJson({ error: "Coin, network, and address are required" }, 400);
       }
 
       // Validate user has sufficient balance before allowing withdrawal
@@ -76,8 +81,8 @@ export default async (req: Request, context: Context) => {
         id: Date.now(),
         wallet: reqWallet,
         coin: reqCoin,
-        network: sanitizeString(String(body.network ?? ""), 20),
-        address: sanitizeString(String(body.address ?? ""), 200),
+        network: reqNetwork,
+        address: reqAddress,
         amount: reqAmount,
         date: new Date().toISOString().split("T")[0],
         status: "Pending",

@@ -135,7 +135,7 @@ export default async (req: Request, context: Context) => {
 };
 
 export const config: Config = {
-  path: "/api/my-endpoint",
+  path: "/api/v2/my-endpoint",
   method: ["GET", "POST"],
 };
 ```
@@ -147,7 +147,7 @@ export const config: Config = {
 There is no automated test suite at this time. Before opening a PR:
 
 1. Run `netlify dev` and manually test your changes
-2. Test the `/api/health` endpoint responds correctly
+2. Test the `/api/v2/health` endpoint responds correctly
 3. Test admin authentication flow end-to-end
 4. Verify security headers are present on all responses
 5. Check Netlify function logs for any errors

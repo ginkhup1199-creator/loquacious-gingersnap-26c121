@@ -1266,7 +1266,7 @@
             const opts = { method: method || 'GET', headers: { 'Content-Type': 'application/json' } };
             if(body) opts.body = JSON.stringify(body);
             try {
-                const res = await fetch('/api/' + endpoint, opts);
+                const res = await fetch('/api/v2/' + endpoint, opts);
                 if (!res.ok) return null;
                 return await res.json();
             } catch(e) { console.error('API error:', e); return null; }

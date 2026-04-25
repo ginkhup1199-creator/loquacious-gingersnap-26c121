@@ -9,7 +9,7 @@ buildCommand = "npm install"
 [deploy]
 # Start command – Netlify CLI serves functions locally on Railway
 startCommand = "npx netlify-cli functions:serve --port $PORT --offline"
-healthcheckPath = "/api/health"
+healthcheckPath = "/api/v2/health"
 healthcheckTimeout = 30
 restartPolicyType = "on-failure"
 restartPolicyMaxRetries = 3

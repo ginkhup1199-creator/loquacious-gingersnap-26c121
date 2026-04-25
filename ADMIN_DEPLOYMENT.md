@@ -12,16 +12,16 @@ to **Railway.app** and connect it to the frontend hosted on **globalbinance.com*
 globalbinance.com (Netlify)
   ├─ index.html        → user-facing wallet app
   ├─ admin.html        → admin dashboard (protected by 2-step OTP)
-  └─ /api/*            → Netlify Functions (serverless)
-        ├─ /api/admin/session   → 2-step email OTP authentication
-        ├─ /api/balances        → user balance management
-        ├─ /api/kyc             → KYC approval workflows
-        ├─ /api/withdrawals     → withdrawal processing
-        ├─ /api/features        → feature toggle controls
-        ├─ /api/trade-control   → trade outcome management
-        ├─ /api/chat            → live chat support
-        ├─ /api/audit-logs      → admin audit trail
-        └─ /api/backup          → data backup & restore
+  └─ /api/v2/*            → Netlify Functions (serverless)
+        ├─ /api/v2/admin/session   → 2-step email OTP authentication
+        ├─ /api/v2/balances        → user balance management
+        ├─ /api/v2/kyc             → KYC approval workflows
+        ├─ /api/v2/withdrawals     → withdrawal processing
+        ├─ /api/v2/features        → feature toggle controls
+        ├─ /api/v2/trade-control   → trade outcome management
+        ├─ /api/v2/chat            → live chat support
+        ├─ /api/v2/audit-logs      → admin audit trail
+        └─ /api/v2/backup          → data backup & restore
 ```
 
 All API functions run as Netlify serverless functions with `@netlify/blobs`
@@ -64,7 +64,7 @@ Optional variables (uncomment in `.env.production.example`):
 |----------|---------|-------------|
 | `RATE_LIMIT_MAX` | `30` | Max requests per IP per window |
 | `RATE_LIMIT_WINDOW_MS` | `60000` | Rate limit window in ms |
-| `APP_VERSION` | package version | Shown in `/api/health` |
+| `APP_VERSION` | package version | Shown in `/api/v2/health` |
 
 ---
 
@@ -162,7 +162,7 @@ railway up
 ```
 
 Railway will detect `railway.toml` at the repo root and use the configuration
-defined there (Node.js via Nixpacks, `npm install`, health check on `/api/health`).
+defined there (Node.js via Nixpacks, `npm install`, health check on `/api/v2/health`).
 
 The resulting URL will be something like:
 `https://nexustrade-admin-production.up.railway.app`
@@ -178,8 +178,8 @@ Use this as the `ADMIN_BACKEND_URL` in your frontend configuration if needed.
 ```bash
 BASE=https://your-site.netlify.app   # or your Railway URL
 
-curl $BASE/api/health
-# Expected: { "status": "ok", "timestamp": "...", "version": "1.0.0" }
+curl $BASE/api/v2/health
+# Expected: { "status": "ok", "apiVersion": "v2" }
 ```
 
 ### Admin Login Flow
@@ -195,11 +195,11 @@ curl $BASE/api/health
 BASE=https://your-site.netlify.app
 
 # Public endpoints (no auth required)
-curl $BASE/api/health
-curl $BASE/api/market-data
-curl $BASE/api/settings
-curl $BASE/api/features
-curl $BASE/api/levels
+curl $BASE/api/v2/health
+curl $BASE/api/v2/market-data
+curl $BASE/api/v2/settings
+curl $BASE/api/v2/features
+curl $BASE/api/v2/levels
 
 # All should return 200, not 503
 ```
@@ -207,7 +207,7 @@ curl $BASE/api/levels
 ### Security Headers
 
 ```bash
-curl -I $BASE/api/health
+curl -I $BASE/api/v2/health
 # Must include:
 # X-Content-Type-Options: nosniff
 # X-Frame-Options: DENY
@@ -226,12 +226,12 @@ session ID obtained from the OTP login flow.
 
 ```bash
 # Step 1: Request OTP
-curl -X POST $BASE/api/admin/session \
+curl -X POST $BASE/api/v2/admin/session \
   -H "Content-Type: application/json" \
   -d '{"action":"request-otp","email":"your-admin@example.com"}'
 
 # Step 2: Verify OTP
-curl -X POST $BASE/api/admin/session \
+curl -X POST $BASE/api/v2/admin/session \
   -H "Content-Type: application/json" \
   -d '{"action":"verify-otp","email":"your-admin@example.com","otp":"123456"}'
 # Returns: { "sessionId": "...", "expiresAt": "..." }
@@ -242,7 +242,7 @@ SESSION=<sessionId from above>
 ### User Balance Management
 
 ```bash
-curl -X POST $BASE/api/balances \
+curl -X POST $BASE/api/v2/balances \
   -H "Content-Type: application/json" \
   -H "X-Session-Token: $SESSION" \
   -d '{"wallet":"0xABC...","usdt":1000}'
@@ -252,11 +252,11 @@ curl -X POST $BASE/api/balances \
 
 ```bash
 # List pending KYC submissions
-curl $BASE/api/kyc?list=true \
+curl $BASE/api/v2/kyc?list=true \
   -H "X-Session-Token: $SESSION"
 
 # Approve a KYC submission
-curl -X POST $BASE/api/kyc \
+curl -X POST $BASE/api/v2/kyc \
   -H "Content-Type: application/json" \
   -H "X-Session-Token: $SESSION" \
   -d '{"wallet":"0xABC...","status":"approved"}'
@@ -266,11 +266,11 @@ curl -X POST $BASE/api/kyc \
 
 ```bash
 # List all withdrawals
-curl $BASE/api/withdrawals \
+curl $BASE/api/v2/withdrawals \
   -H "X-Session-Token: $SESSION"
 
 # Approve a withdrawal
-curl -X POST $BASE/api/withdrawals \
+curl -X POST $BASE/api/v2/withdrawals \
   -H "Content-Type: application/json" \
   -H "X-Session-Token: $SESSION" \
   -d '{"id":"withdrawal-id","status":"completed"}'
@@ -280,7 +280,7 @@ curl -X POST $BASE/api/withdrawals \
 
 ```bash
 # Disable binary options feature
-curl -X POST $BASE/api/features \
+curl -X POST $BASE/api/v2/features \
   -H "Content-Type: application/json" \
   -H "X-Session-Token: $SESSION" \
   -d '{"binary":false}'
@@ -290,7 +290,7 @@ curl -X POST $BASE/api/features \
 
 ```bash
 # Force next trade for a wallet to win
-curl -X POST $BASE/api/trade-control \
+curl -X POST $BASE/api/v2/trade-control \
   -H "Content-Type: application/json" \
   -H "X-Session-Token: $SESSION" \
   -d '{"wallet":"0xABC...","outcome":"win"}'
@@ -300,13 +300,13 @@ curl -X POST $BASE/api/trade-control \
 
 ```bash
 # Export full data snapshot
-curl $BASE/api/backup \
+curl $BASE/api/v2/backup \
   -H "X-Session-Token: $SESSION" \
   -o backup-$(date +%Y%m%d).json
 
 # Restore from snapshot (wrap the exported file in the required envelope)
 # The exported file is used as the value of the "snapshot" key
-curl -X POST $BASE/api/backup \
+curl -X POST $BASE/api/v2/backup \
   -H "Content-Type: application/json" \
   -H "X-Session-Token: $SESSION" \
   -d "{\"snapshot\": $(cat backup-20240101.json)}"
@@ -320,7 +320,7 @@ curl -X POST $BASE/api/backup \
 
 ```bash
 # Retrieve last 500 audit events
-curl $BASE/api/audit-logs \
+curl $BASE/api/v2/audit-logs \
   -H "X-Session-Token: $SESSION"
 ```
 
@@ -388,7 +388,7 @@ Functions:
 
 ```bash
 # Export backup (add to cron or CI job)
-curl -s $BASE/api/backup \
+curl -s $BASE/api/v2/backup \
   -H "X-Session-Token: $SESSION" \
   > backups/nexustrade-$(date +%Y%m%d-%H%M%S).json
 ```
@@ -424,7 +424,7 @@ NETLIFY DEPLOYMENT
 [ ] Netlify site linked to repository
 [ ] All environment variables set in Netlify dashboard
 [ ] netlify deploy --prod succeeded
-[ ] /api/health returns { "status": "ok" }
+[ ] /api/v2/health returns { "status": "ok" }
 
 RAILWAY DEPLOYMENT (optional separate admin domain)
 [ ] Railway project created and linked
@@ -443,7 +443,7 @@ ADMIN VERIFICATION
 SECURITY
 [ ] Branch protection enabled on main
 [ ] Rate limiting confirmed (verify 429 after >30 rapid requests)
-[ ] Security headers present (curl -I /api/health)
-[ ] LLM injection blocked (curl /api/chat with injection payload → 400)
+[ ] Security headers present (curl -I /api/v2/health)
+[ ] LLM injection blocked (curl /api/v2/chat with injection payload → 400)
 [ ] No hardcoded secrets anywhere in source
 ```

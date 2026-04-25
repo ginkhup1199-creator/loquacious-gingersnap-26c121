@@ -22,7 +22,7 @@ export default async (req: Request, context: Context) => {
     return secureJson({ error: "Admin token not configured" }, 503);
   }
 
-  // ── GET /api/kyc ──────────────────────────────────────────────────────────
+  // ── GET /api/v2/kyc ───────────────────────────────────────────────────────
   if (req.method === "GET") {
     const url = new URL(req.url);
     const walletParam = url.searchParams.get("wallet");
@@ -54,7 +54,7 @@ export default async (req: Request, context: Context) => {
     return secureJson(kyc || { state: "unverified", name: "", docType: "" }, 200, true);
   }
 
-  // ── POST /api/kyc ─────────────────────────────────────────────────────────
+  // ── POST /api/v2/kyc ──────────────────────────────────────────────────────
   if (req.method === "POST") {
     let body: Record<string, unknown>;
     try {

@@ -3,10 +3,7 @@
 Base path: `/api/v2`
 
 ## System
-- `GET /api/v2/system/version`
 - `GET /api/v2/system/health`
-- `GET /api/v2/status`
-- `GET /api/v2/docs`
 
 ## Core endpoints
 - `GET|POST /api/v2/users`

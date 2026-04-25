@@ -55,22 +55,22 @@ NexusTrade
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/health` | None | Health check |
-| POST | `/api/users` | None | Register user |
-| GET/POST | `/api/balances` | GET: None / POST: Admin | User balances |
-| GET/POST | `/api/addresses` | GET: None / POST: Admin | Deposit addresses |
-| GET/POST | `/api/trades` | None | Trade history & execution |
-| GET/POST | `/api/transactions` | GET: None / POST: Admin | Transaction history |
-| GET/POST | `/api/withdrawals` | GET: None / POST: None | Withdrawal management |
-| GET/POST | `/api/kyc` | GET: None / POST: Admin (approve/reject only) | KYC submissions |
-| GET/POST | `/api/levels` | GET: None / POST: Admin | Binary/AI level config |
-| GET/POST | `/api/settings` | GET: None / POST: Admin | Global settings |
-| GET/POST | `/api/features` | GET: None / POST: Admin | Feature flags |
-| GET | `/api/market-data` | None | Simulated crypto prices |
-| POST | `/api/chat` | None | Chat (LLM-protected) |
-| GET | `/api/admin` | Admin | Admin statistics |
-| POST | `/api/admin/session` | None | OTP login |
-| GET/POST | `/api/wallet` | GET: None / POST: Admin | Wallet info |
+| GET | `/api/v2/health` | None | Health check |
+| POST | `/api/v2/users` | None | Register user |
+| GET/POST | `/api/v2/balances` | GET: None / POST: Admin | User balances |
+| GET/POST | `/api/v2/addresses` | GET: None / POST: Admin | Deposit addresses |
+| GET/POST | `/api/v2/trades` | None | Trade history & execution |
+| GET/POST | `/api/v2/transactions` | GET: None / POST: Admin | Transaction history |
+| GET/POST | `/api/v2/withdrawals` | GET: None / POST: None | Withdrawal management |
+| GET/POST | `/api/v2/kyc` | GET: None / POST: Admin (approve/reject only) | KYC submissions |
+| GET/POST | `/api/v2/levels` | GET: None / POST: Admin | Binary/AI level config |
+| GET/POST | `/api/v2/settings` | GET: None / POST: Admin | Global settings |
+| GET/POST | `/api/v2/features` | GET: None / POST: Admin | Feature flags |
+| GET | `/api/v2/market-data` | None | Simulated crypto prices |
+| POST | `/api/v2/chat` | None | Chat (LLM-protected) |
+| GET | `/api/v2/admin` | Admin | Admin statistics |
+| POST | `/api/v2/admin/session` | None | OTP login |
+| GET/POST | `/api/v2/wallet` | GET: None / POST: Admin | Wallet info |
 
 ---
 

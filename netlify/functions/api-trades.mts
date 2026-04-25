@@ -183,11 +183,23 @@ export default async (req: Request, context: Context) => {
 
     // Swap: calculate estimated output
     if (type === "swap") {
-      const fromRate = DEMO_RATES[body.fromCoin] || 1;
-      const toRate = DEMO_RATES[body.toCoin] || 1;
+      const swapAmount = Number(body.amount);
+      if (!Number.isFinite(swapAmount) || swapAmount <= 0) {
+        return secureJson({ error: "Invalid swap amount" }, 400);
+      }
+      const fromCoin = sanitizeString(String(body.fromCoin ?? ""), 16).toUpperCase();
+      const toCoin = sanitizeString(String(body.toCoin ?? ""), 16).toUpperCase();
+      if (!fromCoin || !toCoin || fromCoin === toCoin) {
+        return secureJson({ error: "Invalid swap pair" }, 400);
+      }
+      const fromRate = DEMO_RATES[fromCoin] || 1;
+      const toRate = DEMO_RATES[toCoin] || 1;
       const feeMultiplier = 0.995; // 0.5% fee
-      newTrade.estimatedOut = ((body.amount * fromRate) / toRate * feeMultiplier).toFixed(6);
-      newTrade.fee = (body.amount * 0.005).toFixed(6);
+      newTrade.fromCoin = fromCoin;
+      newTrade.toCoin = toCoin;
+      newTrade.amount = swapAmount;
+      newTrade.estimatedOut = ((swapAmount * fromRate) / toRate * feeMultiplier).toFixed(6);
+      newTrade.fee = (swapAmount * 0.005).toFixed(6);
     }
 
     trades.unshift(newTrade);

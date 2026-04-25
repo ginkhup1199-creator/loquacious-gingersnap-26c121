@@ -21,13 +21,13 @@ Admin authentication uses a **multi-layer session system** where:
 ```
 Admin enters password
        ↓
-POST /api/admin?action=login
+POST /api/v2/admin?action=login
 (with ENTERPRISE_SECRET credential)
        ↓
 Server creates session → returns sessionId
        ↓
 For each write operation:
-  POST /api/admin?action=issue-token
+  POST /api/v2/admin?action=issue-token
   (with sessionId)
        ↓
   Server issues one-time token (valid 5 min)
@@ -111,13 +111,13 @@ All API endpoints implement per-IP rate limiting:
 
 | Endpoint | Limit |
 |----------|-------|
-| `/api/admin` | 20 req/min (login brute-force protection) |
-| `/api/balances` | 30 req/min |
-| `/api/trades` | 30 req/min |
-| `/api/users` | 20 req/min |
-| `/api/withdrawals` | 20 req/min |
-| `/api/market-data` | 60 req/min |
-| `/api/transactions` | 30 req/min |
+| `/api/v2/admin` | 20 req/min (login brute-force protection) |
+| `/api/v2/balances` | 30 req/min |
+| `/api/v2/trades` | 30 req/min |
+| `/api/v2/users` | 20 req/min |
+| `/api/v2/withdrawals` | 20 req/min |
+| `/api/v2/market-data` | 60 req/min |
+| `/api/v2/transactions` | 30 req/min |
 
 Rate limits return HTTP 429 with a descriptive error message.
 
@@ -137,16 +137,16 @@ All API endpoints validate inputs:
 
 | Endpoint | Write Access |
 |----------|-------------|
-| `/api/balances` POST | Admin only |
-| `/api/features` POST | Admin only |
-| `/api/levels` POST | Admin only |
-| `/api/settings` POST | Admin only |
-| `/api/addresses` → `/api/wallet` POST | Admin only |
-| `/api/kyc` POST (approve/reject) | Admin only |
-| `/api/withdrawals` POST (process) | Admin only |
-| `/api/users` POST (register) | Public |
-| `/api/trades` POST | Public (authenticated wallet) |
-| `/api/withdrawals` POST (add) | Public (authenticated wallet) |
+| `/api/v2/balances` POST | Admin only |
+| `/api/v2/features` POST | Admin only |
+| `/api/v2/levels` POST | Admin only |
+| `/api/v2/settings` POST | Admin only |
+| `/api/v2/addresses` → `/api/v2/wallet` POST | Admin only |
+| `/api/v2/kyc` POST (approve/reject) | Admin only |
+| `/api/v2/withdrawals` POST (process) | Admin only |
+| `/api/v2/users` POST (register) | Public |
+| `/api/v2/trades` POST | Public (authenticated wallet) |
+| `/api/v2/withdrawals` POST (add) | Public (authenticated wallet) |
 
 ---
 

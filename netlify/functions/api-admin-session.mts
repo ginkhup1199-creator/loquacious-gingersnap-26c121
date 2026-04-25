@@ -14,6 +14,9 @@ const OTP_TTL_MS           = 10 * 60 * 1000;  // 10 minutes
 const OTP_MAX_ATTEMPTS     = 5;               // max wrong guesses before OTP is invalidated
 const SESSION_STORE_KEY    = "admin-session";
 const OTP_STORE_KEY        = "admin-otp";
+const LOGIN_GUARD_PREFIX   = "admin-login-guard";
+const LOGIN_MAX_FAILURES   = 5;
+const LOGIN_LOCKOUT_MS     = 15 * 60 * 1000;  // 15 minutes
 
 // ---------------------------------------------------------------------------
 // Types
@@ -35,6 +38,12 @@ interface StoredOtp {
   attempts: number;
 }
 
+interface LoginGuardState {
+  failures: number;
+  firstFailureAt: string;
+  lockUntil: string | null;
+}
+
 
 
 // ---------------------------------------------------------------------------
@@ -52,6 +61,63 @@ function generateOtp(): string {
 
 function hashOtp(otp: string): string {
   return createHash("sha256").update(otp).digest("hex");
+}
+
+async function getLoginGuardState(
+  store: ReturnType<typeof getStore>,
+  key: string
+): Promise<LoginGuardState | null> {
+  return (await store.get(key, { type: "json" })) as LoginGuardState | null;
+}
+
+async function setLoginGuardState(
+  store: ReturnType<typeof getStore>,
+  key: string,
+  state: LoginGuardState
+): Promise<void> {
+  await store.setJSON(key, state);
+}
+
+async function clearLoginGuardState(
+  store: ReturnType<typeof getStore>,
+  key: string
+): Promise<void> {
+  await store.delete(key).catch(() => {});
+}
+
+async function getLoginLockoutRemainingMs(
+  store: ReturnType<typeof getStore>,
+  key: string
+): Promise<number> {
+  const state = await getLoginGuardState(store, key);
+  if (!state?.lockUntil) return 0;
+  const remaining = new Date(state.lockUntil).getTime() - Date.now();
+  if (remaining <= 0) {
+    await clearLoginGuardState(store, key);
+    return 0;
+  }
+  return remaining;
+}
+
+async function recordLoginFailure(
+  store: ReturnType<typeof getStore>,
+  key: string
+): Promise<{ locked: boolean; remainingBeforeLock: number }> {
+  const nowIso = new Date().toISOString();
+  const existing = await getLoginGuardState(store, key);
+  const failures = (existing?.failures ?? 0) + 1;
+  const locked = failures >= LOGIN_MAX_FAILURES;
+
+  await setLoginGuardState(store, key, {
+    failures,
+    firstFailureAt: existing?.firstFailureAt ?? nowIso,
+    lockUntil: locked ? new Date(Date.now() + LOGIN_LOCKOUT_MS).toISOString() : null,
+  });
+
+  return {
+    locked,
+    remainingBeforeLock: Math.max(0, LOGIN_MAX_FAILURES - failures),
+  };
 }
 
 
@@ -164,7 +230,7 @@ export default async (req: Request, context: Context) => {
     return Response.json({ error: "Server not configured" }, { status: 503, headers });
   }
 
-  // ── POST /api/admin/session ──────────────────────────────────────────────
+  // ── POST /api/v2/admin/session ───────────────────────────────────────────
   if (req.method === "POST") {
     let body: Record<string, unknown>;
     try {
@@ -178,6 +244,17 @@ export default async (req: Request, context: Context) => {
     if (action === "direct-login") {
       const email    = String(body.email    ?? "").toLowerCase().trim();
       const password = String(body.password ?? "").trim();
+      const loginGuardKey = `${LOGIN_GUARD_PREFIX}:${adminEmail}:${ip}`;
+
+      const lockRemainingMs = await getLoginLockoutRemainingMs(store, loginGuardKey);
+      if (lockRemainingMs > 0) {
+        const retryAfterSeconds = Math.ceil(lockRemainingMs / 1000);
+        console.warn(`[AUDIT] {"event":"DIRECT_LOGIN_LOCKED","ip":"${ip}","retryAfterSec":${retryAfterSeconds}}`);
+        return Response.json(
+          { error: `Too many failed login attempts. Try again in ${retryAfterSeconds} seconds.` },
+          { status: 429, headers: { ...headers, "Retry-After": String(retryAfterSeconds) } }
+        );
+      }
 
       const MAX_EMAIL_LEN = 254;
       const emailMatch = (() => {
@@ -192,9 +269,18 @@ export default async (req: Request, context: Context) => {
       })();
 
       if (!emailMatch || !timingSafeTokenCompare(password, process.env.ADMIN_TOKEN!)) {
+        const failure = await recordLoginFailure(store, loginGuardKey);
         console.warn(`[AUDIT] {"event":"DIRECT_LOGIN_FAILED","ip":"${ip}"}`);
+        if (failure.locked) {
+          return Response.json(
+            { error: "Too many failed login attempts. Login is locked for 15 minutes." },
+            { status: 429, headers: { ...headers, "Retry-After": String(Math.ceil(LOGIN_LOCKOUT_MS / 1000)) } }
+          );
+        }
         return Response.json({ error: "Invalid email or password." }, { status: 401, headers });
       }
+
+      await clearLoginGuardState(store, loginGuardKey);
 
       const { sessionId, expiresAt } = await createSession(store);
       console.log(`[AUDIT] {"event":"DIRECT_LOGIN_SUCCESS","sessionId":"${sessionId.slice(0, 8)}…","ip":"${ip}"}`);
@@ -337,7 +423,7 @@ export default async (req: Request, context: Context) => {
     return Response.json({ error: "Unknown action" }, { status: 400, headers });
   }
 
-  // ── DELETE /api/admin/session → destroy session (logout) ────────────────
+  // ── DELETE /api/v2/admin/session → destroy session (logout) ─────────────
   if (req.method === "DELETE") {
     const sessionId = req.headers.get("X-Session-Token");
     await destroySession(store);

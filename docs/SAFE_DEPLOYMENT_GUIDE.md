@@ -9,7 +9,7 @@
 4. Deploys happen from `main` via `auto-deploy.yml`.
 5. Validate post-deploy health:
    - `/api/v2/system/health`
-   - `/api/v2/system/version`
+   - `/api/v2/health`
 
 ## Rollback
 
