@@ -36,6 +36,14 @@ const COINGECKO_IDS: Record<string, string> = {
   MNT: "mantle", QNT: "quant-network", EGLD: "elrond-erd-2",
 };
 
+const COINBASE_PAIRS: Record<string, string> = {
+  BTC: "BTC-USD", ETH: "ETH-USD", SOL: "SOL-USD", XRP: "XRP-USD", ADA: "ADA-USD",
+  AVAX: "AVAX-USD", DOGE: "DOGE-USD", DOT: "DOT-USD", LINK: "LINK-USD", LTC: "LTC-USD",
+  BCH: "BCH-USD", UNI: "UNI-USD", NEAR: "NEAR-USD", APT: "APT-USD", XLM: "XLM-USD",
+  ATOM: "ATOM-USD", FIL: "FIL-USD", ETC: "ETC-USD", INJ: "INJ-USD", OP: "OP-USD",
+  ARB: "ARB-USD", AAVE: "AAVE-USD", SHIB: "SHIB-USD", ALGO: "ALGO-USD", MATIC: "MATIC-USD",
+};
+
 // Stablecoins — always return 1.0000
 const STABLECOINS = new Set(["USDT", "USDC"]);
 
@@ -197,6 +205,60 @@ async function fetchBybitPrices(): Promise<Record<string, PricePoint> | null> {
         price: parseFloat(Number(item.lastPrice).toFixed(dec)),
         change24h: parseFloat(pct.toFixed(2)),
       };
+    }
+
+    return Object.keys(out).length > 0 ? out : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchCoinbaseTicker(symbol: string): Promise<PricePoint | null> {
+  try {
+    const pair = COINBASE_PAIRS[symbol];
+    if (!pair) return null;
+
+    const url = `https://api.exchange.coinbase.com/products/${pair}/stats`;
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(8000),
+      headers: { "User-Agent": "NexusTrade/1.0" },
+    });
+    if (!res.ok) return null;
+
+    const stats = await res.json() as { open?: string; last?: string };
+    if (!stats.last) return null;
+
+    const last = Number(stats.last);
+    if (!Number.isFinite(last)) return null;
+
+    const open = Number(stats.open ?? stats.last);
+    const change = open > 0 ? ((last - open) / open) * 100 : 0;
+    const dec = DECIMALS[symbol] ?? 2;
+
+    return {
+      price: parseFloat(last.toFixed(dec)),
+      change24h: parseFloat(change.toFixed(2)),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchCoinbasePrices(symbols: string[]): Promise<Record<string, PricePoint> | null> {
+  const targets = symbols.filter((s) => COINBASE_PAIRS[s]);
+  if (targets.length === 0) return null;
+
+  try {
+    const entries = await Promise.all(
+      targets.map(async (symbol) => {
+        const point = await fetchCoinbaseTicker(symbol);
+        return [symbol, point] as const;
+      }),
+    );
+
+    const out: Record<string, PricePoint> = {};
+    for (const [symbol, point] of entries) {
+      if (point) out[symbol] = point;
     }
 
     return Object.keys(out).length > 0 ? out : null;
@@ -369,6 +431,10 @@ export default async (req: Request, context: Context) => {
       (s) => !STABLECOINS.has(s) && !(livePrices && livePrices[s]) && !(cgPrices && cgPrices[s]),
     );
     const bybitPrices = missingForBybit.length > 0 ? await fetchBybitPrices() : null;
+    const missingForCoinbase = SUPPORTED_SYMBOLS.filter(
+      (s) => !STABLECOINS.has(s) && !(livePrices && livePrices[s]) && !(cgPrices && cgPrices[s]) && !(bybitPrices && bybitPrices[s]),
+    );
+    const coinbasePrices = missingForCoinbase.length > 0 ? await fetchCoinbasePrices(missingForCoinbase) : null;
     const rates: Record<string, number> = {};
     let liveCount = 0;
     for (const sym of SUPPORTED_SYMBOLS) {
@@ -381,6 +447,9 @@ export default async (req: Request, context: Context) => {
         liveCount += 1;
       } else if (bybitPrices && bybitPrices[sym]) {
         rates[sym] = bybitPrices[sym].price;
+        liveCount += 1;
+      } else if (coinbasePrices && coinbasePrices[sym]) {
+        rates[sym] = coinbasePrices[sym].price;
         liveCount += 1;
       } else {
         rates[sym] = FALLBACK_PRICES[sym] ?? 0;
@@ -423,6 +492,10 @@ export default async (req: Request, context: Context) => {
     if (bybit) {
       return secureJson({ symbol, ...bybit, source: "bybit", timestamp: new Date().toISOString() }, 200, true);
     }
+    const coinbase = await fetchCoinbaseTicker(symbol);
+    if (coinbase) {
+      return secureJson({ symbol, ...coinbase, source: "coinbase", timestamp: new Date().toISOString() }, 200, true);
+    }
     const fallback = FALLBACK_PRICES[symbol];
     if (!fallback) return secureJson({ error: "Symbol not supported" }, 400);
     return secureJson({ symbol, price: fallback, change24h: 0, source: "fallback", timestamp: new Date().toISOString() }, 200, true);
@@ -436,6 +509,10 @@ export default async (req: Request, context: Context) => {
     (s) => !STABLECOINS.has(s) && !(livePrices && livePrices[s]) && !(cgPrices && cgPrices[s]),
   );
   const bybitPrices = missingForBybit.length > 0 ? await fetchBybitPrices() : null;
+  const missingForCoinbase = SUPPORTED_SYMBOLS.filter(
+    (s) => !STABLECOINS.has(s) && !(livePrices && livePrices[s]) && !(cgPrices && cgPrices[s]) && !(bybitPrices && bybitPrices[s]),
+  );
+  const coinbasePrices = missingForCoinbase.length > 0 ? await fetchCoinbasePrices(missingForCoinbase) : null;
   const prices: Record<string, PricePoint> = {};
   let liveCount = 0;
   for (const sym of SUPPORTED_SYMBOLS) {
@@ -449,6 +526,9 @@ export default async (req: Request, context: Context) => {
       liveCount += 1;
     } else if (bybitPrices && bybitPrices[sym]) {
       prices[sym] = bybitPrices[sym];
+      liveCount += 1;
+    } else if (coinbasePrices && coinbasePrices[sym]) {
+      prices[sym] = coinbasePrices[sym];
       liveCount += 1;
     } else {
       prices[sym] = { price: FALLBACK_PRICES[sym] ?? 0, change24h: 0 };
