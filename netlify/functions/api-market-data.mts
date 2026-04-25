@@ -94,22 +94,33 @@ async function fetchBinancePrices(): Promise<Record<string, PricePoint> | null> 
     for (const part of chunks) {
       const symbols = encodeURIComponent(JSON.stringify(part.map(([, pair]) => pair)));
       const url = `https://api.binance.com/api/v3/ticker/24hr?symbols=${symbols}`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      if (!res.ok) continue;
-      const data = await res.json() as Array<{ symbol: string; lastPrice: string; priceChangePercent: string }>;
-      for (const item of data) {
-        const sym = part.find(([, pair]) => pair === item.symbol)?.[0];
-        if (!sym) continue;
-        const dec = DECIMALS[sym] ?? 2;
-        prices[sym] = {
-          price: parseFloat(parseFloat(item.lastPrice).toFixed(dec)),
-          change24h: parseFloat(parseFloat(item.priceChangePercent).toFixed(2)),
-        };
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) {
+          console.warn(`Binance API batch failed: ${res.status} ${res.statusText}`);
+          continue;
+        }
+        const data = await res.json() as Array<{ symbol: string; lastPrice: string; priceChangePercent: string }>;
+        for (const item of data) {
+          const sym = part.find(([, pair]) => pair === item.symbol)?.[0];
+          if (!sym) continue;
+          const dec = DECIMALS[sym] ?? 2;
+          prices[sym] = {
+            price: parseFloat(parseFloat(item.lastPrice).toFixed(dec)),
+            change24h: parseFloat(parseFloat(item.priceChangePercent).toFixed(2)),
+          };
+        }
+      } catch (batchErr) {
+        console.warn("Binance batch fetch error:", batchErr instanceof Error ? batchErr.message : String(batchErr));
+        continue;
       }
     }
 
-    return Object.keys(prices).length > 0 ? prices : null;
-  } catch {
+    const result = Object.keys(prices).length > 0 ? prices : null;
+    console.log(`Binance: ${Object.keys(prices).length} prices fetched`);
+    return result;
+  } catch (err) {
+    console.error("Binance fetch error:", err instanceof Error ? err.message : String(err));
     return null;
   }
 }
@@ -120,27 +131,40 @@ async function fetchCoinGeckoPrices(symbols: string[]): Promise<Record<string, P
       .map((s) => COINGECKO_IDS[s])
       .filter(Boolean)
       .join(",");
-    if (!ids) return null;
-
-    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(ids)}&vs_currencies=usd&include_24hr_change=true`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) return null;
-
-    const data = await res.json() as Record<string, { usd?: number; usd_24h_change?: number }>;
-    const out: Record<string, PricePoint> = {};
-
-    for (const sym of symbols) {
-      const id = COINGECKO_IDS[sym];
-      if (!id || !data[id] || typeof data[id].usd !== "number") continue;
-      const dec = DECIMALS[sym] ?? 2;
-      out[sym] = {
-        price: parseFloat(data[id].usd!.toFixed(dec)),
-        change24h: parseFloat((data[id].usd_24h_change ?? 0).toFixed(2)),
-      };
+    if (!ids) {
+      console.warn("CoinGecko: no IDs mapped");
+      return null;
     }
 
-    return Object.keys(out).length > 0 ? out : null;
-  } catch {
+    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(ids)}&vs_currencies=usd&include_24hr_change=true`;
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) {
+        console.warn(`CoinGecko API failed: ${res.status} ${res.statusText}`);
+        return null;
+      }
+
+      const data = await res.json() as Record<string, { usd?: number; usd_24h_change?: number }>;
+      const out: Record<string, PricePoint> = {};
+
+      for (const sym of symbols) {
+        const id = COINGECKO_IDS[sym];
+        if (!id || !data[id] || typeof data[id].usd !== "number") continue;
+        const dec = DECIMALS[sym] ?? 2;
+        out[sym] = {
+          price: parseFloat(data[id].usd!.toFixed(dec)),
+          change24h: parseFloat((data[id].usd_24h_change ?? 0).toFixed(2)),
+        };
+      }
+
+      console.log(`CoinGecko: ${Object.keys(out).length} prices fetched`);
+      return Object.keys(out).length > 0 ? out : null;
+    } catch (fetchErr) {
+      console.warn("CoinGecko fetch error:", fetchErr instanceof Error ? fetchErr.message : String(fetchErr));
+      return null;
+    }
+  } catch (err) {
+    console.error("CoinGecko error:", err instanceof Error ? err.message : String(err));
     return null;
   }
 }
@@ -173,7 +197,10 @@ async function fetchBybitPrices(): Promise<Record<string, PricePoint> | null> {
   try {
     const url = "https://api.bybit.com/v5/market/tickers?category=linear";
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(`Bybit API failed: ${res.status} ${res.statusText}`);
+      return null;
+    }
 
     const payload = await res.json() as {
       result?: {
@@ -186,7 +213,10 @@ async function fetchBybitPrices(): Promise<Record<string, PricePoint> | null> {
     };
 
     const list = payload.result?.list;
-    if (!Array.isArray(list) || list.length === 0) return null;
+    if (!Array.isArray(list) || list.length === 0) {
+      console.warn("Bybit: empty response list");
+      return null;
+    }
 
     const pairToSymbol = new Map<string, string>(
       Object.entries(SYMBOL_PAIRS).map(([sym, pair]) => [pair, sym]),
@@ -207,8 +237,10 @@ async function fetchBybitPrices(): Promise<Record<string, PricePoint> | null> {
       };
     }
 
+    console.log(`Bybit: ${Object.keys(out).length} prices fetched`);
     return Object.keys(out).length > 0 ? out : null;
-  } catch {
+  } catch (err) {
+    console.warn("Bybit fetch error:", err instanceof Error ? err.message : String(err));
     return null;
   }
 }
@@ -219,34 +251,52 @@ async function fetchCoinbaseTicker(symbol: string): Promise<PricePoint | null> {
     if (!pair) return null;
 
     const url = `https://api.exchange.coinbase.com/products/${pair}/stats`;
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(8000),
-      headers: { "User-Agent": "NexusTrade/1.0" },
-    });
-    if (!res.ok) return null;
+    try {
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(8000),
+        headers: { "User-Agent": "NexusTrade/1.0" },
+      });
+      if (!res.ok) {
+        console.warn(`Coinbase ${symbol} failed: ${res.status}`);
+        return null;
+      }
 
-    const stats = await res.json() as { open?: string; last?: string };
-    if (!stats.last) return null;
+      const stats = await res.json() as { open?: string; last?: string };
+      if (!stats.last) {
+        console.warn(`Coinbase ${symbol}: no last price in response`);
+        return null;
+      }
 
-    const last = Number(stats.last);
-    if (!Number.isFinite(last)) return null;
+      const last = Number(stats.last);
+      if (!Number.isFinite(last)) {
+        console.warn(`Coinbase ${symbol}: invalid price value`);
+        return null;
+      }
 
-    const open = Number(stats.open ?? stats.last);
-    const change = open > 0 ? ((last - open) / open) * 100 : 0;
-    const dec = DECIMALS[symbol] ?? 2;
+      const open = Number(stats.open ?? stats.last);
+      const change = open > 0 ? ((last - open) / open) * 100 : 0;
+      const dec = DECIMALS[symbol] ?? 2;
 
-    return {
-      price: parseFloat(last.toFixed(dec)),
-      change24h: parseFloat(change.toFixed(2)),
-    };
-  } catch {
+      return {
+        price: parseFloat(last.toFixed(dec)),
+        change24h: parseFloat(change.toFixed(2)),
+      };
+    } catch (tickErr) {
+      console.warn(`Coinbase ${symbol} fetch error:`, tickErr instanceof Error ? tickErr.message : String(tickErr));
+      return null;
+    }
+  } catch (err) {
+    console.error("Coinbase ticker error:", err instanceof Error ? err.message : String(err));
     return null;
   }
 }
 
 async function fetchCoinbasePrices(symbols: string[]): Promise<Record<string, PricePoint> | null> {
   const targets = symbols.filter((s) => COINBASE_PAIRS[s]);
-  if (targets.length === 0) return null;
+  if (targets.length === 0) {
+    console.warn("Coinbase: no supported pairs");
+    return null;
+  }
 
   try {
     const entries = await Promise.all(
@@ -261,8 +311,10 @@ async function fetchCoinbasePrices(symbols: string[]): Promise<Record<string, Pr
       if (point) out[symbol] = point;
     }
 
+    console.log(`Coinbase: ${Object.keys(out).length} prices fetched`);
     return Object.keys(out).length > 0 ? out : null;
-  } catch {
+  } catch (err) {
+    console.warn("Coinbase batch error:", err instanceof Error ? err.message : String(err));
     return null;
   }
 }
@@ -515,6 +567,14 @@ export default async (req: Request, context: Context) => {
   const coinbasePrices = missingForCoinbase.length > 0 ? await fetchCoinbasePrices(missingForCoinbase) : null;
   const prices: Record<string, PricePoint> = {};
   let liveCount = 0;
+  const providerStats = {
+    binance: Object.keys(livePrices || {}).length,
+    coingecko: Object.keys(cgPrices || {}).length,
+    bybit: Object.keys(bybitPrices || {}).length,
+    coinbase: Object.keys(coinbasePrices || {}).length,
+  };
+  console.log("Provider stats:", providerStats);
+
   for (const sym of SUPPORTED_SYMBOLS) {
     if (STABLECOINS.has(sym)) {
       prices[sym] = { price: 1.0, change24h: 0 };
@@ -535,7 +595,8 @@ export default async (req: Request, context: Context) => {
     }
   }
   const source = liveCount > 0 ? "mixed-live" : "fallback";
-  return secureJson({ prices, source, timestamp: new Date().toISOString() }, 200, true);
+  console.log(`All prices: ${liveCount}/${SUPPORTED_SYMBOLS.length} from live providers, source=${source}`);
+  return secureJson({ prices, source, liveCount, providerStats, timestamp: new Date().toISOString() }, 200, true);
 };
 
 export const config: Config = {

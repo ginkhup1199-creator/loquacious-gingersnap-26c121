@@ -303,6 +303,24 @@
         .chat-input input { flex: 1; background: var(--bg-dark); border: 1px solid var(--border); color: white; padding: 10px; border-radius: 20px; outline: none; }
         .chat-input button { background: var(--accent); color: #000; border: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 
+        /* Hamburger Menu Button */
+        .hamburger-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            padding: 0 15px;
+            font-size: 24px;
+            z-index: 102;
+        }
+        .hamburger-btn:hover { color: var(--accent); }
+
+        /* Mobile Sidebar Overlay */
+        .sidebar.mobile-open { display: flex !important; position: fixed; left: 0; top: 0; bottom: 0; z-index: 101; width: 250px; height: 100vh; box-shadow: 2px 0 15px rgba(0,0,0,0.3); }
+        .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 99; }
+        .sidebar-overlay.active { display: block; }
+
         /* Mobile Responsiveness */
         @media (max-width: 768px) {
             .sidebar { display: none; }
@@ -310,6 +328,7 @@
             .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
             .topbar .logo span { display: none; }
             .balance { display: none !important; }
+            .hamburger-btn { display: block; }
             .chat-toggle-btn { bottom: 80px; right: 15px; }
             .floating-chat { bottom: 150px; right: 10px; width: calc(100% - 20px); height: 400px; }
         }
@@ -328,8 +347,9 @@
         </div>
         <ul class="nav-menu">
             <li class="nav-item active" onclick="switchTab('tab-home')"><i data-lucide="home"></i> Dashboard</li>
-            <li class="nav-item" onclick="switchTab('tab-wallet')"><i data-lucide="wallet"></i> Wallet</li>
             <li class="nav-item" onclick="switchTab('tab-trade')"><i data-lucide="line-chart"></i> Spot Trade</li>
+            <li class="nav-item" onclick="switchTab('tab-k-lineup')"><i data-lucide="grid-3x3"></i> K-Lineup</li>
+            <li class="nav-item" onclick="switchTab('tab-wallet')"><i data-lucide="wallet"></i> Wallet</li>
             <li class="nav-item" onclick="switchTab('tab-swap')"><i data-lucide="refresh-cw"></i> Web3 Swap</li>
             <li class="nav-item" onclick="switchTab('tab-binary')"><i data-lucide="clock"></i> Binary Options</li>
             <li class="nav-item" onclick="switchTab('tab-ai')"><i data-lucide="cpu"></i> AI Arbitrage</li>
@@ -343,6 +363,7 @@
     <main class="main-content">
         <!-- Topbar -->
         <header class="topbar">
+            <button class="hamburger-btn" onclick="toggleSidebar()"><i data-lucide="menu"></i></button>
             <div class="logo d-md-none">
                 <i data-lucide="hexagon"></i> <span>NexusTrade</span>
             </div>
@@ -410,6 +431,31 @@
                         <div style="font-size: 18px; font-weight: bold; color: var(--warning); margin-top: 6px;">Yield strategies ready</div>
                         <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">Deploy AI arbitrage or manage staking positions from the earn section.</div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: K-Lineup (All Cryptos) -->
+        <div id="tab-k-lineup" class="tab-pane">
+            <h2 style="margin-bottom: 15px; color: var(--accent);">Crypto Lineup</h2>
+            <div class="card">
+                <div class="card-header">Supported Cryptocurrencies (Live Prices)</div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Cryptocurrency</th>
+                                <th>Symbol</th>
+                                <th>Price (USDT)</th>
+                                <th>24h Change</th>
+                                <th>Trading Pair</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="kLineupTable">
+                            <tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -1084,14 +1130,14 @@
         <div class="bottom-nav-item active" onclick="switchTab('tab-home')">
             <i data-lucide="home"></i><span>Home</span>
         </div>
+        <div class="bottom-nav-item" onclick="switchTab('tab-k-lineup')">
+            <i data-lucide="grid-3x3"></i><span>Cryptos</span>
+        </div>
         <div class="bottom-nav-item" onclick="switchTab('tab-trade')">
             <i data-lucide="line-chart"></i><span>Trade</span>
         </div>
         <div class="bottom-nav-item" onclick="switchTab('tab-wallet')">
             <i data-lucide="wallet"></i><span>Wallet</span>
-        </div>
-        <div class="bottom-nav-item" onclick="switchTab('tab-swap')">
-            <i data-lucide="refresh-cw"></i><span>Swap</span>
         </div>
         <div class="bottom-nav-item" onclick="switchTab('tab-profile')">
             <i data-lucide="user"></i><span>Profile</span>
@@ -1228,6 +1274,19 @@
 
             const activeMobileNav = document.querySelector(`.bottom-nav-item[onclick="switchTab('${tabId}')"]`);
             if(activeMobileNav) activeMobileNav.classList.add('active');
+
+            // Close sidebar on mobile when tab is selected
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.querySelector('.sidebar-overlay');
+            if(sidebar && sidebar.classList.contains('mobile-open')) {
+                sidebar.classList.remove('mobile-open');
+                if(overlay) overlay.classList.remove('active');
+            }
+
+            // Load k-lineup data when tab is switched to it
+            if(tabId === 'tab-k-lineup') {
+                loadKLineup();
+            }
         }
 
         function switchWalletTab(subTabId) {
@@ -1237,6 +1296,83 @@
             document.getElementById(subTabId).classList.add('active');
             const activeNav = document.querySelector(`.wallet-nav-item[onclick="switchWalletTab('${subTabId}')"]`);
             if(activeNav) activeNav.classList.add('active');
+        }
+
+        // Hamburger Menu Toggle
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.querySelector('.sidebar-overlay') || createSidebarOverlay();
+            sidebar.classList.toggle('mobile-open');
+            overlay.classList.toggle('active');
+        }
+
+        function createSidebarOverlay() {
+            const overlay = document.createElement('div');
+            overlay.className = 'sidebar-overlay';
+            overlay.onclick = () => {
+                document.querySelector('.sidebar').classList.remove('mobile-open');
+                overlay.classList.remove('active');
+            };
+            document.body.appendChild(overlay);
+            return overlay;
+        }
+
+        // Load K-Lineup Data
+        async function loadKLineup() {
+            const tbody = document.getElementById('kLineupTable');
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">Loading...</td></tr>';
+
+            try {
+                const res = await fetch('/api/v2/k-lineup');
+                if (!res.ok) throw new Error(`API error: ${res.status}`);
+                
+                const data = await res.json() as {
+                    lineup?: Array<{
+                        symbol: string;
+                        name: string;
+                        price: number;
+                        change24h: number;
+                        pair: string;
+                    }>;
+                    source?: string;
+                };
+
+                if (!data.lineup || data.lineup.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-danger);">No data available</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                data.lineup.forEach(crypto => {
+                    const isPositive = crypto.change24h >= 0;
+                    const changeClass = isPositive ? 'text-success' : 'text-danger';
+                    const sign = isPositive ? '+' : '';
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>
+                            <div class="coin-info">
+                                <div class="coin-icon">
+                                    <img src="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/${crypto.symbol.toLowerCase()}.svg" 
+                                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM4YmEzY2IiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCIvPjxwb2x5Z29uIHBvaW50cz0iMTAgOCAxNiAxMiAxMCAxNiAxMCA4Ii8+PC9zdmc+'" alt="${crypto.symbol}">
+                                </div>
+                                <b>${crypto.name}</b>
+                            </div>
+                        </td>
+                        <td><b style="color: var(--accent);">${crypto.symbol}</b></td>
+                        <td style="color: var(--accent); font-weight: bold;">${crypto.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 6})}</td>
+                        <td class="${changeClass}">${sign}${crypto.change24h.toFixed(2)}%</td>
+                        <td style="color: var(--text-secondary);">${crypto.pair}</td>
+                        <td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="switchTab('tab-trade')">Trade</button></td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                console.log(`K-Lineup loaded: ${data.lineup.length} cryptos (source: ${data.source})`);
+            } catch (err) {
+                console.error('K-Lineup error:', err);
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-danger);">Failed to load data. Please try again.</td></tr>';
+            }
         }
 
         // Persistent Wallet & State Logic
