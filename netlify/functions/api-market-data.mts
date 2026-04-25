@@ -161,6 +161,50 @@ async function fetchBybitTicker(symbol: string): Promise<PricePoint | null> {
   }
 }
 
+async function fetchBybitPrices(): Promise<Record<string, PricePoint> | null> {
+  try {
+    const url = "https://api.bybit.com/v5/market/tickers?category=linear";
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+
+    const payload = await res.json() as {
+      result?: {
+        list?: Array<{
+          symbol?: string;
+          lastPrice?: string;
+          price24hPcnt?: string;
+        }>;
+      };
+    };
+
+    const list = payload.result?.list;
+    if (!Array.isArray(list) || list.length === 0) return null;
+
+    const pairToSymbol = new Map<string, string>(
+      Object.entries(SYMBOL_PAIRS).map(([sym, pair]) => [pair, sym]),
+    );
+
+    const out: Record<string, PricePoint> = {};
+    for (const item of list) {
+      const pair = item.symbol;
+      if (!pair) continue;
+      const symbol = pairToSymbol.get(pair);
+      if (!symbol || !item.lastPrice) continue;
+
+      const dec = DECIMALS[symbol] ?? 2;
+      const pct = Number(item.price24hPcnt ?? "0") * 100;
+      out[symbol] = {
+        price: parseFloat(Number(item.lastPrice).toFixed(dec)),
+        change24h: parseFloat(pct.toFixed(2)),
+      };
+    }
+
+    return Object.keys(out).length > 0 ? out : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchBinanceTicker(symbol: string): Promise<PricePoint | null> {
   try {
     const pair = SYMBOL_PAIRS[symbol];
@@ -319,17 +363,30 @@ export default async (req: Request, context: Context) => {
 
   if (type === "swap-rates") {
     const livePrices = await fetchBinancePrices();
-    const cgPrices = livePrices ? null : await fetchCoinGeckoPrices(SUPPORTED_SYMBOLS);
+    const missingForCg = SUPPORTED_SYMBOLS.filter((s) => !STABLECOINS.has(s) && !(livePrices && livePrices[s]));
+    const cgPrices = missingForCg.length > 0 ? await fetchCoinGeckoPrices(missingForCg) : null;
+    const missingForBybit = SUPPORTED_SYMBOLS.filter(
+      (s) => !STABLECOINS.has(s) && !(livePrices && livePrices[s]) && !(cgPrices && cgPrices[s]),
+    );
+    const bybitPrices = missingForBybit.length > 0 ? await fetchBybitPrices() : null;
     const rates: Record<string, number> = {};
+    let liveCount = 0;
     for (const sym of SUPPORTED_SYMBOLS) {
       if (STABLECOINS.has(sym)) { rates[sym] = 1; }
       else if (livePrices && livePrices[sym]) {
         rates[sym] = livePrices[sym].price;
+        liveCount += 1;
       } else if (cgPrices && cgPrices[sym]) {
         rates[sym] = cgPrices[sym].price;
-      } else { rates[sym] = FALLBACK_PRICES[sym] ?? 0; }
+        liveCount += 1;
+      } else if (bybitPrices && bybitPrices[sym]) {
+        rates[sym] = bybitPrices[sym].price;
+        liveCount += 1;
+      } else {
+        rates[sym] = FALLBACK_PRICES[sym] ?? 0;
+      }
     }
-    const source = livePrices ? "binance" : (cgPrices ? "coingecko" : "fallback");
+    const source = liveCount > 0 ? "mixed-live" : "fallback";
     return secureJson({ rates, source, timestamp: new Date().toISOString() }, 200, true);
   }
 
@@ -375,19 +432,29 @@ export default async (req: Request, context: Context) => {
   const livePrices = await fetchBinancePrices();
   const missingForCg = SUPPORTED_SYMBOLS.filter((s) => !STABLECOINS.has(s) && !(livePrices && livePrices[s]));
   const cgPrices = missingForCg.length > 0 ? await fetchCoinGeckoPrices(missingForCg) : null;
+  const missingForBybit = SUPPORTED_SYMBOLS.filter(
+    (s) => !STABLECOINS.has(s) && !(livePrices && livePrices[s]) && !(cgPrices && cgPrices[s]),
+  );
+  const bybitPrices = missingForBybit.length > 0 ? await fetchBybitPrices() : null;
   const prices: Record<string, PricePoint> = {};
+  let liveCount = 0;
   for (const sym of SUPPORTED_SYMBOLS) {
     if (STABLECOINS.has(sym)) {
       prices[sym] = { price: 1.0, change24h: 0 };
     } else if (livePrices && livePrices[sym]) {
       prices[sym] = livePrices[sym];
+      liveCount += 1;
     } else if (cgPrices && cgPrices[sym]) {
       prices[sym] = cgPrices[sym];
+      liveCount += 1;
+    } else if (bybitPrices && bybitPrices[sym]) {
+      prices[sym] = bybitPrices[sym];
+      liveCount += 1;
     } else {
       prices[sym] = { price: FALLBACK_PRICES[sym] ?? 0, change24h: 0 };
     }
   }
-  const source = livePrices ? "binance" : (cgPrices ? "coingecko" : "fallback");
+  const source = liveCount > 0 ? "mixed-live" : "fallback";
   return secureJson({ prices, source, timestamp: new Date().toISOString() }, 200, true);
 };
 
