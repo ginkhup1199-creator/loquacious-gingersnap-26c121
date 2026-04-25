@@ -196,6 +196,7 @@
             <li class="nav-item nav-all" onclick="switchTab('tab-wallet')"><i data-lucide="wallet"></i> Wallet Controls</li>
             <li class="nav-item nav-all" onclick="switchTab('tab-levels')"><i data-lucide="layers"></i> Binary Levels</li>
             <li class="nav-item nav-all" onclick="switchTab('tab-ailevels')"><i data-lucide="cpu"></i> AI Arbitrage</li>
+            <li class="nav-item nav-all" onclick="switchTab('tab-k-lineup'); loadKLineupAdmin()"><i data-lucide="grid-3x3"></i> K-Lineup</li>
             <li class="nav-item nav-kyc" onclick="switchTab('tab-kyc')"><i data-lucide="user-check"></i> KYC Approvals</li>
             <li class="nav-item nav-withdrawals" onclick="switchTab('tab-withdraw')"><i data-lucide="arrow-up-from-line"></i> Withdrawals</li>
             <li class="nav-item nav-all" onclick="switchTab('tab-transactions')"><i data-lucide="receipt"></i> Transactions</li>
@@ -344,6 +345,53 @@
                 <!-- Injected by JS -->
             </div>
             <button class="btn btn-success mt-15" onclick="saveAiLevels()" style="width: 200px;"><i data-lucide="save"></i> Save All Levels</button>
+        </div>
+
+        <!-- K-Lineup Management -->
+        <div id="tab-k-lineup" class="tab-pane">
+            <h2>K-Lineup Management</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">View and manage the supported cryptocurrency pairs displayed in the K-Lineup on the frontend. This controls which coins users can see and trade.</p>
+            
+            <div class="grid-2" style="margin-bottom: 20px;">
+                <div class="card">
+                    <div class="card-header">K-Lineup Status</div>
+                    <div style="display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid var(--border);">
+                        <div>
+                            <div style="color: var(--text-secondary); font-size: 13px;">Total Coins Supported</div>
+                            <div style="font-size: 24px; font-weight: bold; color: var(--accent);" id="lineup-total">50+</div>
+                        </div>
+                        <div>
+                            <div style="color: var(--text-secondary); font-size: 13px;">Live Prices Updated</div>
+                            <div style="font-size: 14px; color: var(--success);" id="lineup-status">Every minute</div>
+                        </div>
+                    </div>
+                    <button class="btn" style="width: 100%; margin-top: 15px;" onclick="loadKLineupAdmin()"><i data-lucide="refresh-cw"></i> Refresh K-Lineup</button>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">Market Data Providers</div>
+                    <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+                        <div style="margin-bottom: 8px;">✓ Binance API v3</div>
+                        <div style="margin-bottom: 8px;">✓ CoinGecko API v3</div>
+                        <div style="margin-bottom: 8px;">✓ Bybit v5</div>
+                        <div style="margin-bottom: 8px;">✓ Coinbase Exchange</div>
+                        <div>✓ Fallback Prices</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">Supported Cryptocurrencies</div>
+                <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 15px;">Live prices are fetched from multiple providers with automatic fallback. Click refresh to update immediately.</p>
+                <div style="max-height: 600px; overflow-y: auto;">
+                    <table>
+                        <thead><tr><th>#</th><th>Symbol</th><th>Name</th><th>Price (USD)</th><th>24h Change</th><th>Status</th></tr></thead>
+                        <tbody id="adminKLineupTable">
+                            <tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">Loading K-Lineup...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
         <!-- KYC Approvals -->
@@ -1388,6 +1436,37 @@
                 document.getElementById('stake-profit-amount').value = '';
                 document.getElementById('stake-profit-note').value = '';
             }
+        }
+
+        async function loadKLineupAdmin() {
+            const data = await api('k-lineup');
+            const tbody = document.getElementById('adminKLineupTable');
+            if(!tbody) return;
+            document.querySelectorAll('.dynamic-klineup-row').forEach(el => el.remove());
+            if(!data || !data.lineup || data.lineup.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary);">Failed to load K-Lineup data.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = '';
+            const total = document.getElementById('lineup-total');
+            if(total) total.textContent = data.lineup.length;
+            data.lineup.forEach((coin, idx) => {
+                const change24h = parseFloat(coin.change24h || 0);
+                const changeColor = change24h >= 0 ? 'var(--success)' : 'var(--danger)';
+                const changeSign = change24h >= 0 ? '+' : '';
+                const row = document.createElement('tr');
+                row.className = 'dynamic-klineup-row';
+                row.innerHTML = `
+                    <td style="font-weight:bold;color:var(--text-secondary);">${idx + 1}</td>
+                    <td><strong>${esc(coin.symbol || '')}</strong></td>
+                    <td>${esc(coin.name || '')}</td>
+                    <td style="font-family:monospace;font-weight:bold;color:var(--accent);">$${parseFloat(coin.price || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:8})}</td>
+                    <td style="color:${changeColor};font-weight:bold;">${changeSign}${change24h.toFixed(2)}%</td>
+                    <td><span style="color:var(--success);font-size:12px;">✓ Live</span></td>
+                `;
+                tbody.appendChild(row);
+            });
+            lucide.createIcons();
         }
 
         async function loadStakingAdmin() {
