@@ -420,6 +420,55 @@ export default async (req: Request, context: Context) => {
       );
     }
 
+    // ── Sub-admin login: username + password ───────────────────────────────
+    if (action === "subadmin-login") {
+      const rawUsername = String(body.username ?? "").toLowerCase().trim();
+      const rawPassword = String(body.password ?? "").trim();
+
+      if (!rawUsername || !rawPassword) {
+        return Response.json({ error: "Username and password are required." }, { status: 400, headers });
+      }
+
+      interface SubAdminAccount {
+        username: string;
+        passwordHash: string;
+        permissions: string[];
+        createdAt: string;
+      }
+
+      const accounts = ((await store.get("subadmin-accounts", { type: "json" })) ?? []) as SubAdminAccount[];
+      const account = accounts.find((a) => a.username === rawUsername);
+
+      if (!account) {
+        console.warn(`[AUDIT] {"event":"SUBADMIN_LOGIN_FAILED","reason":"unknown-user","ip":"${ip}"}`);
+        return Response.json({ error: "Invalid username or password." }, { status: 401, headers });
+      }
+
+      const inputHash = createHash("sha256").update(rawPassword).digest("hex");
+      if (!timingSafeTokenCompare(inputHash, account.passwordHash)) {
+        console.warn(`[AUDIT] {"event":"SUBADMIN_LOGIN_FAILED","username":"${rawUsername}","ip":"${ip}"}`);
+        return Response.json({ error: "Invalid username or password." }, { status: 401, headers });
+      }
+
+      // Create a sub-admin session stored under a unique key
+      const subSessionId = randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
+      const subSession = {
+        sessionId: subSessionId,
+        username: rawUsername,
+        permissions: account.permissions,
+        expiresAt,
+        createdAt: new Date().toISOString(),
+      };
+      await store.setJSON(`subadmin-session-${subSessionId}`, subSession);
+
+      console.log(`[AUDIT] {"event":"SUBADMIN_SESSION_CREATED","username":"${rawUsername}","ip":"${ip}"}`);
+      return Response.json(
+        { sessionId: subSessionId, expiresAt, role: "subadmin", permissions: account.permissions, message: "Authenticated." },
+        { status: 201, headers }
+      );
+    }
+
     return Response.json({ error: "Unknown action" }, { status: 400, headers });
   }
 
