@@ -382,12 +382,16 @@
                 <i data-lucide="wallet" style="width:40px;height:40px;color:var(--accent);margin-bottom:12px;"></i>
                 <h3 style="color:var(--text-primary);margin-bottom:6px;">Connect Wallet</h3>
                 <p style="color:var(--text-secondary);font-size:13px;margin-bottom:20px;">Enter any wallet address to access the platform, or use your browser wallet.</p>
+                <div id="ethNetworkBadge" style="display:none;margin-bottom:12px;padding:6px 12px;background:var(--bg-dark);border:1px solid var(--border);border-radius:20px;font-size:11px;color:var(--accent);">
+                    <i data-lucide="radio" style="width:12px;display:inline-block;vertical-align:middle;margin-right:4px;"></i>
+                    <span id="ethNetworkLabel">Ethereum Mainnet</span>
+                </div>
                 <input type="text" id="manualWalletInput" placeholder="Enter any wallet address..." style="width:100%;padding:12px;background:var(--bg-dark);border:1px solid var(--border);color:white;border-radius:8px;margin-bottom:12px;font-size:13px;" onkeypress="if(event.key==='Enter') connectManualWallet()">
                 <button class="btn" style="width:100%;margin-bottom:8px;padding:12px;font-size:14px;" onclick="connectManualWallet()">
                     <i data-lucide="log-in"></i> Connect
                 </button>
                 <button id="metaMaskBtn" style="display:none;width:100%;padding:12px;background:var(--warning);color:#000;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:13px;margin-bottom:8px;" onclick="connectMetaMask()">
-                    <i data-lucide="zap"></i> Use MetaMask
+                    <i data-lucide="zap"></i> Use MetaMask / Browser Wallet
                 </button>
                 <button onclick="closeWalletModal()" style="background:transparent;border:none;color:var(--text-secondary);font-size:13px;cursor:pointer;margin-top:4px;">Cancel</button>
                 <div id="walletConnectError" style="color:var(--danger);font-size:12px;margin-top:8px;display:none;"></div>
@@ -1388,6 +1392,24 @@
         let walletAddr = localStorage.getItem('walletAddr') || '';
         let stakingPositions = [];
 
+        // ── Ethereum / EVM network configuration ──────────────────────────────
+        // Set ETH_NETWORK to 'mainnet' or 'sepolia' via meta tag or env; defaults to mainnet.
+        const ETH_CHAINS = {
+            mainnet: { chainId: '0x1',      name: 'Ethereum Mainnet', rpc: 'https://cloudflare-eth.com' },
+            sepolia: { chainId: '0xaa36a7', name: 'Sepolia Testnet',  rpc: 'https://rpc.sepolia.org'    },
+        };
+        // Pick the chain based on the optional data-eth-network attribute on <html>
+        const _ethNetworkKey = (document.documentElement.dataset.ethNetwork || 'mainnet').toLowerCase();
+        const ETH_CHAIN = ETH_CHAINS[_ethNetworkKey] || ETH_CHAINS.mainnet;
+
+        /** Returns true for valid EVM (0x…) addresses and false otherwise. */
+        function isEvmAddress(addr) {
+            return /^0x[0-9a-fA-F]{40}$/.test(addr);
+        }
+
+        // SIWE session token stored after a successful sign-in
+        let siweSessionToken = localStorage.getItem('siweSession') || null;
+
         // Default Deposit Addresses (will be updated from server)
         let depositAddresses = {
             'TRC20': 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
@@ -1488,6 +1510,15 @@
                 localStorage.removeItem('walletConnected');
                 localStorage.removeItem('walletAddr');
                 localStorage.removeItem('userId');
+                // Invalidate SIWE session on the backend (best-effort)
+                if (siweSessionToken) {
+                    fetch('/api/v2/siwe/session', {
+                        method: 'DELETE',
+                        headers: { 'X-Wallet-Session': siweSessionToken },
+                    }).catch(() => {});
+                    siweSessionToken = null;
+                    localStorage.removeItem('siweSession');
+                }
                 stakingPositions = [];
                 renderStakePositions();
                 updateUIState();
@@ -1498,8 +1529,15 @@
             document.getElementById('manualWalletInput').value = '';
             document.getElementById('walletConnectError').style.display = 'none';
             // Show MetaMask button only if available
-            document.getElementById('metaMaskBtn').style.display =
-                (typeof window.ethereum !== 'undefined') ? 'block' : 'none';
+            const hasEthProvider = typeof window.ethereum !== 'undefined';
+            document.getElementById('metaMaskBtn').style.display = hasEthProvider ? 'block' : 'none';
+            // Show the network badge when an EVM provider is present
+            const netBadge = document.getElementById('ethNetworkBadge');
+            const netLabel = document.getElementById('ethNetworkLabel');
+            if (netBadge && netLabel) {
+                netBadge.style.display = hasEthProvider ? 'block' : 'none';
+                netLabel.innerText = ETH_CHAIN.name;
+            }
             modal.style.display = 'flex';
             setTimeout(() => document.getElementById('manualWalletInput').focus(), 100);
         }
@@ -1516,8 +1554,14 @@
                 errEl.style.display = 'block';
                 return;
             }
-            if(input.length < 8) {
+            if(input.length < 26) {
                 errEl.innerText = 'Wallet address is too short.';
+                errEl.style.display = 'block';
+                return;
+            }
+            // Warn (but allow) if it looks like an EVM address but is malformed
+            if(input.startsWith('0x') && !isEvmAddress(input)) {
+                errEl.innerText = 'Invalid Ethereum address. Must be 0x followed by 40 hex characters.';
                 errEl.style.display = 'block';
                 return;
             }
@@ -1528,17 +1572,69 @@
 
         async function connectMetaMask() {
             const errEl = document.getElementById('walletConnectError');
+            errEl.style.display = 'none';
+
+            if (typeof window.ethereum === 'undefined') {
+                errEl.innerText = 'No browser wallet detected. Please install MetaMask or another EVM wallet extension.';
+                errEl.style.display = 'block';
+                return;
+            }
+
             try {
+                // 1. Request account access
                 const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                if(accounts && accounts.length > 0) {
-                    closeWalletModal();
-                    await finishWalletConnect(accounts[0]);
+                if (!accounts || accounts.length === 0) {
+                    errEl.innerText = 'No accounts returned by the wallet.';
+                    errEl.style.display = 'block';
+                    return;
                 }
-            } catch(e) {
-                if(e.code === 4001) {
+
+                // 2. Check / switch to the correct chain
+                const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
+                if (currentChainId !== ETH_CHAIN.chainId) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: ETH_CHAIN.chainId }],
+                        });
+                    } catch (switchErr) {
+                        if (switchErr.code === 4902) {
+                            // Chain not in wallet — try adding it
+                            try {
+                                await window.ethereum.request({
+                                    method: 'wallet_addEthereumChain',
+                                    params: [{
+                                        chainId: ETH_CHAIN.chainId,
+                                        chainName: ETH_CHAIN.name,
+                                        rpcUrls: [ETH_CHAIN.rpc],
+                                    }],
+                                });
+                            } catch (addErr) {
+                                errEl.innerText = 'Please switch to ' + ETH_CHAIN.name + ' in your wallet and try again.';
+                                errEl.style.display = 'block';
+                                return;
+                            }
+                        } else if (switchErr.code === 4001) {
+                            errEl.innerText = 'Please switch to ' + ETH_CHAIN.name + ' to continue.';
+                            errEl.style.display = 'block';
+                            return;
+                        } else {
+                            errEl.innerText = 'Network switch failed: ' + (switchErr.message || 'Unknown error');
+                            errEl.style.display = 'block';
+                            return;
+                        }
+                    }
+                }
+
+                // 3. Proceed with the verified account
+                closeWalletModal();
+                await finishWalletConnect(accounts[0]);
+
+            } catch (e) {
+                if (e.code === 4001) {
                     errEl.innerText = 'Connection rejected by user.';
                 } else {
-                    errEl.innerText = 'MetaMask error: ' + (e.message || 'Unknown error');
+                    errEl.innerText = 'Wallet error: ' + (e.message || 'Unknown error');
                 }
                 errEl.style.display = 'block';
             }
@@ -1558,6 +1654,57 @@
             await loadStakePositions();
             pollBackend();
             showToast('Wallet connected!');
+
+            // Offer SIWE sign-in for EVM wallets when window.ethereum is available
+            if (isEvmAddress(walletAddr) && typeof window.ethereum !== 'undefined') {
+                await attemptSiweSignIn(walletAddr);
+            }
+        }
+
+        /**
+         * Non-blocking SIWE sign-in: fetches a nonce, prompts the user to sign,
+         * then verifies with the backend. Failures are shown as warnings but do
+         * NOT prevent the user from using the app in read-only/connected mode.
+         */
+        async function attemptSiweSignIn(addr) {
+            try {
+                // 1. Fetch nonce from backend
+                const nonceRes = await fetch('/api/v2/siwe/nonce?wallet=' + encodeURIComponent(addr));
+                if (!nonceRes.ok) return; // backend unavailable – skip silently
+                const { message } = await nonceRes.json();
+                if (!message) return;
+
+                // 2. Ask user to sign the message (personal_sign)
+                let signature;
+                try {
+                    signature = await window.ethereum.request({
+                        method: 'personal_sign',
+                        params: [message, addr],
+                    });
+                } catch (signErr) {
+                    // User declined the SIWE prompt — keep wallet connected, just not SIWE-verified
+                    if (signErr && signErr.code !== 4001) {
+                        console.warn('SIWE signing failed:', signErr.message || signErr);
+                    }
+                    return;
+                }
+
+                // 3. Send signature to backend for verification
+                const verifyRes = await fetch('/api/v2/siwe/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ wallet: addr, signature }),
+                });
+                if (!verifyRes.ok) return;
+                const { sessionId } = await verifyRes.json();
+                if (sessionId) {
+                    siweSessionToken = sessionId;
+                    localStorage.setItem('siweSession', sessionId);
+                }
+            } catch (e) {
+                // SIWE is best-effort; never block the user
+                console.warn('SIWE flow error:', e);
+            }
         }
 
         // Silently restore a previous wallet session on page load (no toast)
@@ -1603,6 +1750,11 @@
                     localStorage.removeItem('walletConnected');
                     localStorage.removeItem('walletAddr');
                     localStorage.removeItem('userId');
+                    if (siweSessionToken) {
+                        fetch('/api/v2/siwe/session', { method: 'DELETE', headers: { 'X-Wallet-Session': siweSessionToken } }).catch(() => {});
+                        siweSessionToken = null;
+                        localStorage.removeItem('siweSession');
+                    }
                     stakingPositions = [];
                     renderStakePositions();
                     updateUIState();
@@ -1610,8 +1762,21 @@
                 } else if(accounts[0] !== walletAddr) {
                     walletAddr = accounts[0];
                     localStorage.setItem('walletAddr', walletAddr);
+                    // Clear old SIWE session for the previous address
+                    if (siweSessionToken) {
+                        fetch('/api/v2/siwe/session', { method: 'DELETE', headers: { 'X-Wallet-Session': siweSessionToken } }).catch(() => {});
+                        siweSessionToken = null;
+                        localStorage.removeItem('siweSession');
+                    }
                     updateUIState();
                     loadStakePositions();
+                }
+            });
+
+            // Listen for network / chain changes
+            window.ethereum.on('chainChanged', (chainId) => {
+                if (chainId !== ETH_CHAIN.chainId) {
+                    showToast('Wrong network detected. Please switch to ' + ETH_CHAIN.name + '.', 'warning');
                 }
             });
         }

@@ -41,13 +41,20 @@ jobs:
 
       - name: Health check — verify deployment is live
         run: |
-          echo "Waiting 15 seconds for CDN propagation..."
-          sleep 15
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://nexustrade.website/api/v2/system/health)
-          if [ "$STATUS" = "200" ]; then
-            echo "✅ Health check passed — /api/v2/system/health returned HTTP 200"
-          else
-            echo "❌ Health check FAILED — /api/v2/system/health returned HTTP $STATUS"
+          echo "Waiting 20 seconds for CDN propagation..."
+          sleep 20
+          # Retry up to 3 times with 15s between attempts to handle CDN cold-start
+          for ATTEMPT in 1 2 3; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://nexustrade.website/api/v2/system/health || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Health check passed — /api/v2/system/health returned HTTP 200 (attempt $ATTEMPT)"
+              break
+            fi
+            echo "⚠️  Attempt $ATTEMPT: /api/v2/system/health returned HTTP $STATUS"
+            if [ "$ATTEMPT" -lt 3 ]; then sleep 15; fi
+          done
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Health check FAILED after 3 attempts — HTTP $STATUS"
             exit 1
           fi
 
@@ -61,7 +68,7 @@ jobs:
           )
           ALL_OK=true
           for URL in "${ENDPOINTS[@]}"; do
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$URL" || echo "000")
             if [ "$CODE" = "200" ]; then
               echo "  ✅  $URL → $CODE"
             else

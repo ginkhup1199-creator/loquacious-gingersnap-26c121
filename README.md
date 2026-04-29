@@ -30,8 +30,9 @@ NexusTrade
 │   │   ├── api-health.mts          # Health check endpoint
 │   │   ├── api-kyc.mts             # KYC submission & approval
 │   │   ├── api-levels.mts          # Binary options & AI arbitrage levels
-│   │   ├── api-market-data.mts     # Simulated crypto price feeds
+│   │   ├── api-market-data.mts     # Live crypto price feeds (Binance + CoinGecko fallback)
 │   │   ├── api-settings.mts        # Global fees & rates
+│   │   ├── api-siwe.mts            # Sign-In with Ethereum (EIP-4361 nonce + signature verify)
 │   │   ├── api-trades.mts          # Trade execution (spot, binary, swap, AI bot)
 │   │   ├── api-transactions.mts    # Transaction history
 │   │   ├── api-users.mts           # User registration
@@ -66,11 +67,47 @@ NexusTrade
 | GET/POST | `/api/v2/levels` | GET: None / POST: Admin | Binary/AI level config |
 | GET/POST | `/api/v2/settings` | GET: None / POST: Admin | Global settings |
 | GET/POST | `/api/v2/features` | GET: None / POST: Admin | Feature flags |
-| GET | `/api/v2/market-data` | None | Simulated crypto prices |
+| GET | `/api/v2/market-data` | None | Live crypto prices (Binance fallback to CoinGecko) |
 | POST | `/api/v2/chat` | None | Chat (LLM-protected) |
 | GET | `/api/v2/admin` | Admin | Admin statistics |
 | POST | `/api/v2/admin/session` | None | OTP login |
 | GET/POST | `/api/v2/wallet` | GET: None / POST: Admin | Wallet info |
+| GET | `/api/v2/siwe/nonce` | None | Issue a SIWE nonce for an EVM wallet |
+| POST | `/api/v2/siwe/verify` | None | Verify EIP-191 signature and create wallet session |
+| GET/DELETE | `/api/v2/siwe/session` | Wallet session | Check or invalidate a SIWE session |
+
+---
+
+## Ethereum / EVM Wallet Integration
+
+NexusTrade supports connecting any crypto wallet by address, plus browser-extension EVM wallets (MetaMask, Rabby, Brave Wallet, etc.) with full Sign-In with Ethereum (EIP-4361 / EIP-191).
+
+### Wallet Connect Flow
+
+1. **Any address (read-only)** — paste any wallet address (ETH, BTC, TRC20, SOL…) into the connect modal.
+2. **Browser wallet (EVM + SIWE)** — click **Use MetaMask / Browser Wallet**:
+   - The app checks the connected chain; if it doesn't match the configured network it calls `wallet_switchEthereumChain` (or `wallet_addEthereumChain` if the chain is missing).
+   - After the address is retrieved the app issues a SIWE challenge (`/api/v2/siwe/nonce`), asks the user to sign a human-readable message, then verifies the signature server-side (`/api/v2/siwe/verify`).
+   - A 24-hour wallet session token is stored in `localStorage` under `siweSession`.
+3. **Account / chain changes** — MetaMask `accountsChanged` and `chainChanged` events are both listened for; a wrong-network toast is shown when the user switches to an unsupported chain.
+
+### Configuring the Target Chain
+
+By default the app targets **Ethereum Mainnet** (chain ID `0x1`). To switch to **Sepolia testnet**, add a `data-eth-network` attribute to the `<html>` element in `index.html`:
+
+```html
+<html lang="en" data-eth-network="sepolia">
+```
+
+Supported values: `mainnet` (default) | `sepolia`.
+
+Custom chains or private RPCs can be added by extending the `ETH_CHAINS` object in `index.html`.
+
+### Environment Variable
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `APP_URL` | No | Public URL of the app; embedded in SIWE messages. Defaults to `https://nexustrade.website`. |
 
 ---
 
@@ -113,6 +150,7 @@ The app will be available at `http://localhost:8888`.
 | `ADMIN_EMAIL` | ✅ | Email address that receives admin OTP codes |
 | `GMAIL_USER` | ✅ | Gmail address used to send OTP emails |
 | `GMAIL_APP_PASSWORD` | ✅ | Gmail App Password (16 chars). See setup below. |
+| `APP_URL` | No | Public app URL embedded in SIWE sign-in messages (default: `https://nexustrade.website`) |
 | `NODE_ENV` | No | `development` or `production` (default: `development`) |
 
 ### Gmail App Password Setup
