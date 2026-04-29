@@ -1,17 +1,23 @@
 name: Code Integrity Check
 
 on:
-  push:
-    branches: ["**"]
+  # Avoid running on every branch push ("**") which can create noisy/blocked checks.
+  # Run on PRs (so contributors get feedback) and on pushes to the default branch.
   pull_request:
-    branches: ["**"]
+    branches:
+      - "**"
+  push:
+    branches:
+      - main
+
+# Least privilege by default; jobs can override if needed.
+permissions:
+  contents: read
 
 jobs:
   typecheck:
     name: TypeScript Type Check
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,14 +37,15 @@ jobs:
   workflow-allowlist:
     name: Workflow Directory Lockdown
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Fail if any unauthorized workflow file exists
+        shell: bash
         run: |
+          set -euo pipefail
+
           APPROVED=(
             ".github/workflows/pr-guard.yml"
             ".github/workflows/integrity-check.yml"
@@ -47,46 +54,58 @@ jobs:
             ".github/workflows/type-check.yml"
             ".github/workflows/security-audit.yml"
           )
-          APPROVED_STR=$(printf "\n%s" "${APPROVED[@]}")
+
+          APPROVED_STR=$(printf "%s\n" "${APPROVED[@]}")
           FAIL=false
+
+          shopt -s nullglob
           for FILE in .github/workflows/*.yml; do
-            if ! echo "$APPROVED_STR" | grep -qxF "$FILE"; then
-              echo "::error file=$FILE::UNAUTHORIZED workflow file detected: $FILE — only the 4 approved workflows are allowed."
+            if ! grep -qxF "$FILE" <<<"$APPROVED_STR"; then
+              echo "::error file=$FILE::UNAUTHORIZED workflow file detected: $FILE — only the approved workflows are allowed."
               FAIL=true
             fi
           done
+
           if [ "$FAIL" = true ]; then
             echo "CI failed: unauthorized workflow file(s) present. Remove them and push again."
             exit 1
           fi
-          echo "✅ All workflow files are in the approved set."
+
+          echo "All workflow files are in the approved set."
 
   protected-files-guard:
     name: Protected Files — Unauthorized Change Detection
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     # Only runs on pull_request events so we can inspect what changed
     if: github.event_name == 'pull_request'
     steps:
-      - name: Checkout base ref
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: List files changed in this PR
         id: changed
+        shell: bash
         run: |
-          git fetch origin ${{ github.base_ref }}
-          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          set -euo pipefail
+          git fetch --no-tags --prune --depth=1 origin "${{ github.base_ref }}"
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" || true)
+
           echo "Changed files:"
           echo "$CHANGED"
-          echo "files<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGED" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+
+          {
+            echo "files<<EOF"
+            echo "$CHANGED"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Check for modifications to protected paths
+        shell: bash
         run: |
+          set -euo pipefail
+
           PROTECTED_PATTERNS=(
             "netlify/functions/"
             "netlify/lib/"
@@ -99,12 +118,12 @@ jobs:
           )
 
           ACTOR="${{ github.actor }}"
-          OWNER="ginkhup1199-creator"
+          OWNER="${{ github.repository_owner }}"
           CHANGED="${{ steps.changed.outputs.files }}"
           FLAGGED=""
 
           for PATTERN in "${PROTECTED_PATTERNS[@]}"; do
-            MATCHES=$(echo "$CHANGED" | grep "^$PATTERN" || true)
+            MATCHES=$(printf "%s\n" "$CHANGED" | grep -E "^${PATTERN}" || true)
             if [ -n "$MATCHES" ] && [ "$ACTOR" != "$OWNER" ]; then
               FLAGGED="$FLAGGED\n$MATCHES"
             fi
@@ -116,8 +135,6 @@ jobs:
             echo ""
             echo "Branch protection rules must be enabled on this repository to enforce CODEOWNERS review."
             echo "The repository owner (@$OWNER) must approve this PR before it can be merged."
-            # Do NOT hard-fail here — CODEOWNERS + branch protection rules are the enforcement layer.
-            # This step surfaces the information prominently in the CI log.
           else
             echo "No protected files modified by non-owner, or actor is the owner. All clear."
           fi
