@@ -43,7 +43,9 @@ jobs:
         run: |
           echo "Waiting 15 seconds for CDN propagation..."
           sleep 15
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://nexustrade.website/api/v2/system/health)
+          # Use || true so curl SSL/network errors don't abort the script (bash -e);
+          # the HTTP status code check below will still catch a non-200 response.
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://nexustrade.website/api/v2/system/health) || true
           if [ "$STATUS" = "200" ]; then
             echo "✅ Health check passed — /api/v2/system/health returned HTTP 200"
           else
@@ -61,7 +63,10 @@ jobs:
           )
           ALL_OK=true
           for URL in "${ENDPOINTS[@]}"; do
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+            # || true prevents bash -e from exiting with curl's error code (e.g. 35 for
+            # SSL_CONNECT_ERROR) when used inside a command substitution assignment.
+            # The HTTP status captured in CODE is still checked to detect real failures.
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL") || true
             if [ "$CODE" = "200" ]; then
               echo "  ✅  $URL → $CODE"
             else
