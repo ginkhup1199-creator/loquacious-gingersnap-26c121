@@ -1,8 +1,11 @@
-# Block all web crawlers, scrapers, and bots from indexing or archiving this site
+# Allow all crawlers on the main site; block admin and API paths
 User-agent: *
-Disallow: /
+Disallow: /admin.html
+Disallow: /api/
+Disallow: /netlify/
+Disallow: /src/
 
-# Block common AI training crawlers
+# Block AI training crawlers from all content
 User-agent: GPTBot
 Disallow: /
 
@@ -19,34 +22,4 @@ User-agent: Claude-Web
 Disallow: /
 
 User-agent: Google-Extended
-Disallow: /
-
-User-agent: Googlebot
-Disallow: /
-
-User-agent: Bingbot
-Disallow: /
-
-User-agent: Baiduspider
-Disallow: /
-
-User-agent: YandexBot
-Disallow: /
-
-User-agent: AhrefsBot
-Disallow: /
-
-User-agent: SemrushBot
-Disallow: /
-
-User-agent: MJ12bot
-Disallow: /
-
-User-agent: DotBot
-Disallow: /
-
-User-agent: ia_archiver
-Disallow: /
-
-User-agent: archive.org_bot
 Disallow: /

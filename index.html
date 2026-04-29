@@ -3,8 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
-    <meta name="googlebot" content="noindex, nofollow">
     <meta name="referrer" content="no-referrer">
     <title>NexusTrade - Web3 Wallet Trading DApp</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2140,7 +2138,7 @@
                         const priceEl = document.getElementById('binLivePrice');
                         if(priceEl) priceEl.innerText = '$' + liveBtcPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                     }
-                    // Update all tickers
+                    // Update all tickers (price and 24h change)
                     if(typeof cryptoList !== 'undefined') {
                         cryptoList.forEach(c => {
                             const priceInfo = data.prices[c.symbol];
@@ -2148,7 +2146,14 @@
                                 c.price = priceInfo.price;
                                 c.change = priceInfo.change24h;
                                 const el = document.getElementById('price-' + c.symbol);
-                                if(el) el.innerText = priceInfo.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                if(el) el.innerText = priceInfo.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 6});
+                                const changeEl = document.getElementById('change-' + c.symbol);
+                                if(changeEl && priceInfo.change24h !== undefined) {
+                                    const ch = priceInfo.change24h;
+                                    const isPos = ch >= 0;
+                                    changeEl.className = isPos ? 'text-success' : 'text-danger';
+                                    changeEl.innerText = (isPos ? '+' : '') + ch.toFixed(2) + '%';
+                                }
                             }
                         });
                     }
@@ -2258,6 +2263,8 @@
 
         // Poll every 5 seconds
         setInterval(pollBackend, 5000);
+        // Refresh all ticker prices every 30 seconds
+        setInterval(fetchMarketDataPrices, 30000);
 
         // Run on load
         window.onload = async () => {
@@ -2270,6 +2277,8 @@
             loadStakePositions();
             connectPriceFeed();
             refreshSwapRates();
+            // Seed all ticker prices from live API immediately
+            fetchMarketDataPrices();
         };
 
     </script>
