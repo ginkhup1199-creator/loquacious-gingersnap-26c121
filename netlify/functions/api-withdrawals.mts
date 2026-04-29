@@ -126,8 +126,9 @@ export default async (req: Request, context: Context) => {
       const updated = (existing as { id: number; status: string }[]).map(
         (w) => w.id === targetId ? { ...w, status: safeStatus } : w
       );
-      await store.setJSON("withdrawals", updated);
+      // Persist audit log BEFORE updating the store so a write failure leaves a trace
       await persistAuditLog("ADMIN_WRITE", { operation: "process-withdrawal", withdrawalId: body.id, status: safeStatus, ip }, store);
+      await store.setJSON("withdrawals", updated);
       return secureJson({ success: true, status: safeStatus });
     }
 

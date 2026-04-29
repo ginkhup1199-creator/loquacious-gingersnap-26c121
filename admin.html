@@ -920,7 +920,7 @@
                     <td><strong>${esc(a.username)}</strong></td>
                     <td style="font-size:12px;">${(a.permissions || []).map(p => `<span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 6px;margin:1px;display:inline-block;">${esc(p)}</span>`).join(' ') || '<span style="color:var(--text-secondary)">none</span>'}</td>
                     <td style="font-size:12px;color:var(--text-secondary);">${a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—'}</td>
-                    <td><button class="btn btn-danger" style="padding:3px 8px;font-size:11px;" onclick="revokeSubAdmin(${JSON.stringify(a.username)})"><i data-lucide="trash-2"></i> Revoke</button></td>
+                    <td><button class="btn btn-danger" style="padding:3px 8px;font-size:11px;" onclick="revokeSubAdmin(${JSON.stringify(esc(a.username))})"><i data-lucide="trash-2"></i> Revoke</button></td>
                 </tr>`).join('');
             lucide.createIcons();
         }

@@ -33,7 +33,8 @@ function hashPassword(password: string): string {
 }
 
 function generateTempPassword(): string {
-  return randomBytes(8).toString("hex"); // 16-char hex temp password
+  // 16 bytes = 128 bits of entropy, represented as 32 hex chars
+  return randomBytes(16).toString("hex");
 }
 
 // ---------------------------------------------------------------------------

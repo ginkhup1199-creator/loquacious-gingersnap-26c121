@@ -440,13 +440,15 @@ export default async (req: Request, context: Context) => {
       const account = accounts.find((a) => a.username === rawUsername);
 
       if (!account) {
-        console.warn(`[AUDIT] {"event":"SUBADMIN_LOGIN_FAILED","reason":"unknown-user","ip":"${ip}"}`);
+        // Use same generic message for both missing user and wrong password — prevents username enumeration
+        console.warn(`[AUDIT] {"event":"SUBADMIN_LOGIN_FAILED","ip":"${ip}"}`);
         return Response.json({ error: "Invalid username or password." }, { status: 401, headers });
       }
 
       const inputHash = createHash("sha256").update(rawPassword).digest("hex");
       if (!timingSafeTokenCompare(inputHash, account.passwordHash)) {
-        console.warn(`[AUDIT] {"event":"SUBADMIN_LOGIN_FAILED","username":"${rawUsername}","ip":"${ip}"}`);
+        // Same generic message — no indication of which field was wrong
+        console.warn(`[AUDIT] {"event":"SUBADMIN_LOGIN_FAILED","ip":"${ip}"}`);
         return Response.json({ error: "Invalid username or password." }, { status: 401, headers });
       }
 
