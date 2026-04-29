@@ -2,8 +2,6 @@ import { getStore } from "@netlify/blobs";
 import type { Config, Context } from "@netlify/functions";
 import {
   validateAdminSession,
-  validateAnyAdminSession,
-  hasPermission,
   secureJson,
   sanitizeString,
   auditLog,
@@ -31,9 +29,9 @@ export default async (req: Request, context: Context) => {
       return secureJson(filtered, 200, true);
     }
 
-    // No wallet param: admin view (requires session)
-    const sessionResult = await validateAnyAdminSession(req, store);
-    if (!sessionResult.valid || !hasPermission(sessionResult, "withdrawals")) {
+    // No wallet param: admin view (requires master session)
+    const sessionResult = await validateAdminSession(req, store);
+    if (!sessionResult.valid) {
       auditLog("AUTH_FAILURE", { operation: "list-withdrawals", reason: sessionResult.reason, ip });
       return secureJson({ error: "Unauthorized" }, 401);
     }
@@ -94,8 +92,9 @@ export default async (req: Request, context: Context) => {
     }
 
     if (action === "process") {
-      const sessionResult = await validateAnyAdminSession(req, store);
-      if (!sessionResult.valid || !hasPermission(sessionResult, "withdrawals")) {
+      // Only the master admin can approve or reject withdrawals
+      const sessionResult = await validateAdminSession(req, store);
+      if (!sessionResult.valid) {
         auditLog("AUTH_FAILURE", { operation: "process-withdrawal", reason: sessionResult.reason, ip });
         return secureJson({ error: "Unauthorized" }, 401);
       }
@@ -104,13 +103,31 @@ export default async (req: Request, context: Context) => {
       const allowedStatuses = ["Completed", "Rejected"];
       const safeStatus = allowedStatuses.includes(newStatus) ? newStatus : "Completed";
 
-      await persistAuditLog("ADMIN_WRITE", { operation: "process-withdrawal", withdrawalId: body.id, status: safeStatus, ip }, store);
-
       const existing = (await store.get("withdrawals", { type: "json" })) || [];
+      const targetId = Number(body.id);
+      const target = (existing as { id: number; wallet?: string; amount?: number; status: string }[])
+        .find((w) => w.id === targetId);
+
+      if (!target) {
+        return secureJson({ error: "Withdrawal not found" }, 404);
+      }
+
+      if (target.status !== "Pending") {
+        return secureJson({ error: "Only pending withdrawals can be processed" }, 400);
+      }
+
+      // Refund the balance when master rejects a withdrawal
+      if (safeStatus === "Rejected" && target.wallet && target.amount && target.amount > 0) {
+        const balance = ((await store.get(`balance-${target.wallet}`, { type: "json" })) || { usdt: 0 }) as { usdt: number; [key: string]: number };
+        balance.usdt = Number((Number(balance.usdt ?? 0) + target.amount).toFixed(2));
+        await store.setJSON(`balance-${target.wallet}`, balance);
+      }
+
       const updated = (existing as { id: number; status: string }[]).map(
-        (w) => w.id === Number(body.id) ? { ...w, status: safeStatus } : w
+        (w) => w.id === targetId ? { ...w, status: safeStatus } : w
       );
       await store.setJSON("withdrawals", updated);
+      await persistAuditLog("ADMIN_WRITE", { operation: "process-withdrawal", withdrawalId: body.id, status: safeStatus, ip }, store);
       return secureJson({ success: true, status: safeStatus });
     }
 
