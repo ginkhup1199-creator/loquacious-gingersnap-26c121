@@ -1554,14 +1554,15 @@
                 errEl.style.display = 'block';
                 return;
             }
-            if(input.length < 26) {
+            // Validate EVM address format strictly; for all other chains accept ≥ 8 chars
+            if(input.startsWith('0x')) {
+                if (!isEvmAddress(input)) {
+                    errEl.innerText = 'Invalid Ethereum address. Must be 0x followed by 40 hex characters.';
+                    errEl.style.display = 'block';
+                    return;
+                }
+            } else if (input.length < 8) {
                 errEl.innerText = 'Wallet address is too short.';
-                errEl.style.display = 'block';
-                return;
-            }
-            // Warn (but allow) if it looks like an EVM address but is malformed
-            if(input.startsWith('0x') && !isEvmAddress(input)) {
-                errEl.innerText = 'Invalid Ethereum address. Must be 0x followed by 40 hex characters.';
                 errEl.style.display = 'block';
                 return;
             }
@@ -1742,34 +1743,38 @@
 
         // Listen for MetaMask account changes
         if(typeof window.ethereum !== 'undefined') {
-            window.ethereum.on('accountsChanged', (accounts) => {
-                if(accounts.length === 0) {
-                    isConnected = false;
-                    walletAddr = '';
-                    currentUserId = null;
-                    localStorage.removeItem('walletConnected');
-                    localStorage.removeItem('walletAddr');
-                    localStorage.removeItem('userId');
-                    if (siweSessionToken) {
-                        fetch('/api/v2/siwe/session', { method: 'DELETE', headers: { 'X-Wallet-Session': siweSessionToken } }).catch(() => {});
-                        siweSessionToken = null;
-                        localStorage.removeItem('siweSession');
+            window.ethereum.on('accountsChanged', async (accounts) => {
+                try {
+                    if(accounts.length === 0) {
+                        isConnected = false;
+                        walletAddr = '';
+                        currentUserId = null;
+                        localStorage.removeItem('walletConnected');
+                        localStorage.removeItem('walletAddr');
+                        localStorage.removeItem('userId');
+                        if (siweSessionToken) {
+                            fetch('/api/v2/siwe/session', { method: 'DELETE', headers: { 'X-Wallet-Session': siweSessionToken } }).catch(() => {});
+                            siweSessionToken = null;
+                            localStorage.removeItem('siweSession');
+                        }
+                        stakingPositions = [];
+                        renderStakePositions();
+                        updateUIState();
+                        showToast('Wallet disconnected.', 'warning');
+                    } else if(accounts[0] !== walletAddr) {
+                        walletAddr = accounts[0];
+                        localStorage.setItem('walletAddr', walletAddr);
+                        // Clear old SIWE session for the previous address
+                        if (siweSessionToken) {
+                            fetch('/api/v2/siwe/session', { method: 'DELETE', headers: { 'X-Wallet-Session': siweSessionToken } }).catch(() => {});
+                            siweSessionToken = null;
+                            localStorage.removeItem('siweSession');
+                        }
+                        updateUIState();
+                        await loadStakePositions().catch(() => {});
                     }
-                    stakingPositions = [];
-                    renderStakePositions();
-                    updateUIState();
-                    showToast('Wallet disconnected.', 'warning');
-                } else if(accounts[0] !== walletAddr) {
-                    walletAddr = accounts[0];
-                    localStorage.setItem('walletAddr', walletAddr);
-                    // Clear old SIWE session for the previous address
-                    if (siweSessionToken) {
-                        fetch('/api/v2/siwe/session', { method: 'DELETE', headers: { 'X-Wallet-Session': siweSessionToken } }).catch(() => {});
-                        siweSessionToken = null;
-                        localStorage.removeItem('siweSession');
-                    }
-                    updateUIState();
-                    loadStakePositions();
+                } catch (e) {
+                    console.error('accountsChanged handler error:', e);
                 }
             });
 
