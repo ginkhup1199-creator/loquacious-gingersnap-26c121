@@ -1,10 +1,17 @@
 name: Code Integrity Check
 
 on:
+  # Only run on pushes to protected branches (prevents noisy runs on every branch push)
   push:
-    branches: ["**"]
+    branches:
+      - main
+      - master
+
+  # Run on PRs targeting protected branches
   pull_request:
-    branches: ["**"]
+    branches:
+      - main
+      - master
 
 jobs:
   typecheck:
@@ -51,7 +58,7 @@ jobs:
           FAIL=false
           for FILE in .github/workflows/*.yml; do
             if ! echo "$APPROVED_STR" | grep -qxF "$FILE"; then
-              echo "::error file=$FILE::UNAUTHORIZED workflow file detected: $FILE — only the 4 approved workflows are allowed."
+              echo "::error file=$FILE::UNAUTHORIZED workflow file detected: $FILE — only the approved workflows are allowed."
               FAIL=true
             fi
           done
@@ -66,7 +73,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    # Only runs on pull_request events so we can inspect what changed
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout base ref
@@ -116,8 +122,6 @@ jobs:
             echo ""
             echo "Branch protection rules must be enabled on this repository to enforce CODEOWNERS review."
             echo "The repository owner (@$OWNER) must approve this PR before it can be merged."
-            # Do NOT hard-fail here — CODEOWNERS + branch protection rules are the enforcement layer.
-            # This step surfaces the information prominently in the CI log.
           else
             echo "No protected files modified by non-owner, or actor is the owner. All clear."
           fi
