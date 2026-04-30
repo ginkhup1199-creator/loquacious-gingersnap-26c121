@@ -5,10 +5,31 @@ import { randomInt } from "crypto";
 
 const NETWORK_LATENCY_BUFFER_MS = 3000; // tolerated timer drift for network round-trip
 
-const DEMO_RATES: Record<string, number> = {
-  USDT: 1, USDC: 1, ETH: 3200, BTC: 65000, BNB: 600, SOL: 145,
+// Fallback rates used only when the market-data API is unreachable
+const FALLBACK_RATES: Record<string, number> = {
+  USDT: 1, USDC: 1, ETH: 1800, BTC: 94000, BNB: 600, SOL: 145,
   XRP: 0.58, ADA: 0.45, AVAX: 35, DOGE: 0.15,
 };
+
+// Fetch live USD prices from the internal market-data endpoint
+async function fetchLiveRates(reqUrl: string): Promise<Record<string, number>> {
+  try {
+    const url = new URL("/api/v2/market-data?type=prices", reqUrl).toString();
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000), headers: { "User-Agent": "NexusTrade/internal" } });
+    if (!res.ok) return FALLBACK_RATES;
+    const data = await res.json() as { prices?: Record<string, { price: number }> };
+    if (!data.prices) return FALLBACK_RATES;
+    const rates: Record<string, number> = { ...FALLBACK_RATES };
+    for (const [sym, info] of Object.entries(data.prices)) {
+      if (info && typeof info.price === "number" && info.price > 0) {
+        rates[sym] = info.price;
+      }
+    }
+    return rates;
+  } catch {
+    return FALLBACK_RATES;
+  }
+}
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
@@ -181,7 +202,7 @@ export default async (req: Request, context: Context) => {
       }
     }
 
-    // Swap: calculate estimated output
+    // Swap: calculate estimated output using live market rates
     if (type === "swap") {
       const swapAmount = Number(body.amount);
       if (!Number.isFinite(swapAmount) || swapAmount <= 0) {
@@ -192,8 +213,9 @@ export default async (req: Request, context: Context) => {
       if (!fromCoin || !toCoin || fromCoin === toCoin) {
         return secureJson({ error: "Invalid swap pair" }, 400);
       }
-      const fromRate = DEMO_RATES[fromCoin] || 1;
-      const toRate = DEMO_RATES[toCoin] || 1;
+      const liveRates = await fetchLiveRates(req.url);
+      const fromRate = liveRates[fromCoin] || 1;
+      const toRate = liveRates[toCoin] || 1;
       const feeMultiplier = 0.995; // 0.5% fee
       newTrade.fromCoin = fromCoin;
       newTrade.toCoin = toCoin;

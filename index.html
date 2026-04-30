@@ -1671,20 +1671,11 @@
         }
 
         // Swap Functions
-        const SWAP_RATES = { USDT: 1, USDC: 1, ETH: 3200, BTC: 65000, BNB: 600, SOL: 145 };
+        const SWAP_RATES = { USDT: 1, USDC: 1, ETH: 1800, BTC: 94000, BNB: 600, SOL: 145 };
 
-        // Fetch live swap rates from market-data API
+        // refreshSwapRates() is provided for backward compat but now delegates to fetchMarketDataPrices()
         async function refreshSwapRates() {
-            try {
-                const data = await api('market-data?type=prices');
-                if(data && data.prices) {
-                    Object.keys(data.prices).forEach(sym => {
-                        if(data.prices[sym] && data.prices[sym].price) {
-                            SWAP_RATES[sym] = data.prices[sym].price;
-                        }
-                    });
-                }
-            } catch(e) { /* use fallback rates */ }
+            await fetchMarketDataPrices();
         }
 
         function updateSwapEstimate() {
@@ -2252,7 +2243,6 @@
             pollBackend();
             loadStakePositions();
             connectPriceFeed();
-            refreshSwapRates();
         };
 
     </script>
