@@ -580,7 +580,7 @@
                 <div style="display: flex; gap: 10px; align-items: flex-end; margin-bottom: 12px;">
                     <div class="input-group" style="flex: 1; margin-bottom: 0;">
                         <label>Lookup by UID</label>
-                        <input type="text" id="bal-uid" placeholder="5-digit UID" maxlength="10" style="width:100%;">
+                        <input type="text" id="bal-uid" placeholder="5-digit UID" maxlength="5" inputmode="numeric" pattern="[0-9]{5}" style="width:100%;">
                     </div>
                     <button class="btn btn-outline" style="padding: 10px 16px; white-space: nowrap;" onclick="resolveUidToWallet()"><i data-lucide="search"></i> Find</button>
                 </div>
@@ -594,7 +594,7 @@
                 <div style="display: flex; gap: 10px; align-items: flex-end; margin-bottom: 12px;">
                     <div class="input-group" style="flex: 1; margin-bottom: 0;">
                         <label>Lookup by UID</label>
-                        <input type="text" id="check-uid" placeholder="5-digit UID" maxlength="10" style="width:100%;">
+                        <input type="text" id="check-uid" placeholder="5-digit UID" maxlength="5" inputmode="numeric" pattern="[0-9]{5}" style="width:100%;">
                     </div>
                     <button class="btn btn-outline" style="padding: 10px 16px; white-space: nowrap;" onclick="resolveCheckUidToWallet()"><i data-lucide="search"></i> Find</button>
                 </div>
