@@ -1167,7 +1167,7 @@
             { symbol: 'DOT',  name: 'Polkadot',          price: 7.20 },
             { symbol: 'LINK', name: 'Chainlink',         price: 14.50 },
             { symbol: 'TRX',  name: 'TRON',              price: 0.12 },
-            { symbol: 'MATIC',name: 'Polygon',           price: 0.75 },
+            { symbol: 'MATIC', name: 'Polygon',           price: 0.75 },
             { symbol: 'SHIB', name: 'Shiba Inu',         price: 0.000025 },
             { symbol: 'LTC',  name: 'Litecoin',          price: 82.40 },
             { symbol: 'BCH',  name: 'Bitcoin Cash',      price: 450.10 },
@@ -2169,6 +2169,9 @@
             const tbody = document.getElementById('stakePositionsTable');
             if (!tbody) return;
 
+            // Restart the tick to avoid orphaned intervals from previous renders
+            stopStakeTick();
+
             if (!stakingPositions.length) {
                 tbody.innerHTML = '<tr id="noStakesRow"><td colspan="5" style="text-align: center; color: var(--text-secondary);">No active stakes</td></tr>';
                 return;
@@ -2463,8 +2466,6 @@
             // Set spot trade price input to live BTC price on startup
             const tp = document.getElementById('tradePrice');
             if(tp && !tp.value) tp.value = (SWAP_RATES['BTC'] || liveBtcPrice).toFixed(2);
-            // Start live elapsed tickers
-            startStakeTick();
         };
 
     </script>
