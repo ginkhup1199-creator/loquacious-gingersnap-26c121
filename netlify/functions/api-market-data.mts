@@ -428,13 +428,21 @@ async function fetchCoinGeckoOhlcv(symbol: string): Promise<Array<Record<string,
   }
 }
 
-// Fallback OHLCV generator used if Binance is unreachable
+// Fallback OHLCV generator used if all live providers are unreachable.
+// For stablecoins returns a flat $1 line; for other assets simulates small noise around basePrice.
 function generateOhlcv(symbol: string, basePrice: number, points = 24): Array<Record<string, number | string>> {
-  const vol = 0.005;
   const dec = DECIMALS[symbol] ?? 2;
+  const now = Date.now();
+  if (STABLECOINS.has(symbol)) {
+    // Stablecoins: flat $1.0000 — no random movement
+    return Array.from({ length: points }, (_, i) => ({
+      timestamp: new Date(now - (points - 1 - i) * 3600 * 1000).toISOString(),
+      open: 1, high: 1, low: 1, close: 1, volume: 0,
+    }));
+  }
+  const vol = 0.005;
   const data: Array<Record<string, number | string>> = [];
   let price = basePrice;
-  const now = Date.now();
   for (let i = points - 1; i >= 0; i--) {
     const open = price;
     const high = open * (1 + Math.random() * vol);
