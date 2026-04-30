@@ -1208,7 +1208,7 @@
             list.innerHTML = '';
             
             cryptoList.forEach((coin, index) => {
-                const change = Number(coin.change ?? 0);
+                const change = parseFloat(String(coin.change ?? 0)) || 0;
                 const isPositive = change >= 0;
                 const colorClass = isPositive ? 'text-success' : 'text-danger';
                 const sign = isPositive ? '+' : '';
@@ -2118,12 +2118,12 @@
                             const priceInfo = data.prices[c.symbol];
                             if(priceInfo && priceInfo.price) {
                                 c.price = priceInfo.price;
-                                c.change = priceInfo.change24h ?? 0;
+                                c.change = parseFloat(String(priceInfo.change24h ?? 0)) || 0;
                                 const priceEl = document.getElementById('price-' + c.symbol);
                                 if(priceEl) priceEl.innerText = priceInfo.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 6});
                                 const changeEl = document.getElementById('change-' + c.symbol);
                                 if(changeEl) {
-                                    const ch = Number(c.change);
+                                    const ch = c.change;
                                     const isPos = ch >= 0;
                                     changeEl.className = isPos ? 'text-success' : 'text-danger';
                                     changeEl.innerText = (isPos ? '+' : '') + ch.toFixed(2) + '%';
