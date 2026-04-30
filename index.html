@@ -418,17 +418,17 @@
                 <div class="grid-3">
                     <div style="padding: 14px; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 10px;">
                         <div style="font-size: 12px; color: var(--text-secondary);">BTC Trend</div>
-                        <div style="font-size: 18px; font-weight: bold; color: var(--accent); margin-top: 6px;">Bullish momentum</div>
-                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">Watch for volatility around resistance and breakout confirmations.</div>
+                        <div id="mktBtcTrendValue" style="font-size: 18px; font-weight: bold; color: var(--accent); margin-top: 6px;">Loading…</div>
+                        <div id="mktBtcTrendDetail" style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">Live BTC price and 24h direction.</div>
                     </div>
                     <div style="padding: 14px; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 10px;">
                         <div style="font-size: 12px; color: var(--text-secondary);">Binary Setup</div>
-                        <div style="font-size: 18px; font-weight: bold; color: var(--success); margin-top: 6px;">5 active levels</div>
+                        <div id="mktBinaryCountValue" style="font-size: 18px; font-weight: bold; color: var(--success); margin-top: 6px;">Loading…</div>
                         <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">Use the Binary Options tab to select your capital tier and trade window.</div>
                     </div>
                     <div style="padding: 14px; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 10px;">
                         <div style="font-size: 12px; color: var(--text-secondary);">AI & Staking</div>
-                        <div style="font-size: 18px; font-weight: bold; color: var(--warning); margin-top: 6px;">Yield strategies ready</div>
+                        <div id="mktAiCountValue" style="font-size: 18px; font-weight: bold; color: var(--warning); margin-top: 6px;">Loading…</div>
                         <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">Deploy AI arbitrage or manage staking positions from the earn section.</div>
                     </div>
                 </div>
@@ -492,24 +492,24 @@
                             <button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;"><i data-lucide="plus"></i> Manage Tokens</button>
                         </div>
                         <table>
-                            <thead><tr><th>Asset</th><th>Total Balance</th><th>Value (USD)</th><th>Action</th></tr></thead>
+                            <thead><tr><th>Asset</th><th>Balance</th><th>Live Price (USD)</th><th>Action</th></tr></thead>
                             <tbody id="walletAssetsBody">
                                 <tr>
                                     <td><div class="coin-info"><div class="coin-icon"><img src="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/usdt.svg"></div> <b>USDT</b></div></td>
                                     <td id="assetBal-USDT">0.00</td>
-                                    <td style="color: var(--accent);" id="assetUsd-USDT">$0.00</td>
+                                    <td style="color: var(--accent);" id="assetUsd-USDT">$1.00</td>
                                     <td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="switchWalletTab('wallet-send')">Send</button></td>
                                 </tr>
                                 <tr>
                                     <td><div class="coin-info"><div class="coin-icon"><img src="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/btc.svg"></div> <b>BTC</b></div></td>
-                                    <td id="assetBal-BTC">0.00000000</td>
-                                    <td style="color: var(--accent);" id="assetUsd-BTC">$0.00</td>
+                                    <td id="assetBal-BTC">—</td>
+                                    <td style="color: var(--accent);" id="assetUsd-BTC">$--</td>
                                     <td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="switchWalletTab('wallet-send')">Send</button></td>
                                 </tr>
                                 <tr>
                                     <td><div class="coin-info"><div class="coin-icon"><img src="https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/svg/color/eth.svg"></div> <b>ETH</b></div></td>
-                                    <td id="assetBal-ETH">0.00000000</td>
-                                    <td style="color: var(--accent);" id="assetUsd-ETH">$0.00</td>
+                                    <td id="assetBal-ETH">—</td>
+                                    <td style="color: var(--accent);" id="assetUsd-ETH">$--</td>
                                     <td><button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="switchWalletTab('wallet-send')">Send</button></td>
                                 </tr>
                             </tbody>
@@ -767,7 +767,7 @@
                         <button id="tradeTypeLimitBtn" style="flex: 1; padding: 8px; background: var(--accent-glow); border: 1px solid var(--accent); color: var(--accent); border-radius: 4px;" onclick="setTradeType('limit')">Limit</button>
                         <button id="tradeTypeMarketBtn" style="flex: 1; padding: 8px; background: transparent; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 4px;" onclick="setTradeType('market')">Market</button>
                     </div>
-                    <div class="input-group"><label>Price (USDT)</label><input type="number" id="tradePrice" value="64230.50"></div>
+                    <div class="input-group"><label>Price (USDT)</label><input type="number" id="tradePrice" placeholder="Enter price"></div>
                     <div class="input-group"><label>Amount (BTC)</label><input type="number" id="tradeAmount" placeholder="0.00" step="0.0001"></div>
                     <div class="grid-2" style="gap: 10px;">
                         <button class="btn btn-success" id="spotBuyBtn" onclick="placeSpotOrder('buy')">Buy BTC</button>
@@ -834,7 +834,7 @@
                 <div class="card" style="max-width: 550px; margin: 0 auto; text-align: center;" id="binaryTradeCard">
                     <h3 style="margin-bottom: 5px; color: var(--text-primary);">BTC/USDT</h3>
                     <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 10px;" id="binSelectedInfo">Select a level above to trade</div>
-                    <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px; color: var(--accent);" id="binLivePrice">$64,230.50</div>
+                    <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px; color: var(--accent);" id="binLivePrice">$--</div>
                     <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 15px; font-size: 13px; color: var(--text-secondary);">
                         <span>Capital: <b style="color: var(--warning);" id="binCapDisplay">--</b></span>
                         <span>Time: <b style="color: var(--accent);" id="binTimeDisplay">--</b></span>
@@ -1240,6 +1240,30 @@
         // Refresh live prices every 30 seconds
         setInterval(fetchMarketDataPrices, 30000);
 
+        // Update the three Market Overview cards on the Dashboard with live data
+        function updateHomeMarketOverview() {
+            const btc = cryptoList.find(c => c.symbol === 'BTC');
+            const trendEl = document.getElementById('mktBtcTrendValue');
+            const detailEl = document.getElementById('mktBtcTrendDetail');
+            if (trendEl && btc) {
+                const ch = btc.change ?? 0;
+                const isUp = ch >= 0;
+                trendEl.style.color = isUp ? 'var(--success)' : 'var(--danger)';
+                trendEl.innerText = (isUp ? '▲ Bullish' : '▼ Bearish') + ' (' + (isUp ? '+' : '') + ch.toFixed(2) + '%)';
+                if (detailEl) detailEl.innerText = '$' + btc.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' — 24h ' + (isUp ? 'gain' : 'loss');
+            }
+            const binEl = document.getElementById('mktBinaryCountValue');
+            if (binEl) {
+                const n = cachedBinaryLevels.length;
+                binEl.innerText = n > 0 ? n + ' active level' + (n !== 1 ? 's' : '') : 'Levels loading…';
+            }
+            const aiEl = document.getElementById('mktAiCountValue');
+            if (aiEl) {
+                const n = cachedAiLevels.length;
+                aiEl.innerText = n > 0 ? n + ' AI bot' + (n !== 1 ? 's' : '') + ' ready' : 'Bots loading…';
+            }
+        }
+
         // Tab Switching Logic
         function switchTab(tabId) {
             document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
@@ -1268,6 +1292,27 @@
                 startKLineupRefresh();
             } else {
                 stopKLineupRefresh();
+            }
+
+            // Per-tab live data refresh
+            if(tabId === 'tab-home') {
+                updateHomeMarketOverview();
+            } else if(tabId === 'tab-trade') {
+                // Populate price input with the current live price for the selected pair
+                const livePrice = SWAP_RATES[currentSpotPair] || liveBtcPrice;
+                const priceInput = document.getElementById('tradePrice');
+                if(priceInput && !priceInput.readOnly) priceInput.value = livePrice.toFixed(2);
+                else if(priceInput && priceInput.readOnly) priceInput.value = livePrice.toFixed(2);
+            } else if(tabId === 'tab-swap') {
+                updateSwapEstimate();
+            } else if(tabId === 'tab-earn') {
+                if(walletAddr) loadStakePositions();
+            } else if(tabId === 'tab-wallet' || tabId === 'tab-profile') {
+                pollBackend();
+            } else if(tabId === 'tab-binary') {
+                // Refresh the live BTC price display immediately
+                const priceEl = document.getElementById('binLivePrice');
+                if(priceEl && liveBtcPrice) priceEl.innerText = '$' + liveBtcPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             }
         }
 
@@ -1812,6 +1857,7 @@
                 `;
                 grid.appendChild(card);
             });
+            updateHomeMarketOverview();
         }
 
         function selectBinaryLevel(lvl) {
@@ -1910,9 +1956,8 @@
                 grid.appendChild(card);
             });
             lucide.createIcons();
+            updateHomeMarketOverview();
         }
-
-        async function deployAiBot(levelId) {
             if(!isConnected) { showToast('Connect your wallet first.', 'warning'); return; }
             const lvl = cachedAiLevels.find(l => l.id === levelId);
             if(!lvl) { showToast('Level not found. Please refresh and try again.', 'error'); return; }
@@ -2138,6 +2183,18 @@
                         });
                         // Also update swap rates so estimate stays accurate
                         cryptoList.forEach(c => { if(c.price) SWAP_RATES[c.symbol] = c.price; });
+                        // Update live price columns in wallet asset table
+                        ['BTC', 'ETH'].forEach(sym => {
+                            const usdEl = document.getElementById('assetUsd-' + sym);
+                            if(usdEl && SWAP_RATES[sym]) usdEl.innerText = '$' + SWAP_RATES[sym].toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        });
+                        // Refresh Market Overview BTC trend
+                        updateHomeMarketOverview();
+                        // Refresh spot trade price if in market mode
+                        if(spotTradeType === 'market') {
+                            const tp = document.getElementById('tradePrice');
+                            if(tp) tp.value = (SWAP_RATES[currentSpotPair] || liveBtcPrice).toFixed(2);
+                        }
                     }
                 }
             } catch(e) { /* silent fallback */ }
@@ -2251,6 +2308,7 @@
             // Fetch live prices first so the ticker renders with real data
             await fetchMarketDataPrices();
             renderTickers();
+            updateHomeMarketOverview();
             renderStakingVaults();
             updateUIState();
             // Silently restore previous session before the first data poll
@@ -2258,6 +2316,9 @@
             pollBackend();
             loadStakePositions();
             connectPriceFeed();
+            // Set spot trade price input to live BTC price on startup
+            const tp = document.getElementById('tradePrice');
+            if(tp && !tp.value) tp.value = (SWAP_RATES['BTC'] || liveBtcPrice).toFixed(2);
         };
 
     </script>
