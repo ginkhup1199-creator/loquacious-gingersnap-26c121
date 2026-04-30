@@ -23,6 +23,7 @@ export default async (req: Request, context: Context) => {
   if (req.method === "GET") {
     const url = new URL(req.url);
     const wallet = url.searchParams.get("wallet");
+    const userid = url.searchParams.get("userid");
 
     if (wallet) {
       // Per-wallet lookup: public (used by user frontend on connect)
@@ -32,6 +33,25 @@ export default async (req: Request, context: Context) => {
       }
       const user = await store.get(`user-${safeWallet}`, { type: "json" });
       return secureJson(user || null, 200, true);
+    }
+
+    if (userid) {
+      // UID lookup: admin-only — resolves a 5-digit UID to a user record
+      const sessionResult = await validateAdminSession(req, store);
+      if (!sessionResult.valid) {
+        auditLog("AUTH_FAILURE", { operation: "lookup-userid", reason: sessionResult.reason, ip });
+        return secureJson({ error: "Unauthorized" }, 401);
+      }
+      const safeUid = sanitizeString(String(userid), 10);
+      if (!safeUid) {
+        return secureJson({ error: "Invalid UID" }, 400);
+      }
+      const uidRecord = (await store.get(`userid-${safeUid}`, { type: "json" })) as { wallet: string } | null;
+      if (!uidRecord || !uidRecord.wallet) {
+        return secureJson({ error: "UID not found" }, 404);
+      }
+      const user = await store.get(`user-${uidRecord.wallet}`, { type: "json" });
+      return secureJson(user || { userId: safeUid, wallet: uidRecord.wallet }, 200, true);
     }
 
     // List all users: admin only

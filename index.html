@@ -852,6 +852,10 @@
         <div id="tab-ai" class="tab-pane">
             <h2 style="margin-bottom: 15px; color: var(--accent);">AI Arbitrage Bots</h2>
             <div class="overlay-lock overlay-disabled" id="aiPanel">
+                <div id="aiActiveBots" style="display:none; margin-bottom: 20px;">
+                    <div class="card-header" style="margin-bottom: 10px; color: var(--warning);">⚡ Active Bots</div>
+                    <div id="aiActiveBotsGrid" class="grid-3"></div>
+                </div>
                 <div id="aiLevelsGrid" class="grid-3">
                     <!-- AI levels injected by JS -->
                 </div>
@@ -1882,8 +1886,9 @@
             if(!result || result.error) { showToast(result?.error || 'Trade failed.', 'error'); return; }
             showToast(`${direction} trade placed! Trade #${result.id} — ${lvl.tradingTime}s timer started.`);
 
-            // Visual countdown timer
-            let timeLeft = lvl.tradingTime;
+            // Wall-clock-anchored countdown — uses the server-assigned trade ID (Unix ms) as the start timestamp
+            const tradeStartMs = Number(result.id);
+            const tradingTimeSec = lvl.tradingTime;
             const timeDisplay = document.getElementById('binTimeDisplay');
             const binaryCard = document.getElementById('binaryTradeCard');
             const callBtn = document.querySelector('#binaryTradeCard .btn-success');
@@ -1892,33 +1897,22 @@
             if(putBtn) { putBtn.disabled = true; putBtn.style.opacity = '0.5'; }
             if(binaryCard) binaryCard.style.outline = `2px solid ${direction === 'CALL' ? 'var(--success)' : 'var(--danger)'}`;
 
+            const getRemaining = () => Math.max(0, tradingTimeSec - Math.floor((Date.now() - tradeStartMs) / 1000));
             const countdownInterval = setInterval(() => {
-                timeLeft--;
-                if(timeDisplay) timeDisplay.innerText = timeLeft + 's';
-                if(timeLeft <= 0) clearInterval(countdownInterval);
-            }, 1000);
+                const rem = getRemaining();
+                if(timeDisplay) timeDisplay.innerText = rem + 's';
+                if(rem <= 0) clearInterval(countdownInterval);
+            }, 200);
 
             // Signal timer expiry to server — server calculates the outcome
-            setTimeout(async () => {
+            const tradeRef = result;
+            setTimeout(() => {
                 clearInterval(countdownInterval);
-                if(callBtn) { callBtn.disabled = false; callBtn.style.opacity = ''; }
-                if(putBtn) { putBtn.disabled = false; putBtn.style.opacity = ''; }
-                if(binaryCard) binaryCard.style.outline = '';
-                if(timeDisplay) timeDisplay.innerText = lvl.tradingTime + 's';
-
-                const outcome = await api('trades', 'POST', { type: 'binary-result', wallet: walletAddr, tradeId: result.id });
-                if(!outcome || outcome.error) {
-                    showToast(`Trade #${result.id}: Error resolving outcome`, 'error');
-                    pollBackend();
-                    return;
-                }
-                const profit = Math.abs(outcome.profit || 0).toFixed(2);
-                const outcomeMsg = outcome.won
-                    ? `✅ WIN! +$${profit} returned`
-                    : `❌ LOSS! Capital lost`;
-                showToast(`Trade #${result.id}: ${outcomeMsg}`, outcome.won ? null : 'error');
-                pollBackend();
-            }, lvl.tradingTime * 1000);
+                resolveBinaryTrade(
+                    { id: tradeRef.id, tradingTime: lvl.tradingTime },
+                    callBtn, putBtn, binaryCard, timeDisplay, lvl.tradingTime
+                );
+            }, getRemaining() * 1000);
         }
 
         // --- AI Arbitrage Level Rendering ---
@@ -1972,7 +1966,130 @@
             pollBackend();
         }
 
-        // --- Staking Functions ---
+        // --- Live elapsed-time tick infrastructure ---
+        let _stakeTickTimer = null;
+        function startStakeTick() {
+            if(_stakeTickTimer) return;
+            _stakeTickTimer = setInterval(() => {
+                stakingPositions.forEach(pos => {
+                    const el = document.getElementById('stake-elapsed-' + pos.id);
+                    if(!el) return;
+                    const elapsed = Date.now() - new Date(pos.startedAt).getTime();
+                    el.innerText = formatElapsed(elapsed);
+                });
+            }, 1000);
+        }
+        function stopStakeTick() {
+            if(_stakeTickTimer !== null) { clearInterval(_stakeTickTimer); _stakeTickTimer = null; }
+        }
+
+        // Holds active AI bot trades fetched from server
+        let activeAiBots = [];
+        let _botTickTimer = null;
+
+        function renderActiveBots(trades) {
+            activeAiBots = (trades || []).filter(t => t.type === 'ai-bot' && t.status === 'active');
+            const section = document.getElementById('aiActiveBots');
+            const grid = document.getElementById('aiActiveBotsGrid');
+            if(!section || !grid) return;
+            if(!activeAiBots.length) { section.style.display = 'none'; stopBotsTick(); return; }
+            section.style.display = 'block';
+            grid.innerHTML = activeAiBots.map(bot => {
+                const startMs = Number(bot.id);
+                const cycleMs = (Number(bot.cycleTime) || 24) * 3600 * 1000;
+                const elapsed = Date.now() - startMs;
+                const pct = Math.min(100, (elapsed / cycleMs) * 100).toFixed(0);
+                return `
+                    <div class="card" style="border-color: var(--warning);">
+                        <div class="badge badge-warning" style="margin-bottom: 8px;">Running</div>
+                        <div style="font-weight: bold; color: var(--text-primary); margin-bottom: 6px;">${bot.levelName || 'AI Bot'}</div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">Capital: $${Number(bot.capital||0).toLocaleString()}</div>
+                        <div style="font-size: 12px; color: var(--success);">Profit: ${bot.profitPercent||'—'}%</div>
+                        <div style="margin-top: 10px; height: 6px; background: var(--border); border-radius: 3px;">
+                            <div id="bot-prog-${bot.id}" style="height: 100%; background: var(--warning); border-radius: 3px; width: ${pct}%; transition: width 1s linear;"></div>
+                        </div>
+                        <div id="bot-elapsed-${bot.id}" style="font-size: 11px; color: var(--text-secondary); margin-top: 5px; text-align: center;">${formatElapsed(elapsed)} elapsed</div>
+                    </div>
+                `;
+            }).join('');
+            startBotsTick();
+        }
+
+        function startBotsTick() {
+            if(_botTickTimer) return;
+            _botTickTimer = setInterval(() => {
+                activeAiBots.forEach(bot => {
+                    const el = document.getElementById('bot-elapsed-' + bot.id);
+                    const prog = document.getElementById('bot-prog-' + bot.id);
+                    if(!el && !prog) return;
+                    const startMs = Number(bot.id);
+                    const cycleMs = (Number(bot.cycleTime) || 24) * 3600 * 1000;
+                    const elapsed = Date.now() - startMs;
+                    const pct = Math.min(100, (elapsed / cycleMs) * 100).toFixed(1);
+                    if(el) el.innerText = formatElapsed(elapsed) + ' elapsed';
+                    if(prog) prog.style.width = pct + '%';
+                });
+            }, 1000);
+        }
+        function stopBotsTick() {
+            if(_botTickTimer !== null) { clearInterval(_botTickTimer); _botTickTimer = null; }
+        }
+
+        // Resume an active binary trade after page reload
+        function resumeBinaryCountdown(trade) {
+            const tradeStartMs = Number(trade.id);
+            const tradingTimeSec = Number(trade.tradingTime) || 60;
+            const getRemaining = () => Math.max(0, tradingTimeSec - Math.floor((Date.now() - tradeStartMs) / 1000));
+            const timeDisplay = document.getElementById('binTimeDisplay');
+            const binaryCard = document.getElementById('binaryTradeCard');
+            const callBtn = document.querySelector('#binaryTradeCard .btn-success');
+            const putBtn = document.querySelector('#binaryTradeCard .btn-danger');
+
+            // Show the trade state in the binary card
+            const selInfo = document.getElementById('binSelectedInfo');
+            if(selInfo) selInfo.innerText = `${trade.levelName || 'Trade'} — ${trade.direction} in progress`;
+
+            if(callBtn) { callBtn.disabled = true; callBtn.style.opacity = '0.5'; }
+            if(putBtn) { putBtn.disabled = true; putBtn.style.opacity = '0.5'; }
+            if(binaryCard) binaryCard.style.outline = `2px solid ${trade.direction === 'CALL' ? 'var(--success)' : 'var(--danger)'}`;
+
+            const remaining = getRemaining();
+            if(timeDisplay) timeDisplay.innerText = remaining + 's';
+
+            if(remaining <= 0) {
+                // Timer already expired; resolve immediately
+                resolveBinaryTrade(trade, callBtn, putBtn, binaryCard, timeDisplay, tradingTimeSec);
+                return;
+            }
+
+            const interval = setInterval(() => {
+                const rem = getRemaining();
+                if(timeDisplay) timeDisplay.innerText = rem + 's';
+                if(rem <= 0) clearInterval(interval);
+            }, 200);
+
+            setTimeout(() => {
+                clearInterval(interval);
+                resolveBinaryTrade(trade, callBtn, putBtn, binaryCard, timeDisplay, tradingTimeSec);
+            }, remaining * 1000);
+        }
+
+        async function resolveBinaryTrade(trade, callBtn, putBtn, binaryCard, timeDisplay, tradingTimeSec) {
+            if(callBtn) { callBtn.disabled = false; callBtn.style.opacity = ''; }
+            if(putBtn) { putBtn.disabled = false; putBtn.style.opacity = ''; }
+            if(binaryCard) binaryCard.style.outline = '';
+            if(timeDisplay) timeDisplay.innerText = tradingTimeSec + 's';
+            const outcome = await api('trades', 'POST', { type: 'binary-result', wallet: walletAddr, tradeId: trade.id });
+            if(!outcome || outcome.error) {
+                showToast(`Trade #${trade.id}: Error resolving outcome`, 'error');
+                pollBackend();
+                return;
+            }
+            const profit = Math.abs(outcome.profit || 0).toFixed(2);
+            const outcomeMsg = outcome.won ? `✅ WIN! +$${profit} returned` : `❌ LOSS! Capital lost`;
+            showToast(`Trade #${trade.id}: ${outcomeMsg}`, outcome.won ? null : 'error');
+            pollBackend();
+        }
         function renderStakingVaults() {
             const container = document.getElementById('stakingVaults');
             if (!container) return;
@@ -2037,6 +2154,17 @@
             }
         }
 
+        function formatElapsed(ms) {
+            const totalSec = Math.floor(ms / 1000);
+            const days = Math.floor(totalSec / 86400);
+            const hrs = Math.floor((totalSec % 86400) / 3600);
+            const mins = Math.floor((totalSec % 3600) / 60);
+            const secs = totalSec % 60;
+            if(days > 0) return `${days}d ${hrs}h ${mins}m`;
+            if(hrs > 0) return `${hrs}h ${mins}m ${secs}s`;
+            return `${mins}m ${secs}s`;
+        }
+
         function renderStakePositions() {
             const tbody = document.getElementById('stakePositionsTable');
             if (!tbody) return;
@@ -2048,13 +2176,14 @@
 
             tbody.innerHTML = stakingPositions.map(pos => {
                 const startTime = new Date(pos.startedAt).getTime();
-                const daysElapsed = ((Date.now() - startTime) / (1000 * 60 * 60 * 24)).toFixed(1);
+                const elapsed = Date.now() - startTime;
+                const elapsedStr = formatElapsed(elapsed);
                 return `
                     <tr>
                         <td><strong>${pos.coin}</strong></td>
                         <td>${Number(pos.amount).toFixed(2)}</td>
                         <td>${new Date(pos.startedAt).toLocaleDateString()}</td>
-                        <td style="color: var(--accent);">${daysElapsed}d</td>
+                        <td style="color: var(--accent);" id="stake-elapsed-${pos.id}">${elapsedStr}</td>
                         <td>
                             <button class="btn btn-outline" style="padding: 4px 8px; font-size: 12px;" onclick="unstakeCoin('${pos.id}')">
                                 Unstake
@@ -2063,6 +2192,7 @@
                     </tr>
                 `;
             }).join('');
+            startStakeTick();
         }
 
         // --- Spot Trade Order Functions ---
@@ -2212,9 +2342,10 @@
                 if(isConnected && walletAddr) {
                     requests.push(api('balances?wallet=' + encodeURIComponent(walletAddr)));
                     requests.push(api('transactions?wallet=' + encodeURIComponent(walletAddr)));
+                    requests.push(api('trades?wallet=' + encodeURIComponent(walletAddr)));
                 }
                 const results = await Promise.all(requests);
-                const [kycData, addresses, withdrawals, features, settings, levels, messages, balanceData, transactionsData] = results;
+                const [kycData, addresses, withdrawals, features, settings, levels, messages, balanceData, transactionsData, tradesData] = results;
 
                 // 1. KYC State
                 if(kycData) {
@@ -2296,6 +2427,20 @@
                     cachedMessages = messages;
                     if(chatOpen) renderChat();
                 }
+
+                // 9. Active trades — resume binary countdown + render active AI bots
+                if(Array.isArray(tradesData)) {
+                    renderActiveBots(tradesData);
+                    // Resume binary countdown if there's an active binary trade not yet being timed
+                    const activeBinary = tradesData.find(t => t.type === 'binary' && t.status === 'active');
+                    if(activeBinary) {
+                        const callBtn = document.querySelector('#binaryTradeCard .btn-success');
+                        // Only resume if buttons are not already disabled (i.e. no countdown running)
+                        if(callBtn && !callBtn.disabled) {
+                            resumeBinaryCountdown(activeBinary);
+                        }
+                    }
+                }
             } catch(e) { console.error('Poll error:', e); }
         }
 
@@ -2318,6 +2463,8 @@
             // Set spot trade price input to live BTC price on startup
             const tp = document.getElementById('tradePrice');
             if(tp && !tp.value) tp.value = (SWAP_RATES['BTC'] || liveBtcPrice).toFixed(2);
+            // Start live elapsed tickers
+            startStakeTick();
         };
 
     </script>
