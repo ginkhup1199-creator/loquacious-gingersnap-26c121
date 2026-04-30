@@ -42,7 +42,7 @@ export default async (req: Request, context: Context) => {
         auditLog("AUTH_FAILURE", { operation: "lookup-userid", reason: sessionResult.reason, ip });
         return secureJson({ error: "Unauthorized" }, 401);
       }
-      const safeUid = String(userid);
+      const safeUid = sanitizeString(String(userid), 5);
       if (!/^\d{5}$/.test(safeUid)) {
         return secureJson({ error: "Invalid UID — must be exactly 5 digits" }, 400);
       }

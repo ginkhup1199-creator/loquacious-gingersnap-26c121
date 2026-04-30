@@ -1902,7 +1902,7 @@
                 const rem = getRemaining();
                 if(timeDisplay) timeDisplay.innerText = rem + 's';
                 if(rem <= 0) clearInterval(countdownInterval);
-            }, 200);
+            }, 1000);
 
             // Signal timer expiry to server — server calculates the outcome
             const tradeRef = result;
@@ -2066,7 +2066,7 @@
                 const rem = getRemaining();
                 if(timeDisplay) timeDisplay.innerText = rem + 's';
                 if(rem <= 0) clearInterval(interval);
-            }, 200);
+            }, 1000);
 
             setTimeout(() => {
                 clearInterval(interval);
