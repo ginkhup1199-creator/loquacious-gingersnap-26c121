@@ -1208,8 +1208,7 @@
             list.innerHTML = '';
             
             cryptoList.forEach((coin, index) => {
-                // Generate a random initial change percentage
-                const change = (Math.random() * 10 - 5).toFixed(2);
+                const change = Number(coin.change ?? 0);
                 const isPositive = change >= 0;
                 const colorClass = isPositive ? 'text-success' : 'text-danger';
                 const sign = isPositive ? '+' : '';
@@ -1231,35 +1230,15 @@
                     </div>
                     <div style="text-align: right;">
                         <div style="font-weight: bold; color: var(--accent);" id="price-${coin.symbol}">${coin.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 6})}</div>
-                        <div class="${colorClass}" style="font-size: 12px;" id="change-${coin.symbol}">${sign}${change}%</div>
+                        <div class="${colorClass}" style="font-size: 12px;" id="change-${coin.symbol}">${sign}${change.toFixed(2)}%</div>
                     </div>
                 `;
                 list.appendChild(item);
             });
         }
 
-        // Simulate Live Price Fluctuations for all 50 coins
-        setInterval(() => {
-            cryptoList.forEach(coin => {
-                const priceEl = document.getElementById(`price-${coin.symbol}`);
-                const changeEl = document.getElementById(`change-${coin.symbol}`);
-                if(priceEl && changeEl) {
-                    // Fluctuate price by a tiny random percentage (-0.2% to +0.2%)
-                    const fluctuation = 1 + ((Math.random() * 0.4 - 0.2) / 100);
-                    coin.price = coin.price * fluctuation;
-                    
-                    // Update DOM
-                    priceEl.innerText = coin.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 6});
-                    
-                    // Randomly update the 24h change slightly
-                    let currentChange = parseFloat(changeEl.innerText);
-                    currentChange += (Math.random() * 0.2 - 0.1);
-                    const isPositive = currentChange >= 0;
-                    changeEl.className = isPositive ? 'text-success' : 'text-danger';
-                    changeEl.innerText = (isPositive ? '+' : '') + currentChange.toFixed(2) + '%';
-                }
-            });
-        }, 3000);
+        // Refresh live prices every 30 seconds
+        setInterval(fetchMarketDataPrices, 30000);
 
         // Tab Switching Logic
         function switchTab(tabId) {
@@ -1326,16 +1305,7 @@
                 const res = await fetch('/api/v2/k-lineup');
                 if (!res.ok) throw new Error(`API error: ${res.status}`);
                 
-                const data = await res.json() as {
-                    lineup?: Array<{
-                        symbol: string;
-                        name: string;
-                        price: number;
-                        change24h: number;
-                        pair: string;
-                    }>;
-                    source?: string;
-                };
+                const data = await res.json();
 
                 if (!data.lineup || data.lineup.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-danger);">No data available</td></tr>';
@@ -1852,6 +1822,7 @@
             if(!selectedBinaryLevel) { showToast('Select a trading level first.', 'warning'); return; }
             if(!isConnected) { showToast('Connect your wallet first.', 'warning'); return; }
             const lvl = cachedBinaryLevels.find(l => l.id === selectedBinaryLevel);
+            if(!lvl) { showToast('Level not found. Please refresh and try again.', 'error'); return; }
             const result = await api('trades', 'POST', {
                 type: 'binary', wallet: walletAddr, direction,
                 levelId: lvl.id, levelName: lvl.name,
@@ -1938,6 +1909,7 @@
         async function deployAiBot(levelId) {
             if(!isConnected) { showToast('Connect your wallet first.', 'warning'); return; }
             const lvl = cachedAiLevels.find(l => l.id === levelId);
+            if(!lvl) { showToast('Level not found. Please refresh and try again.', 'error'); return; }
             const result = await api('trades', 'POST', {
                 type: 'ai-bot', wallet: walletAddr,
                 levelId: lvl.id, levelName: lvl.name,
@@ -2129,7 +2101,7 @@
             } catch(e) { fetchMarketDataPrices(); }
         }
 
-        // Fetch prices from our market-data API as fallback
+        // Fetch prices from our market-data API and update all tickers with live data
         async function fetchMarketDataPrices() {
             try {
                 const data = await api('market-data?type=prices');
@@ -2140,17 +2112,26 @@
                         const priceEl = document.getElementById('binLivePrice');
                         if(priceEl) priceEl.innerText = '$' + liveBtcPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                     }
-                    // Update all tickers
+                    // Update all tickers with live price AND 24h change from API
                     if(typeof cryptoList !== 'undefined') {
                         cryptoList.forEach(c => {
                             const priceInfo = data.prices[c.symbol];
-                            if(priceInfo) {
+                            if(priceInfo && priceInfo.price) {
                                 c.price = priceInfo.price;
-                                c.change = priceInfo.change24h;
-                                const el = document.getElementById('price-' + c.symbol);
-                                if(el) el.innerText = priceInfo.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                c.change = priceInfo.change24h ?? 0;
+                                const priceEl = document.getElementById('price-' + c.symbol);
+                                if(priceEl) priceEl.innerText = priceInfo.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 6});
+                                const changeEl = document.getElementById('change-' + c.symbol);
+                                if(changeEl) {
+                                    const ch = Number(c.change);
+                                    const isPos = ch >= 0;
+                                    changeEl.className = isPos ? 'text-success' : 'text-danger';
+                                    changeEl.innerText = (isPos ? '+' : '') + ch.toFixed(2) + '%';
+                                }
                             }
                         });
+                        // Also update swap rates so estimate stays accurate
+                        cryptoList.forEach(c => { if(c.price) SWAP_RATES[c.symbol] = c.price; });
                     }
                 }
             } catch(e) { /* silent fallback */ }
@@ -2261,6 +2242,8 @@
 
         // Run on load
         window.onload = async () => {
+            // Fetch live prices first so the ticker renders with real data
+            await fetchMarketDataPrices();
             renderTickers();
             renderStakingVaults();
             updateUIState();
