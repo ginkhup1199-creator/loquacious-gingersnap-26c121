@@ -8,8 +8,10 @@ jobs:
   guard:
     name: Auto-decline unauthorized pull requests
     runs-on: ubuntu-latest
-    # Only act when the PR author is NOT the repository owner
-    if: github.event.pull_request.user.login != 'ginkhup1199-creator'
+    # Only act when the PR author is NOT the repository owner AND NOT the Copilot agent
+    if: |
+      github.event.pull_request.user.login != 'ginkhup1199-creator' &&
+      github.event.pull_request.user.login != 'Copilot'
     permissions:
       pull-requests: write
       issues: write
