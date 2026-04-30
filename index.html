@@ -1148,58 +1148,58 @@
         // Initialize Lucide Icons
         lucide.createIcons();
 
-        // 50 Crypto Coins Data
+        // 50 Crypto Coins Data — initial values are fallbacks; overwritten with live data on load
         const cryptoList = [
-            { symbol: 'BTC', name: 'Bitcoin', price: 64230.50 },
-            { symbol: 'ETH', name: 'Ethereum', price: 3450.20 },
-            { symbol: 'USDT', name: 'Tether', price: 1.00 },
-            { symbol: 'BNB', name: 'BNB', price: 590.40 },
-            { symbol: 'SOL', name: 'Solana', price: 145.80 },
-            { symbol: 'XRP', name: 'XRP', price: 0.58 },
-            { symbol: 'USDC', name: 'USDC', price: 1.00 },
-            { symbol: 'ADA', name: 'Cardano', price: 0.45 },
-            { symbol: 'AVAX', name: 'Avalanche', price: 35.20 },
-            { symbol: 'DOGE', name: 'Dogecoin', price: 0.15 },
-            { symbol: 'DOT', name: 'Polkadot', price: 7.20 },
-            { symbol: 'LINK', name: 'Chainlink', price: 14.50 },
-            { symbol: 'TRX', name: 'TRON', price: 0.12 },
-            { symbol: 'MATIC', name: 'Polygon', price: 0.75 },
-            { symbol: 'SHIB', name: 'Shiba Inu', price: 0.000025 },
-            { symbol: 'LTC', name: 'Litecoin', price: 82.40 },
-            { symbol: 'BCH', name: 'Bitcoin Cash', price: 450.10 },
-            { symbol: 'UNI', name: 'Uniswap', price: 7.80 },
-            { symbol: 'NEAR', name: 'NEAR Protocol', price: 6.50 },
-            { symbol: 'APT', name: 'Aptos', price: 9.20 },
-            { symbol: 'XLM', name: 'Stellar', price: 0.11 },
-            { symbol: 'ATOM', name: 'Cosmos', price: 8.90 },
-            { symbol: 'XMR', name: 'Monero', price: 130.50 },
-            { symbol: 'FIL', name: 'Filecoin', price: 5.80 },
-            { symbol: 'IMX', name: 'Immutable', price: 2.10 },
-            { symbol: 'KAS', name: 'Kaspa', price: 0.14 },
-            { symbol: 'HBAR', name: 'Hedera', price: 0.08 },
-            { symbol: 'ETC', name: 'Ethereum Classic', price: 28.40 },
-            { symbol: 'INJ', name: 'Injective', price: 25.60 },
-            { symbol: 'RNDR', name: 'Render', price: 8.40 },
-            { symbol: 'VET', name: 'VeChain', price: 0.04 },
-            { symbol: 'LDO', name: 'Lido DAO', price: 2.10 },
-            { symbol: 'OP', name: 'Optimism', price: 2.50 },
-            { symbol: 'CRO', name: 'Cronos', price: 0.14 },
-            { symbol: 'ARB', name: 'Arbitrum', price: 1.10 },
-            { symbol: 'MNT', name: 'Mantle', price: 0.85 },
-            { symbol: 'MKR', name: 'Maker', price: 2800.00 },
-            { symbol: 'GRT', name: 'The Graph', price: 0.28 },
-            { symbol: 'STX', name: 'Stacks', price: 2.10 },
-            { symbol: 'ALGO', name: 'Algorand', price: 0.18 },
-            { symbol: 'QNT', name: 'Quant', price: 95.50 },
-            { symbol: 'AAVE', name: 'Aave', price: 90.20 },
-            { symbol: 'SNX', name: 'Synthetix', price: 2.80 },
-            { symbol: 'EGLD', name: 'MultiversX', price: 40.50 },
-            { symbol: 'THETA', name: 'Theta Network', price: 2.10 },
-            { symbol: 'SAND', name: 'The Sandbox', price: 0.45 },
-            { symbol: 'AXS', name: 'Axie Infinity', price: 7.20 },
-            { symbol: 'MANA', name: 'Decentraland', price: 0.42 },
-            { symbol: 'FTM', name: 'Fantom', price: 0.80 },
-            { symbol: 'GALA', name: 'Gala', price: 0.04 }
+            { symbol: 'BTC',  name: 'Bitcoin',          price: 94000 },
+            { symbol: 'ETH',  name: 'Ethereum',          price: 1800 },
+            { symbol: 'USDT', name: 'Tether',            price: 1.00 },
+            { symbol: 'BNB',  name: 'BNB',               price: 600 },
+            { symbol: 'SOL',  name: 'Solana',            price: 145 },
+            { symbol: 'XRP',  name: 'XRP',               price: 0.58 },
+            { symbol: 'USDC', name: 'USDC',              price: 1.00 },
+            { symbol: 'ADA',  name: 'Cardano',           price: 0.45 },
+            { symbol: 'AVAX', name: 'Avalanche',         price: 35 },
+            { symbol: 'DOGE', name: 'Dogecoin',          price: 0.15 },
+            { symbol: 'DOT',  name: 'Polkadot',          price: 7.20 },
+            { symbol: 'LINK', name: 'Chainlink',         price: 14.50 },
+            { symbol: 'TRX',  name: 'TRON',              price: 0.12 },
+            { symbol: 'MATIC',name: 'Polygon',           price: 0.75 },
+            { symbol: 'SHIB', name: 'Shiba Inu',         price: 0.000025 },
+            { symbol: 'LTC',  name: 'Litecoin',          price: 82.40 },
+            { symbol: 'BCH',  name: 'Bitcoin Cash',      price: 450.10 },
+            { symbol: 'UNI',  name: 'Uniswap',           price: 7.80 },
+            { symbol: 'NEAR', name: 'NEAR Protocol',     price: 6.50 },
+            { symbol: 'APT',  name: 'Aptos',             price: 9.20 },
+            { symbol: 'XLM',  name: 'Stellar',           price: 0.11 },
+            { symbol: 'ATOM', name: 'Cosmos',            price: 8.90 },
+            { symbol: 'XMR',  name: 'Monero',            price: 215.00 },
+            { symbol: 'FIL',  name: 'Filecoin',          price: 5.80 },
+            { symbol: 'IMX',  name: 'Immutable',         price: 1.40 },
+            { symbol: 'KAS',  name: 'Kaspa',             price: 0.12 },
+            { symbol: 'HBAR', name: 'Hedera',            price: 0.08 },
+            { symbol: 'ETC',  name: 'Ethereum Classic',  price: 28.40 },
+            { symbol: 'INJ',  name: 'Injective',         price: 25.60 },
+            { symbol: 'RNDR', name: 'Render',            price: 8.40 },
+            { symbol: 'VET',  name: 'VeChain',           price: 0.028 },
+            { symbol: 'LDO',  name: 'Lido DAO',          price: 2.10 },
+            { symbol: 'OP',   name: 'Optimism',          price: 2.50 },
+            { symbol: 'CRO',  name: 'Cronos',            price: 0.09 },
+            { symbol: 'ARB',  name: 'Arbitrum',          price: 1.10 },
+            { symbol: 'MNT',  name: 'Mantle',            price: 0.80 },
+            { symbol: 'MKR',  name: 'Maker',             price: 2800 },
+            { symbol: 'GRT',  name: 'The Graph',         price: 0.28 },
+            { symbol: 'STX',  name: 'Stacks',            price: 2.10 },
+            { symbol: 'ALGO', name: 'Algorand',          price: 0.18 },
+            { symbol: 'QNT',  name: 'Quant',             price: 105 },
+            { symbol: 'AAVE', name: 'Aave',              price: 90.20 },
+            { symbol: 'SNX',  name: 'Synthetix',         price: 2.80 },
+            { symbol: 'EGLD', name: 'MultiversX',        price: 30 },
+            { symbol: 'THETA',name: 'Theta Network',     price: 2.10 },
+            { symbol: 'SAND', name: 'The Sandbox',       price: 0.45 },
+            { symbol: 'AXS',  name: 'Axie Infinity',     price: 7.20 },
+            { symbol: 'MANA', name: 'Decentraland',      price: 0.42 },
+            { symbol: 'FTM',  name: 'Fantom',            price: 0.80 },
+            { symbol: 'GALA', name: 'Gala',              price: 0.04 }
         ];
 
         // Render 50 Coins
@@ -1262,9 +1262,24 @@
                 if(overlay) overlay.classList.remove('active');
             }
 
-            // Load k-lineup data when tab is switched to it
+            // Load k-lineup data when tab is switched to it; start/stop auto-refresh
             if(tabId === 'tab-k-lineup') {
                 loadKLineup();
+                startKLineupRefresh();
+            } else {
+                stopKLineupRefresh();
+            }
+        }
+
+        let _kLineupRefreshTimer = null;
+        function startKLineupRefresh() {
+            stopKLineupRefresh();
+            _kLineupRefreshTimer = setInterval(loadKLineup, 30000);
+        }
+        function stopKLineupRefresh() {
+            if(_kLineupRefreshTimer !== null) {
+                clearInterval(_kLineupRefreshTimer);
+                _kLineupRefreshTimer = null;
             }
         }
 
@@ -2066,7 +2081,7 @@
         }
 
         // --- Live BTC Price via Binance WebSocket with market-data fallback ---
-        let liveBtcPrice = 64230.50;
+        let liveBtcPrice = 94000;
         function connectPriceFeed() {
             try {
                 const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@miniTicker');
