@@ -1301,8 +1301,7 @@
                 // Populate price input with the current live price for the selected pair
                 const livePrice = SWAP_RATES[currentSpotPair] || liveBtcPrice;
                 const priceInput = document.getElementById('tradePrice');
-                if(priceInput && !priceInput.readOnly) priceInput.value = livePrice.toFixed(2);
-                else if(priceInput && priceInput.readOnly) priceInput.value = livePrice.toFixed(2);
+                if(priceInput) priceInput.value = livePrice.toFixed(2);
             } else if(tabId === 'tab-swap') {
                 updateSwapEstimate();
             } else if(tabId === 'tab-earn') {
