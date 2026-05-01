@@ -33,6 +33,17 @@ jobs:
         run: npm audit --audit-level=high
         # Fail the deploy if any HIGH or CRITICAL vulnerabilities exist in dependencies
 
+      - name: Validate deployment secrets
+        run: |
+          if [ -z "$NETLIFY_AUTH_TOKEN" ]; then
+            echo "::error::NETLIFY_AUTH_TOKEN secret is not set. Add it in GitHub → Settings → Secrets → Actions."
+            echo "Without this token the deploy would fail with 'Project not found. Please rerun netlify link'."
+            exit 1
+          fi
+          echo "✅ Deployment secrets validated."
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+
       - name: Deploy to Netlify Production
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN || '' }}

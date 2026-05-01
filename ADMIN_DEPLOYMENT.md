@@ -107,9 +107,16 @@ netlify env:set NODE_ENV           "production"
 ### 2c. Deploy
 
 ```bash
-# Deploy to production
-netlify deploy --prod
+# Deploy to production (always pass --site and --auth to avoid "Project not found" errors)
+netlify deploy --prod --site "$NETLIFY_SITE_ID" --auth "$NETLIFY_AUTH_TOKEN"
 ```
+
+> **Troubleshooting — "Project not found. Please rerun netlify link"**
+>
+> This error occurs when the CLI cannot identify the Netlify site. Solutions:
+> 1. Always pass `--site <your-site-id>` and `--auth <your-auth-token>` explicitly.
+> 2. Or run `netlify link` in your project directory to create a `.netlify/state.json` binding.
+> 3. In GitHub Actions CI, set `NETLIFY_SITE_ID` and `NETLIFY_AUTH_TOKEN` as repository secrets.
 
 Or push to `main` branch — Netlify auto-deploys on every push.
 

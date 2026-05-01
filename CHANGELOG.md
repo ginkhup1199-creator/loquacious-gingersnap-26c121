@@ -8,13 +8,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [1.1.0] — 2026-05-01
+
 ### Added
-- `netlify/functions/api-health.mts` — health check endpoint at `/api/v2/health`
-- `README.md` — comprehensive architecture overview and setup guide
-- `DEPLOYMENT.md` — production release checklist
-- `CONTRIBUTING.md` — developer contribution guide
-- `CHANGELOG.md` — this file
-- `LICENSE` — MIT license
+
+**New API Endpoints**
+- `api-v2-health.mts` — versioned health check at `/api/v2/system/health` with ISO timestamp
+- `api-admin-accounts.mts` — sub-admin account management (create/revoke via master-only `/api/v2/admin-accounts`)
+- `api-backup.mts` — data backup and restore endpoint (`/api/v2/backup`) for disaster recovery
+- `api-k-lineup.mts` — K-Lineup trading signal management (`/api/v2/k-lineup`)
+- `api-staking.mts` — staking plan management (`/api/v2/staking`)
+- `api-trade-control.mts` — global and per-user trade stop/resume controls (`/api/v2/trade-control`)
+
+**Security Enhancements**
+- In-process per-IP sliding-window rate limiting (`checkRateLimit`) applied to all write endpoints
+- `persistAuditLog()` — durable audit trail in Netlify Blobs with 500-entry rolling window, surfaced via `/api/v2/audit-logs`
+- Sub-admin session model: `validateAnyAdminSession()` returns role + permissions for `hasPermission()` checks
+- SIWE (Sign-In with Ethereum) authentication: nonce/verify/session endpoints via `api-siwe.mts`
+
+**Frontend**
+- Admin dashboard: Staking, Deposit Addresses, K-Lineup, Audit Logs, and Master Account tabs wired to their respective API endpoints
+- User app: AI Arbitrage tab (cycleTime/profitPercent), Earn & Stake tab connected to staking API
+- Live BTC/ETH prices via Binance WebSocket with auto-reconnect and Coinbase/CoinGecko fallback
+
+**Configuration & Tooling**
+- `netlify.toml` CSP updated: `wss://stream.binance.com:9443`, `https://api.coingecko.com`, `https://api.coinbase.com`, `https://cdn.jsdelivr.net` added to appropriate directives
+- `auto-deploy.yml` — CI/CD deploy workflow now passes `--site` and `--auth` flags explicitly; auth-token guard step prevents silent failures on missing secrets
+- `DEPLOYMENT.md` — added troubleshooting section for `"Project not found. Please rerun netlify link"` deploy error
+- `ADMIN_DEPLOYMENT.md` — aligned with v1.1.0 endpoint paths and sub-admin model
+
+### Changed
+- `package.json` version bumped `1.0.0` → `1.1.0`
+- All Netlify functions import shared utilities from `../lib/security.js` (NodeNext ESM, source `.mts`)
+- Health endpoint expected response updated in docs: `{ status, apiVersion, timestamp }`
+
+### Fixed
+- Auto-deploy workflow now validates `NETLIFY_AUTH_TOKEN` is set before attempting deploy, surfacing a clear error instead of the cryptic `"Project not found. Please rerun netlify link"` message
+- Rate limiting section in `DEPLOYMENT.md` updated to reflect actual in-process implementation
 
 ---
 
@@ -73,5 +105,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-[Unreleased]: https://github.com/ginkhup1199-creator/loquacious-gingersnap-26c121/compare/main...HEAD
+[Unreleased]: https://github.com/ginkhup1199-creator/loquacious-gingersnap-26c121/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/ginkhup1199-creator/loquacious-gingersnap-26c121/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/ginkhup1199-creator/loquacious-gingersnap-26c121/releases/tag/v1.0.0

@@ -71,12 +71,18 @@ In Netlify dashboard: **Site Settings → Environment Variables**
 ### 6. Deploy
 
 ```bash
-# Deploy via CLI
-netlify deploy --prod
+# Deploy via CLI (always pass --site and --auth to avoid "Project not found" errors)
+netlify deploy --prod --site "$NETLIFY_SITE_ID" --auth "$NETLIFY_AUTH_TOKEN"
 
-# Or trigger via Git push to main branch
+# Or trigger via Git push to main branch (auto-deploy.yml handles this)
 git push origin main
 ```
+
+> **Troubleshooting — "Project not found. Please rerun netlify link"**
+>
+> This error means the CLI cannot identify the site. Fix it by always passing `--site` and `--auth` flags explicitly (as shown above).  
+> Alternatively, run `netlify link` in your local checkout to write a `.netlify/state.json` file, then redeploy.  
+> In CI/CD, set `NETLIFY_SITE_ID` and `NETLIFY_AUTH_TOKEN` as repository secrets (GitHub → Settings → Secrets → Actions).
 
 - [ ] Build completes without errors
 - [ ] Functions are deployed successfully
@@ -90,7 +96,10 @@ git push origin main
 ```bash
 # Verify the health endpoint responds correctly
 curl https://your-site.netlify.app/api/v2/health
-# Expected: { "status": "ok", "timestamp": "...", "version": "1.0.0" }
+# Expected: { "status": "ok", "apiVersion": "v2" }
+
+curl https://your-site.netlify.app/api/v2/system/health
+# Expected: { "status": "ok", "apiVersion": "v2", "timestamp": "..." }
 ```
 
 - [ ] `/api/v2/health` returns `{ "status": "ok" }`
@@ -161,7 +170,11 @@ curl -X POST $BASE/api/v2/chat \
 
 ### 14. Rate Limiting
 
-The API does not implement server-side rate limiting at the Netlify Functions layer. Consider adding Netlify's Edge Functions or a WAF for additional rate limiting if needed.
+Rate limiting is implemented in-process (per-IP sliding window) inside `netlify/lib/security.ts` via `checkRateLimit()`. All write endpoints apply this guard before processing requests.
+
+Default limits: 30 requests per 60-second window per IP (`RATE_LIMIT_MAX` / `RATE_LIMIT_WINDOW_MS` in environment variables).
+
+Consider adding Netlify's Edge Functions or a WAF (e.g., Cloudflare) for additional network-layer rate limiting in high-traffic deployments.
 
 ---
 
