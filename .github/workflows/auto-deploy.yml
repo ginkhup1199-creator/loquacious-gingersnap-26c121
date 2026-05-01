@@ -8,7 +8,6 @@ jobs:
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    # Only the repository owner may trigger a production deploy
     if: github.actor == 'ginkhup1199-creator'
     permissions:
       contents: read
@@ -31,7 +30,12 @@ jobs:
 
       - name: Security audit
         run: npm audit --audit-level=high
-        # Fail the deploy if any HIGH or CRITICAL vulnerabilities exist in dependencies
+
+      # Ensure Netlify is linked (fixes 'Project not found' error)
+      - name: Ensure Netlify is linked
+        run: npx netlify link --id "$NETLIFY_SITE_ID"
+        env:
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID || '63597bc2-3179-46c1-86c7-391dee789a14' }}
 
       - name: Deploy to Netlify Production
         env:
@@ -43,8 +47,6 @@ jobs:
         run: |
           echo "Waiting 15 seconds for CDN propagation..."
           sleep 15
-          # Use || true so curl SSL/network errors don't abort the script (bash -e);
-          # the HTTP status code check below will still catch a non-200 response.
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://nexustrade.website/api/v2/system/health) || true
           if [ "$STATUS" = "200" ]; then
             echo "✅ Health check passed — /api/v2/system/health returned HTTP 200"
@@ -63,9 +65,6 @@ jobs:
           )
           ALL_OK=true
           for URL in "${ENDPOINTS[@]}"; do
-            # || true prevents bash -e from exiting with curl's error code (e.g. 35 for
-            # SSL_CONNECT_ERROR) when used inside a command substitution assignment.
-            # The HTTP status captured in CODE is still checked to detect real failures.
             CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL") || true
             if [ "$CODE" = "200" ]; then
               echo "  ✅  $URL → $CODE"
