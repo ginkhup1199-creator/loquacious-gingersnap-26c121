@@ -167,10 +167,9 @@
             <i data-lucide="shield-alert" style="width: 48px; height: 48px; color: var(--danger); margin-bottom: 10px;"></i>
             <h2 style="color: var(--danger);">Secure Admin Access</h2>
 
-        <!-- Login mode toggle -->
-            <div style="display:flex;gap:0;margin-bottom:20px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
-                <button id="modeMaster" onclick="setLoginMode('master')" style="flex:1;padding:10px;background:var(--danger);color:#fff;border:none;cursor:pointer;font-weight:bold;font-size:13px;">Master Login</button>
-                <button id="modeSubAdmin" onclick="setLoginMode('subadmin')" style="flex:1;padding:10px;background:transparent;color:var(--text-secondary);border:none;cursor:pointer;font-weight:bold;font-size:13px;">Sub-Admin Login</button>
+        <!-- Login mode toggle (master only) -->
+            <div style="margin-bottom:20px;">
+                <button id="modeMaster" style="width:100%;padding:10px;background:var(--danger);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:13px;">Master Login</button>
             </div>
 
             <!-- ── MASTER LOGIN FLOW ── -->
@@ -182,16 +181,6 @@
                     <i data-lucide="log-in"></i> Login
                 </button>
             </div><!-- /masterFlow -->
-
-            <!-- ── SUB-ADMIN LOGIN FLOW ── -->
-            <div id="subAdminFlow" style="display:none;">
-                <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 16px;">Enter your sub-admin username and password to access the dashboard.</p>
-                <input type="text" id="overlaySubUsername" placeholder="Username" style="margin-bottom:10px;" onkeypress="if(event.key==='Enter') document.getElementById('overlaySubPassword').focus()">
-                <input type="password" id="overlaySubPassword" placeholder="Password" style="margin-bottom:0;" onkeypress="if(event.key==='Enter') subAdminLoginOverlay()">
-                <button class="btn" style="width: 100%; margin-top: 16px;" onclick="subAdminLoginOverlay()">
-                    <i data-lucide="log-in"></i> Login
-                </button>
-            </div><!-- /subAdminFlow -->
 
             <div id="loginError" style="color:var(--danger);font-size:13px;margin-top:12px;display:none;"></div>
         </div>
@@ -760,16 +749,6 @@
                     </table>
                 </div>
             </div>
-
-            <!-- Sub-admin login (for sub-admins only) -->
-            <div class="card" style="max-width:420px;">
-                <div class="card-header">Sub-Admin Login (for sub-admins)</div>
-                <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">Sub-admins log in here with the credentials set by the master.</p>
-                <div class="input-group"><label>Username</label><input type="text" id="sub-login-username" placeholder="Username"></div>
-                <div class="input-group"><label>Password</label><input type="password" id="sub-login-password" placeholder="Password"></div>
-                <button class="btn" style="width:100%;" onclick="subAdminLoginPanel()"><i data-lucide="log-in"></i> Log In as Sub-Admin</button>
-                <div id="subLoginResult" style="margin-top:8px;font-size:13px;display:none;color:var(--danger);"></div>
-            </div>
         </div>
 
     </main>
@@ -840,52 +819,16 @@
             }
         }
 
-        // ── Login mode toggle ─────────────────────────────────────────────────
-        function setLoginMode(mode) {
-            const isMaster = mode === 'master';
-            document.getElementById('masterFlow').style.display = isMaster ? 'block' : 'none';
-            document.getElementById('subAdminFlow').style.display = isMaster ? 'none' : 'block';
-            document.getElementById('modeMaster').style.background = isMaster ? 'var(--danger)' : 'transparent';
-            document.getElementById('modeMaster').style.color = isMaster ? '#fff' : 'var(--text-secondary)';
-            document.getElementById('modeSubAdmin').style.background = isMaster ? 'transparent' : 'var(--accent)';
-            document.getElementById('modeSubAdmin').style.color = isMaster ? 'var(--text-secondary)' : '#000';
+        // ── Login mode (master only) ──────────────────────────────────────────
+        function setLoginMode() {
             showLoginError('');
-        }
-
-        // ── Sub-admin login from the login overlay ────────────────────────────
-        async function subAdminLoginOverlay() {
-            const username = document.getElementById('overlaySubUsername').value.trim();
-            const password = document.getElementById('overlaySubPassword').value;
-            if (!username || !password) { showLoginError('Please enter your username and password.'); return; }
-            showLoginError('');
-            try {
-                const res = await fetch('/api/v2/admin/session', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'subadmin-login', username, password })
-                });
-                const data = await res.json();
-                if (!res.ok || !data.sessionId) {
-                    showLoginError(data.error || 'Invalid username or password.');
-                    document.getElementById('overlaySubPassword').value = '';
-                    return;
-                }
-                finishLogin(data.sessionId, data.role || 'subadmin', data.permissions || []);
-            } catch(e) {
-                showLoginError('Connection error. Please try again.');
-            }
-        }
-
-        // ── Sub-admin login (legacy stub — kept for compatibility) ────────────
-        async function subAdminLogin() {
-            setLoginMode('subadmin');
         }
 
         // ── Post-login common setup ────────────────────────────────────────────
-        function finishLogin(sid, role, perms) {
+        function finishLogin(sid) {
             sessionToken = sid;
-            sessionRole  = role === 'master' ? 'master' : 'subadmin';
-            sessionPerms = Array.isArray(perms) ? perms : [];
+            sessionRole  = 'master';
+            sessionPerms = [];
             sessionStorage.setItem('adminSessionToken', sessionToken);
             sessionStorage.setItem('adminSessionRole',  sessionRole);
             sessionStorage.setItem('adminSessionPerms', JSON.stringify(sessionPerms));
@@ -895,53 +838,26 @@
             initDashboard();
         }
 
-        // ── Apply permission-based nav visibility ─────────────────────────────
+        // ── Apply permission-based nav visibility (master sees everything) ─────
         function applyPermissions() {
-            const isMaster = sessionRole === 'master';
-
-            // Show/hide nav items based on role
-            document.querySelectorAll('.nav-all').forEach(el => {
+            document.querySelectorAll('.nav-all, .nav-master, .nav-kyc, .nav-withdrawals, .nav-chat, .nav-settings').forEach(el => {
                 el.style.display = 'flex';
-            });
-            document.querySelectorAll('.nav-master').forEach(el => {
-                el.style.display = isMaster ? 'flex' : 'none';
-            });
-            document.querySelectorAll('.nav-kyc').forEach(el => {
-                el.style.display = (isMaster || sessionPerms.includes('kyc')) ? 'flex' : 'none';
-            });
-            document.querySelectorAll('.nav-withdrawals').forEach(el => {
-                el.style.display = (isMaster || sessionPerms.includes('withdrawals')) ? 'flex' : 'none';
-            });
-            document.querySelectorAll('.nav-chat').forEach(el => {
-                el.style.display = (isMaster || sessionPerms.includes('chat')) ? 'flex' : 'none';
-            });
-            document.querySelectorAll('.nav-settings').forEach(el => {
-                el.style.display = (isMaster || sessionPerms.includes('settings')) ? 'flex' : 'none';
             });
 
             // Session badge
             const badge = document.getElementById('sessionBadge');
             badge.style.display = 'block';
-            if (isMaster) {
-                badge.style.background = 'rgba(255,179,0,0.15)';
-                badge.style.border = '1px solid var(--warning)';
-                badge.style.color = 'var(--warning)';
-                badge.innerHTML = '<i data-lucide="crown" style="width:12px;height:12px;"></i> Master Account';
-            } else {
-                badge.style.background = 'rgba(0,230,118,0.1)';
-                badge.style.border = '1px solid var(--success)';
-                badge.style.color = 'var(--success)';
-                badge.innerHTML = '<i data-lucide="user" style="width:12px;height:12px;"></i> Sub-Admin';
-            }
+            badge.style.background = 'rgba(255,179,0,0.15)';
+            badge.style.border = '1px solid var(--warning)';
+            badge.style.color = 'var(--warning)';
+            badge.innerHTML = '<i data-lucide="crown" style="width:12px;height:12px;"></i> Master Account';
             lucide.createIcons();
         }
 
         function resetLoginUI() {
             document.getElementById('adminEmail') && (document.getElementById('adminEmail').value = '');
             document.getElementById('adminPassword') && (document.getElementById('adminPassword').value = '');
-            document.getElementById('overlaySubUsername') && (document.getElementById('overlaySubUsername').value = '');
-            document.getElementById('overlaySubPassword') && (document.getElementById('overlaySubPassword').value = '');
-            setLoginMode('master');
+            setLoginMode();
         }
 
         // ── Master Account tab: create sub-admin ──────────────────────────────
@@ -1009,31 +925,6 @@
             }
         }
 
-        async function subAdminLoginPanel() {
-            const username = document.getElementById('sub-login-username').value.trim();
-            const password = document.getElementById('sub-login-password').value;
-            const resultEl = document.getElementById('subLoginResult');
-            resultEl.style.display = 'none';
-            if (!username || !password) { resultEl.innerText = 'Enter username and password.'; resultEl.style.display = 'block'; return; }
-            try {
-                const res = await fetch('/api/v2/admin/session', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'subadmin-login', username, password })
-                });
-                const data = await res.json();
-                if (!res.ok || !data.sessionId) {
-                    resultEl.innerText = data.error || 'Invalid credentials.';
-                    resultEl.style.display = 'block';
-                    return;
-                }
-                finishLogin(data.sessionId, data.role || 'subadmin', data.permissions || []);
-            } catch(e) {
-                resultEl.innerText = 'Connection error.';
-                resultEl.style.display = 'block';
-            }
-        }
-
         function initDashboard() {
             applyPermissions();
             loadFeatures();
@@ -1074,7 +965,7 @@
             document.getElementById('adminEmail').value = '';
             document.getElementById('adminPassword') && (document.getElementById('adminPassword').value = '');
             document.getElementById('sessionBadge').style.display = 'none';
-            setLoginMode('master');
+            setLoginMode();
             showLoginError('');
             document.getElementById('loginOverlay').style.display = 'flex';
         }
@@ -1717,6 +1608,74 @@
                 table.appendChild(row);
             });
             lucide.createIcons();
+        }
+
+        // ── Backup & Restore ──────────────────────────────────────────────────
+        async function loadBackupInfo() {
+            const el = document.getElementById('backupInfoText');
+            if (!el) return;
+            el.innerText = 'Ready to export. Click "Download Backup" to generate a snapshot.';
+        }
+
+        async function exportBackup() {
+            const resultEl = document.getElementById('backupExportResult');
+            resultEl.style.display = 'none';
+            try {
+                const data = await api('backup');
+                if (!data || data.error) {
+                    resultEl.style.color = 'var(--danger)';
+                    resultEl.innerText = data?.error || 'Export failed.';
+                    resultEl.style.display = 'block';
+                    return;
+                }
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `nexustrade-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                resultEl.style.color = 'var(--success)';
+                resultEl.innerText = '✅ Backup downloaded successfully.';
+                resultEl.style.display = 'block';
+            } catch(e) {
+                resultEl.style.color = 'var(--danger)';
+                resultEl.innerText = 'Export failed. Please try again.';
+                resultEl.style.display = 'block';
+            }
+        }
+
+        async function importBackup() {
+            const fileInput = document.getElementById('backupFileInput');
+            const resultEl = document.getElementById('backupImportResult');
+            resultEl.style.display = 'none';
+            if (!fileInput.files || fileInput.files.length === 0) {
+                resultEl.style.color = 'var(--danger)';
+                resultEl.innerText = 'Please select a backup JSON file first.';
+                resultEl.style.display = 'block';
+                return;
+            }
+            if (!confirm('⚠️ This will overwrite ALL existing platform data with the selected backup. This cannot be undone. Continue?')) return;
+            try {
+                const text = await fileInput.files[0].text();
+                const snapshot = JSON.parse(text);
+                const result = await api('backup', 'POST', { snapshot });
+                if (!result || result.error) {
+                    resultEl.style.color = 'var(--danger)';
+                    resultEl.innerText = result?.error || 'Restore failed.';
+                } else {
+                    resultEl.style.color = 'var(--success)';
+                    resultEl.innerText = '✅ ' + (result.message || 'Restore completed successfully.');
+                    fileInput.value = '';
+                }
+                resultEl.style.display = 'block';
+            } catch(e) {
+                resultEl.style.color = 'var(--danger)';
+                resultEl.innerText = 'Invalid backup file or restore failed.';
+                resultEl.style.display = 'block';
+            }
         }
 
         // Poll every 5 seconds
