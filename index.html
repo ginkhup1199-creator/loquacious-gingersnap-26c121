@@ -1951,6 +1951,8 @@
             lucide.createIcons();
             updateHomeMarketOverview();
         }
+
+        async function deployAiBot(levelId) {
             if(!isConnected) { showToast('Connect your wallet first.', 'warning'); return; }
             const lvl = cachedAiLevels.find(l => l.id === levelId);
             if(!lvl) { showToast('Level not found. Please refresh and try again.', 'error'); return; }
