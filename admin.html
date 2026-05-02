@@ -713,7 +713,7 @@
 
         <div id="tab-master" class="tab-pane">
             <h2 style="color: var(--warning);">Master Account — Sub-Admin Management</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 20px;">Only the master account can create or revoke sub-admin accounts. Sub-admins log in with username + password.</p>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Only the master account can create or revoke sub-admin accounts. Sub-admin credentials are managed here for reference — only the master account can log in to this dashboard.</p>
 
             <div class="grid-2" style="margin-bottom: 20px;">
                 <!-- Create sub-admin -->
@@ -758,10 +758,6 @@
 
         // Helper for API calls — uses session token, never the raw admin password
         let sessionToken = sessionStorage.getItem('adminSessionToken') || '';
-
-        // Session role and permissions (single-master policy)
-        let sessionRole = sessionStorage.getItem('adminSessionRole') || '';           // 'master'
-        let sessionPerms = JSON.parse(sessionStorage.getItem('adminSessionPerms') || '[]');
 
         async function api(endpoint, method, body) {
             const headers = { 'Content-Type': 'application/json' };
@@ -827,11 +823,7 @@
         // ── Post-login common setup ────────────────────────────────────────────
         function finishLogin(sid) {
             sessionToken = sid;
-            sessionRole  = 'master';
-            sessionPerms = [];
             sessionStorage.setItem('adminSessionToken', sessionToken);
-            sessionStorage.setItem('adminSessionRole',  sessionRole);
-            sessionStorage.setItem('adminSessionPerms', JSON.stringify(sessionPerms));
             applyPermissions();
             document.getElementById('loginOverlay').style.display = 'none';
             resetLoginUI();
@@ -952,11 +944,7 @@
                 }).catch(() => {});
             }
             sessionToken = '';
-            sessionRole  = '';
-            sessionPerms = [];
             sessionStorage.removeItem('adminSessionToken');
-            sessionStorage.removeItem('adminSessionRole');
-            sessionStorage.removeItem('adminSessionPerms');
             // Clean up any legacy storage keys from previous auth implementation
             localStorage.removeItem('adminLoggedIn');
             localStorage.removeItem('adminToken');
@@ -1149,13 +1137,9 @@
         // --- Real-time Polling via API ---
         async function pollFrontendData() {
             try {
-                const isMaster = sessionRole === 'master';
-                const canKyc = isMaster || sessionPerms.includes('kyc');
-                const canWithdrawals = isMaster || sessionPerms.includes('withdrawals');
-
                 const [kycList, withdrawals, addresses, messages] = await Promise.all([
-                    canKyc ? api('kyc?list=true') : Promise.resolve(null),
-                    canWithdrawals ? api('withdrawals') : Promise.resolve(null),
+                    api('kyc?list=true'),
+                    api('withdrawals'),
                     api('wallet'),
                     api('chat')
                 ]);
