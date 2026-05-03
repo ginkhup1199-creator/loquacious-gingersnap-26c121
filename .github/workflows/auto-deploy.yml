@@ -55,7 +55,7 @@ jobs:
         run: |
           echo "Waiting 15 seconds for CDN propagation..."
           sleep 15
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://nexustrade.website/api/v2/health) || true
+          STATUS=$(curl --http1.1 --retry 4 --retry-all-errors --retry-delay 2 --max-time 12 -s -o /dev/null -w "%{http_code}" https://nexustrade.website/api/v2/health) || true
           if [ "$STATUS" = "200" ]; then
             echo "✅ Health check passed — /api/v2/health returned HTTP 200"
           else
@@ -73,7 +73,7 @@ jobs:
           )
           ALL_OK=true
           for URL in "${ENDPOINTS[@]}"; do
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL") || true
+            CODE=$(curl --http1.1 --retry 4 --retry-all-errors --retry-delay 2 --max-time 12 -s -o /dev/null -w "%{http_code}" "$URL") || true
             if [ "$CODE" = "200" ]; then
               echo "  ✅  $URL → $CODE"
             else
