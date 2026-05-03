@@ -13,7 +13,7 @@ This document describes the enterprise security architecture implemented in Nexu
 Admin authentication uses a **multi-layer session system** where:
 1. The admin authenticates once per session with `ENTERPRISE_SECRET` to create a server-side session
 2. Every subsequent **write operation** requires a fresh **one-time token** that is immediately invalidated after use
-3. Sessions expire automatically after 30 minutes of inactivity
+3. Sessions expire automatically according to `SESSION_TTL_MS` (default 1 hour)
 4. Tokens expire after 5 minutes if not used
 
 ### Authentication Flow

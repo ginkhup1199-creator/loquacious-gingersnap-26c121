@@ -167,9 +167,9 @@
             <i data-lucide="shield-alert" style="width: 48px; height: 48px; color: var(--danger); margin-bottom: 10px;"></i>
             <h2 style="color: var(--danger);">Secure Admin Access</h2>
 
-        <!-- Login mode toggle -->
-            <div style="display:flex;gap:0;margin-bottom:20px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
-                <button id="modeMaster" onclick="setLoginMode('master')" style="flex:1;padding:10px;background:var(--danger);color:#fff;border:none;cursor:pointer;font-weight:bold;font-size:13px;">Master Login</button>
+        <!-- Login mode toggle (master only) -->
+            <div style="margin-bottom:20px;">
+                <button id="modeMaster" style="width:100%;padding:10px;background:var(--danger);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:13px;">Master Login</button>
             </div>
 
             <!-- ── MASTER LOGIN FLOW ── -->
@@ -207,6 +207,7 @@
             <li class="nav-item nav-all" onclick="switchTab('tab-staking'); loadStakingAdmin()"><i data-lucide="trending-up"></i> Staking</li>
             <li class="nav-item nav-all" onclick="switchTab('tab-deposit-addresses'); loadDepositAddressesAdmin()"><i data-lucide="map-pin"></i> Deposit Addresses</li>
             <li class="nav-item nav-all" onclick="switchTab('tab-auditlogs'); loadAuditLogs()"><i data-lucide="shield-check"></i> Audit Logs</li>
+            <li class="nav-item nav-master" onclick="switchTab('tab-backup'); loadBackupInfo()"><i data-lucide="database"></i> Backup & Restore</li>
             <li class="nav-item nav-master" onclick="switchTab('tab-master'); loadAdminAccounts();" style="margin-top: 40px; color: var(--warning);"><i data-lucide="key"></i> Master Account</li>
             <li class="nav-item" onclick="logout()" style="color: var(--danger);"><i data-lucide="log-out"></i> Logout</li>
         </ul>
@@ -697,9 +698,37 @@
             </div>
         </div>
 
+        <!-- Backup & Restore -->
+        <div id="tab-backup" class="tab-pane">
+            <h2>Backup &amp; Restore</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Export all platform data as a JSON snapshot, or restore from a previously exported file. Session tokens and OTPs are never included in exports.</p>
+            <div class="grid-2">
+                <!-- Export -->
+                <div class="card">
+                    <div class="card-header">Export Snapshot</div>
+                    <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 16px;">Download a full JSON export of all user data, balances, trades, settings, and audit logs.</p>
+                    <button class="btn btn-success" style="width: 100%;" onclick="exportBackup()"><i data-lucide="download"></i> Download Backup</button>
+                    <div id="backupExportResult" style="margin-top: 10px; font-size: 13px; display: none;"></div>
+                </div>
+                <!-- Import -->
+                <div class="card">
+                    <div class="card-header" style="color: var(--danger);">Restore Snapshot</div>
+                    <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 16px;">⚠️ <strong>Overwrites all existing data</strong> with the contents of the selected backup file. This action cannot be undone.</p>
+                    <input type="file" id="backupFileInput" accept=".json" style="margin-bottom: 12px; width: 100%; color: var(--text-primary);">
+                    <button class="btn btn-danger" style="width: 100%;" onclick="importBackup()"><i data-lucide="upload"></i> Restore from File</button>
+                    <div id="backupImportResult" style="margin-top: 10px; font-size: 13px; display: none;"></div>
+                </div>
+            </div>
+            <!-- Snapshot info -->
+            <div class="card" style="margin-top: 20px;">
+                <div class="card-header">Last Export Info</div>
+                <div id="backupInfoText" style="color: var(--text-secondary); font-size: 13px;">Loading…</div>
+            </div>
+        </div>
+
         <div id="tab-master" class="tab-pane">
             <h2 style="color: var(--warning);">Master Account — Sub-Admin Management</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 20px;">Only the master account can create or revoke sub-admin accounts. Sub-admins log in with username + password.</p>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Only the master account can create or revoke sub-admin accounts. Sub-admin credentials are managed here for reference — only the master account can log in to this dashboard.</p>
 
             <div class="grid-2" style="margin-bottom: 20px;">
                 <!-- Create sub-admin -->
@@ -735,16 +764,6 @@
                     </table>
                 </div>
             </div>
-
-            <!-- Sub-admin login (for sub-admins only) -->
-            <div class="card" style="max-width:420px;">
-                <div class="card-header">Sub-Admin Login (for sub-admins)</div>
-                <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px;">Sub-admins log in here with the credentials set by the master.</p>
-                <div class="input-group"><label>Username</label><input type="text" id="sub-login-username" placeholder="Username"></div>
-                <div class="input-group"><label>Password</label><input type="password" id="sub-login-password" placeholder="Password"></div>
-                <button class="btn" style="width:100%;" onclick="subAdminLoginPanel()"><i data-lucide="log-in"></i> Log In as Sub-Admin</button>
-                <div id="subLoginResult" style="margin-top:8px;font-size:13px;display:none;color:var(--danger);"></div>
-            </div>
         </div>
 
     </main>
@@ -752,20 +771,36 @@
     <script>
         lucide.createIcons();
 
+        // Enforce session-scoped admin auth only (no persistent localStorage auth)
+        (function purgeLegacyAdminStorage() {
+            localStorage.removeItem('adminLoggedIn');
+            localStorage.removeItem('adminToken');
+        })();
+
         // Helper for API calls — uses session token, never the raw admin password
         let sessionToken = sessionStorage.getItem('adminSessionToken') || '';
 
-        // Session role and permissions (single-master policy)
-        let sessionRole = sessionStorage.getItem('adminSessionRole') || '';           // 'master'
-        let sessionPerms = JSON.parse(sessionStorage.getItem('adminSessionPerms') || '[]');
+        function toApiV2Path(endpoint) {
+            if(typeof endpoint !== 'string') return null;
+            const clean = endpoint.trim().replace(/^\/+/, '');
+            if(!clean) return null;
+            if(clean.includes('..') || clean.includes('://') || clean.startsWith('api/')) return null;
+            if(!/^[a-zA-Z0-9\-_/?:&=.,%]+$/.test(clean)) return null;
+            return '/api/v2/' + clean;
+        }
 
         async function api(endpoint, method, body) {
+            const path = toApiV2Path(endpoint);
+            if(!path) {
+                console.warn('Blocked invalid API endpoint:', endpoint);
+                return null;
+            }
             const headers = { 'Content-Type': 'application/json' };
             if(sessionToken) headers['X-Session-Token'] = sessionToken;
             const opts = { method: method || 'GET', headers };
             if(body) opts.body = JSON.stringify(body);
             try {
-                const res = await fetch('/api/v2/' + endpoint, opts);
+                const res = await fetch(path, opts);
                 if(res.status === 401) {
                     console.warn('Session rejected for', endpoint, '— please log in again.');
                     sessionToken = '';
@@ -815,59 +850,25 @@
             }
         }
 
-        // ── Login mode toggle ─────────────────────────────────────────────────
-        function setLoginMode(mode) {
-            void mode;
-            document.getElementById('masterFlow').style.display = 'block';
-            document.getElementById('modeMaster').style.background = 'var(--danger)';
-            document.getElementById('modeMaster').style.color = '#fff';
+        // ── Login mode (master only) ──────────────────────────────────────────
+        function setLoginMode() {
             showLoginError('');
         }
 
-        // ── Sub-admin login ────────────────────────────────────────────────────
-        async function subAdminLogin() {
-            // Sub-admins log in via the Master Account tab (tab-master)
-            // Close login overlay and redirect there if already logged in as master,
-            // otherwise show a hint to the sub-admin to use the Master Account tab.
-            showLoginError('Sub-admin? Use the Master Account tab after logging in, or ask the master admin for your credentials.');
-        }
-
         // ── Post-login common setup ────────────────────────────────────────────
-        function finishLogin(sid, role, perms) {
+        function finishLogin(sid) {
             sessionToken = sid;
-            sessionRole  = 'master';
-            sessionPerms = [];
             sessionStorage.setItem('adminSessionToken', sessionToken);
-            sessionStorage.setItem('adminSessionRole',  sessionRole);
-            sessionStorage.setItem('adminSessionPerms', JSON.stringify(sessionPerms));
             applyPermissions();
             document.getElementById('loginOverlay').style.display = 'none';
             resetLoginUI();
             initDashboard();
         }
 
-        // ── Apply permission-based nav visibility ─────────────────────────────
+        // ── Apply permission-based nav visibility (master sees everything) ─────
         function applyPermissions() {
-            const isMaster = true;
-
-            // Show/hide nav items based on role
-            document.querySelectorAll('.nav-all').forEach(el => {
-                el.style.display = isMaster ? 'flex' : 'none';
-            });
-            document.querySelectorAll('.nav-master').forEach(el => {
-                el.style.display = isMaster ? 'flex' : 'none';
-            });
-            document.querySelectorAll('.nav-kyc').forEach(el => {
-                el.style.display = (isMaster || sessionPerms.includes('kyc')) ? 'flex' : 'none';
-            });
-            document.querySelectorAll('.nav-withdrawals').forEach(el => {
-                el.style.display = (isMaster || sessionPerms.includes('withdrawals')) ? 'flex' : 'none';
-            });
-            document.querySelectorAll('.nav-chat').forEach(el => {
-                el.style.display = (isMaster || sessionPerms.includes('chat')) ? 'flex' : 'none';
-            });
-            document.querySelectorAll('.nav-settings').forEach(el => {
-                el.style.display = (isMaster || sessionPerms.includes('settings')) ? 'flex' : 'none';
+            document.querySelectorAll('.nav-all, .nav-master, .nav-kyc, .nav-withdrawals, .nav-chat, .nav-settings').forEach(el => {
+                el.style.display = 'flex';
             });
 
             // Session badge
@@ -883,7 +884,7 @@
         function resetLoginUI() {
             document.getElementById('adminEmail') && (document.getElementById('adminEmail').value = '');
             document.getElementById('adminPassword') && (document.getElementById('adminPassword').value = '');
-            setLoginMode('master');
+            setLoginMode();
         }
 
         // ── Master Account tab: create sub-admin ──────────────────────────────
@@ -951,31 +952,6 @@
             }
         }
 
-        async function subAdminLoginPanel() {
-            const username = document.getElementById('sub-login-username').value.trim();
-            const password = document.getElementById('sub-login-password').value;
-            const resultEl = document.getElementById('subLoginResult');
-            resultEl.style.display = 'none';
-            if (!username || !password) { resultEl.innerText = 'Enter username and password.'; resultEl.style.display = 'block'; return; }
-            try {
-                const res = await fetch('/api/v2/admin/session', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'subadmin-login', username, password })
-                });
-                const data = await res.json();
-                if (!res.ok || !data.sessionId) {
-                    resultEl.innerText = data.error || 'Invalid credentials.';
-                    resultEl.style.display = 'block';
-                    return;
-                }
-                finishLogin(data.sessionId, data.role || 'subadmin', data.permissions || []);
-            } catch(e) {
-                resultEl.innerText = 'Connection error.';
-                resultEl.style.display = 'block';
-            }
-        }
-
         function initDashboard() {
             applyPermissions();
             loadFeatures();
@@ -1004,11 +980,7 @@
                 }).catch(() => {});
             }
             sessionToken = '';
-            sessionRole  = '';
-            sessionPerms = [];
             sessionStorage.removeItem('adminSessionToken');
-            sessionStorage.removeItem('adminSessionRole');
-            sessionStorage.removeItem('adminSessionPerms');
             // Clean up any legacy storage keys from previous auth implementation
             localStorage.removeItem('adminLoggedIn');
             localStorage.removeItem('adminToken');
@@ -1017,7 +989,7 @@
             document.getElementById('adminEmail').value = '';
             document.getElementById('adminPassword') && (document.getElementById('adminPassword').value = '');
             document.getElementById('sessionBadge').style.display = 'none';
-            setLoginMode('master');
+            setLoginMode();
             showLoginError('');
             document.getElementById('loginOverlay').style.display = 'flex';
         }
@@ -1201,13 +1173,9 @@
         // --- Real-time Polling via API ---
         async function pollFrontendData() {
             try {
-                const isMaster = sessionRole === 'master';
-                const canKyc = isMaster || sessionPerms.includes('kyc');
-                const canWithdrawals = isMaster || sessionPerms.includes('withdrawals');
-
                 const [kycList, withdrawals, addresses, messages] = await Promise.all([
-                    canKyc ? api('kyc?list=true') : Promise.resolve(null),
-                    canWithdrawals ? api('withdrawals') : Promise.resolve(null),
+                    api('kyc?list=true'),
+                    api('withdrawals'),
                     api('wallet'),
                     api('chat')
                 ]);
@@ -1680,6 +1648,74 @@
                 table.appendChild(row);
             });
             lucide.createIcons();
+        }
+
+        // ── Backup & Restore ──────────────────────────────────────────────────
+        async function loadBackupInfo() {
+            const el = document.getElementById('backupInfoText');
+            if (!el) return;
+            el.innerText = 'Ready to export. Click "Download Backup" to generate a snapshot.';
+        }
+
+        async function exportBackup() {
+            const resultEl = document.getElementById('backupExportResult');
+            resultEl.style.display = 'none';
+            try {
+                const data = await api('backup');
+                if (!data || data.error) {
+                    resultEl.style.color = 'var(--danger)';
+                    resultEl.innerText = data?.error || 'Export failed.';
+                    resultEl.style.display = 'block';
+                    return;
+                }
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `nexustrade-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                resultEl.style.color = 'var(--success)';
+                resultEl.innerText = '✅ Backup downloaded successfully.';
+                resultEl.style.display = 'block';
+            } catch(e) {
+                resultEl.style.color = 'var(--danger)';
+                resultEl.innerText = 'Export failed. Please try again.';
+                resultEl.style.display = 'block';
+            }
+        }
+
+        async function importBackup() {
+            const fileInput = document.getElementById('backupFileInput');
+            const resultEl = document.getElementById('backupImportResult');
+            resultEl.style.display = 'none';
+            if (!fileInput.files || fileInput.files.length === 0) {
+                resultEl.style.color = 'var(--danger)';
+                resultEl.innerText = 'Please select a backup JSON file first.';
+                resultEl.style.display = 'block';
+                return;
+            }
+            if (!confirm('⚠️ This will overwrite ALL existing platform data with the selected backup. This cannot be undone. Continue?')) return;
+            try {
+                const text = await fileInput.files[0].text();
+                const snapshot = JSON.parse(text);
+                const result = await api('backup', 'POST', { snapshot });
+                if (!result || result.error) {
+                    resultEl.style.color = 'var(--danger)';
+                    resultEl.innerText = result?.error || 'Restore failed.';
+                } else {
+                    resultEl.style.color = 'var(--success)';
+                    resultEl.innerText = '✅ ' + (result.message || 'Restore completed successfully.');
+                    fileInput.value = '';
+                }
+                resultEl.style.display = 'block';
+            } catch(e) {
+                resultEl.style.color = 'var(--danger)';
+                resultEl.innerText = 'Invalid backup file or restore failed.';
+                resultEl.style.display = 'block';
+            }
         }
 
         // Poll every 5 seconds

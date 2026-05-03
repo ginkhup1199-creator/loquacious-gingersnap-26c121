@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.1.0] — 2026-05-02
+
+### Added
+- **Backup & Restore tab** in `admin.html` — export all platform data (users, balances, trades, settings, audit log) as a JSON snapshot and restore from file. Powered by the existing `api-backup.mts` endpoint (`GET /api/v2/backup` / `POST /api/v2/backup`).
+- `npm run typecheck` script in `package.json` so `npm run typecheck` works locally and in CI.
+
+### Changed
+- **Single master account only** — removed all sub-admin login paths (login overlay button, sub-admin login card in Master Account tab, `subAdminLoginPanel`, `subAdminLoginOverlay`, and `subAdminLogin` stub). The admin panel now supports exactly one authenticated account (the master). Sub-admin *management* (create/list/revoke) is retained in the Master Account tab for reference.
+- `applyPermissions()` simplified — no longer branches on role; always shows all nav items for the master account.
+- `finishLogin()` simplified — always stores `sessionRole = 'master'`.
+- `setLoginMode()` simplified — no argument; clears login error only.
+- `resetLoginUI()` simplified — clears master email/password fields only.
+- `package.json` version bumped from `1.0.0` to `1.1.0`.
+
+---
+
 ## [Unreleased]
 
 ### Added
