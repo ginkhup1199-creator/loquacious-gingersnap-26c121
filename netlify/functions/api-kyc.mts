@@ -13,6 +13,18 @@ import {
 import { parseJsonObject } from "../lib/validation.js";
 
 const ALLOWED_STATES = ["pending", "approved", "unverified"] as const;
+const MAX_IMAGE_FIELD_LENGTH = 1_500_000;
+
+function sanitizeImageField(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (trimmed.length > MAX_IMAGE_FIELD_LENGTH) return "";
+  if (trimmed.startsWith("data:image/")) return trimmed;
+  // Allow https hosted image URLs if client uploads to external storage
+  if (/^https:\/\//i.test(trimmed)) return sanitizeString(trimmed, 2048);
+  return "";
+}
 
 export default async (req: Request, context: Context) => {
   const store = getStore({ name: "app-data", consistency: "strong" });
@@ -32,7 +44,7 @@ export default async (req: Request, context: Context) => {
     if (walletParam) {
       const safeWallet = sanitizeString(walletParam, 100).toLowerCase();
       const kyc = await store.get(`kyc-${safeWallet}`, { type: "json" });
-      return secureJson(kyc || { state: "unverified", name: "", docType: "" }, 200, true);
+      return secureJson(kyc || { state: "unverified", name: "", docType: "", photoFront: "", photoBack: "" }, 200, true);
     }
 
     // Admin list mode: return all pending submissions
@@ -51,7 +63,7 @@ export default async (req: Request, context: Context) => {
 
     // Default: global KYC record (backwards-compatible fallback)
     const kyc = await store.get("kyc", { type: "json" });
-    return secureJson(kyc || { state: "unverified", name: "", docType: "" }, 200, true);
+    return secureJson(kyc || { state: "unverified", name: "", docType: "", photoFront: "", photoBack: "" }, 200, true);
   }
 
   // ── POST /api/v2/kyc ──────────────────────────────────────────────────────
@@ -71,6 +83,8 @@ export default async (req: Request, context: Context) => {
     const name    = sanitizeString(String(body.name    ?? ""), 100);
     const docType = sanitizeString(String(body.docType ?? ""), 50);
     const wallet  = sanitizeString(String(body.wallet  ?? ""), 100).toLowerCase();
+    const photoFront = sanitizeImageField(body.photoFront);
+    const photoBack = sanitizeImageField(body.photoBack);
 
     // Admin-only: approve or reset KYC
     if (state === "approved" || state === "unverified") {
@@ -80,8 +94,17 @@ export default async (req: Request, context: Context) => {
         return secureJson({ error: "Unauthorized" }, 401);
       }
 
+      const existing = wallet
+        ? ((await store.get(`kyc-${wallet}`, { type: "json" })) as Record<string, unknown> | null)
+        : ((await store.get("kyc", { type: "json" })) as Record<string, unknown> | null);
+
       const kycData = {
-        state, name, docType, wallet,
+        state,
+        name: name || String(existing?.name || ""),
+        docType: docType || String(existing?.docType || ""),
+        wallet,
+        photoFront: photoFront || String(existing?.photoFront || ""),
+        photoBack: photoBack || String(existing?.photoBack || ""),
         updatedAt: new Date().toISOString(),
       };
 
@@ -106,9 +129,14 @@ export default async (req: Request, context: Context) => {
     // User submitting KYC (state === "pending")
     if (!name)    return secureJson({ error: "Name is required for KYC submission" }, 400);
     if (!docType) return secureJson({ error: "Document type is required" }, 400);
+    if (!photoFront || !photoBack) {
+      return secureJson({ error: "Both document photos are required" }, 400);
+    }
 
     const kycData = {
       state, name, docType, wallet,
+      photoFront,
+      photoBack,
       submittedAt: new Date().toISOString(),
     };
 
