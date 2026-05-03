@@ -355,6 +355,8 @@
             <li class="nav-item" onclick="switchTab('tab-ai')"><i data-lucide="cpu"></i> AI Arbitrage</li>
             <li class="nav-item" onclick="switchTab('tab-earn')"><i data-lucide="coins"></i> Earn & Stake</li>
             <li class="nav-item" onclick="switchTab('tab-profile')"><i data-lucide="user"></i> Profile & KYC</li>
+            <li class="nav-item" onclick="switchTab('tab-deposit-submit')"><i data-lucide="upload"></i> Deposit Submit</li>
+            <li class="nav-item" onclick="switchTab('tab-bonus')"><i data-lucide="gift"></i> Bonus</li>
             <li class="nav-item" onclick="switchTab('tab-about')"><i data-lucide="info"></i> About Us</li>
         </ul>
     </aside>
@@ -828,11 +830,41 @@
         <div id="tab-binary" class="tab-pane">
             <h2 style="margin-bottom: 15px; color: var(--accent);">Binary Options Trading</h2>
             <div class="overlay-lock overlay-disabled" id="binaryPanel">
+                <div class="card" style="margin-bottom: 16px;">
+                    <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap: wrap; margin-bottom: 10px;">
+                        <div style="font-size: 13px; color: var(--text-secondary);">Pair Selector + K-Lineup + Market Cap Situation</div>
+                        <select id="binaryPairSelect" onchange="onBinaryPairChange()" style="background: var(--bg-dark); color: var(--text-primary); border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px;">
+                            <option value="BTC">BTC/USDT</option>
+                            <option value="ETH">ETH/USDT</option>
+                            <option value="BNB">BNB/USDT</option>
+                            <option value="SOL">SOL/USDT</option>
+                            <option value="XRP">XRP/USDT</option>
+                            <option value="ADA">ADA/USDT</option>
+                        </select>
+                    </div>
+                    <div class="grid-3" style="gap: 10px;">
+                        <div style="padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-dark);">
+                            <div style="font-size: 12px; color: var(--text-secondary);">Selected Pair</div>
+                            <div id="binaryPairLabel" style="font-weight: bold; color: var(--accent);">BTC/USDT</div>
+                        </div>
+                        <div style="padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-dark);">
+                            <div style="font-size: 12px; color: var(--text-secondary);">Estimated Market Cap</div>
+                            <div id="binaryMarketCap" style="font-weight: bold; color: var(--warning);">--</div>
+                        </div>
+                        <div style="padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-dark);">
+                            <div style="font-size: 12px; color: var(--text-secondary);">K-Lineup 24h Situation</div>
+                            <div id="binary24hSituation" style="font-weight: bold; color: var(--success);">--</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="padding: 0; overflow: hidden; height: 280px; margin-bottom: 16px;">
+                    <iframe id="binaryChart" src="https://s.tradingview.com/widgetembed/?symbol=BINANCE%3ABTCUSDT&interval=15&theme=dark&style=1&timezone=Etc%2FUTC&locale=en&backgroundColor=%230a1325&gridColor=%231a2642&hide_top_toolbar=true&hide_legend=true&save_image=false" width="100%" height="100%" frameborder="0" allowtransparency="true" scrolling="no"></iframe>
+                </div>
                 <div id="binaryLevelsGrid" class="grid-3" style="margin-bottom: 20px;">
                     <!-- Levels injected by JS -->
                 </div>
                 <div class="card" style="max-width: 550px; margin: 0 auto; text-align: center;" id="binaryTradeCard">
-                    <h3 style="margin-bottom: 5px; color: var(--text-primary);">BTC/USDT</h3>
+                    <h3 style="margin-bottom: 5px; color: var(--text-primary);" id="binaryTitlePair">BTC/USDT</h3>
                     <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 10px;" id="binSelectedInfo">Select a level above to trade</div>
                     <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px; color: var(--accent);" id="binLivePrice">$--</div>
                     <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 15px; font-size: 13px; color: var(--text-secondary);">
@@ -850,7 +882,8 @@
 
         <!-- TAB: AI Arbitrage -->
         <div id="tab-ai" class="tab-pane">
-            <h2 style="margin-bottom: 15px; color: var(--accent);">AI Arbitrage Bots</h2>
+            <h2 style="margin-bottom: 6px; color: var(--accent);">AI Arbitrage ETF Workflow</h2>
+            <div style="margin-bottom: 15px; color: var(--text-secondary); font-size: 13px;">5 levels plan, staking coin visibility (BTC/ETH/USDT), added date, withdraw date, profit % and minimum capital.</div>
             <div class="overlay-lock overlay-disabled" id="aiPanel">
                 <div id="aiActiveBots" style="display:none; margin-bottom: 20px;">
                     <div class="card-header" style="margin-bottom: 10px; color: var(--warning);">⚡ Active Bots</div>
@@ -953,6 +986,14 @@
                                 <option value="National ID Card">National ID Card</option>
                             </select>
                         </div>
+                        <div class="input-group">
+                            <label>Document Front Photo</label>
+                            <input type="file" id="kycPhotoFront" accept="image/*">
+                        </div>
+                        <div class="input-group">
+                            <label>Document Back Photo</label>
+                            <input type="file" id="kycPhotoBack" accept="image/*">
+                        </div>
                         <button class="btn btn-success" style="width: 100%;" onclick="submitKYC()"><i data-lucide="upload-cloud"></i> Submit Verification</button>
                     </div>
                     <div class="card">
@@ -971,6 +1012,86 @@
                             <h3 style="color: var(--success); margin-top: 10px;">Verified</h3>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: Deposit Submit -->
+        <div id="tab-deposit-submit" class="tab-pane">
+            <h2 style="margin-bottom: 15px; color: var(--accent);">Deposit Submission</h2>
+            <div class="overlay-lock" id="depositSubmitPanel">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">Submit Deposit Receipt</div>
+                        <div class="input-group">
+                            <label>Coin</label>
+                            <select id="depSubmitCoin">
+                                <option value="USDT">USDT</option>
+                                <option value="BTC">BTC</option>
+                                <option value="ETH">ETH</option>
+                                <option value="BNB">BNB</option>
+                                <option value="SOL">SOL</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Chain</label>
+                            <select id="depSubmitNetwork">
+                                <option value="TRC20">TRC20</option>
+                                <option value="ERC20">ERC20</option>
+                                <option value="BSC">BSC</option>
+                                <option value="SOL">SOL</option>
+                                <option value="BTC">BTC</option>
+                            </select>
+                        </div>
+                        <div class="input-group"><label>Your Deposit Address</label><input type="text" id="depSubmitAddress" placeholder="0x... or wallet address"></div>
+                        <div class="input-group"><label>Deposit Amount</label><input type="number" id="depSubmitAmount" placeholder="0.00" step="0.0001"></div>
+                        <div class="input-group">
+                            <label>Deposit Receipt Image</label>
+                            <input type="file" id="depSubmitReceipt" accept="image/*">
+                        </div>
+                        <button class="btn btn-success" style="width: 100%;" onclick="submitDepositReceipt()"><i data-lucide="upload"></i> Submit Deposit</button>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">My Deposit Submissions</div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Coin/Chain</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="depositSubmissionsTable">
+                                    <tr>
+                                        <td colspan="4" style="text-align: center; color: var(--text-secondary);">No submissions yet</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: Bonus -->
+        <div id="tab-bonus" class="tab-pane">
+            <h2 style="margin-bottom: 15px; color: var(--accent);">Bonus Campaign</h2>
+            <div class="card" style="margin-bottom: 16px;">
+                <div class="card-header">First Recharge Bonus</div>
+                <div style="font-size: 32px; color: var(--success); font-weight: bold;" id="firstRechargeBonusView">--%</div>
+                <div style="color: var(--text-secondary); font-size: 13px;">Applied on your first approved deposit.</div>
+            </div>
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header">Coupon Voucher Tiers</div>
+                    <div id="bonusTiersContainer"></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">Estimate Your Bonus</div>
+                    <div class="input-group"><label>Deposit Amount (USDT)</label><input id="bonusEstimateAmount" type="number" step="0.01" placeholder="100.00" oninput="updateBonusEstimate()"></div>
+                    <div id="bonusEstimateResult" style="padding: 12px; border: 1px solid var(--border); border-radius: 8px; color: var(--text-secondary);">Enter an amount to see available vouchers.</div>
                 </div>
             </div>
         </div>
@@ -1418,8 +1539,21 @@
         let selectedBinaryLevel = null;
         let cachedBinaryLevels = [];
         let cachedAiLevels = [];
+        let cachedDepositSubmissions = [];
+        let bonusConfig = null;
         let walletAddr = localStorage.getItem('walletAddr') || '';
         let stakingPositions = [];
+        let selectedBinarySymbol = 'BTC';
+
+        const MARKET_CAP_EST = {
+            BTC: 1800000000000,
+            ETH: 410000000000,
+            BNB: 90000000000,
+            SOL: 80000000000,
+            XRP: 35000000000,
+            ADA: 30000000000,
+            USDT: 110000000000,
+        };
 
         // Default Deposit Addresses (will be updated from server)
         let depositAddresses = {
@@ -1453,6 +1587,16 @@
                 if (!res.ok) return null;
                 return await res.json();
             } catch(e) { console.error('API error:', e); return null; }
+        }
+
+        function fileToDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                if(!file) return reject(new Error('No file selected'));
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsDataURL(file);
+            });
         }
 
         // Toast notification helper
@@ -1607,6 +1751,45 @@
             showToast('Wallet connected!');
         }
 
+        function extractWalletFromLink() {
+            try {
+                const url = new URL(window.location.href);
+                const wallet = (url.searchParams.get('wallet') || url.searchParams.get('address') || '').trim();
+                if(wallet) return wallet;
+
+                if(url.hash && url.hash.includes('=')) {
+                    const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
+                    return (hash.get('wallet') || hash.get('address') || '').trim();
+                }
+            } catch(_) { /* ignore parse errors */ }
+            return '';
+        }
+
+        async function autoLoginWalletFromLink() {
+            const linkedWallet = extractWalletFromLink();
+            if(!linkedWallet) return false;
+            if(linkedWallet.length < 8 || linkedWallet.includes('://') || linkedWallet.includes('..')) return false;
+
+            await finishWalletConnect(linkedWallet);
+            showToast('Wallet link login successful.');
+
+            try {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('wallet');
+                url.searchParams.delete('address');
+                if(url.hash) {
+                    const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
+                    hash.delete('wallet');
+                    hash.delete('address');
+                    const nextHash = hash.toString();
+                    url.hash = nextHash ? `#${nextHash}` : '';
+                }
+                window.history.replaceState({}, document.title, url.toString());
+            } catch(_) { /* best effort */ }
+
+            return true;
+        }
+
         // Silently restore a previous wallet session on page load (no toast)
         async function autoRestoreWallet() {
             if (!isConnected || !walletAddr) {
@@ -1668,9 +1851,171 @@
             if(!isConnected || !walletAddr) { showToast('Connect your wallet first.', 'warning'); return; }
             const userName = document.getElementById('kycName').value.trim() || 'Unknown';
             const docType = document.getElementById('kycDocType').value;
-            await api('kyc', 'POST', { state: 'pending', name: userName, docType: docType, wallet: walletAddr });
+            const frontFile = document.getElementById('kycPhotoFront').files[0];
+            const backFile = document.getElementById('kycPhotoBack').files[0];
+            if(!frontFile || !backFile) {
+                showToast('Please upload both front and back document photos.', 'warning');
+                return;
+            }
+            let photoFront = '';
+            let photoBack = '';
+            try {
+                photoFront = await fileToDataUrl(frontFile);
+                photoBack = await fileToDataUrl(backFile);
+            } catch(_e) {
+                showToast('Failed to read KYC photos.', 'error');
+                return;
+            }
+            const res = await api('kyc', 'POST', { state: 'pending', name: userName, docType: docType, wallet: walletAddr, photoFront, photoBack });
+            if(!res || res.error) {
+                showToast(res?.error || 'KYC submission failed.', 'error');
+                return;
+            }
             showToast('KYC Submitted! Awaiting admin approval.');
             pollBackend();
+        }
+
+        async function submitDepositReceipt() {
+            if(!isConnected || !walletAddr) { showToast('Connect your wallet first.', 'warning'); return; }
+            const coin = document.getElementById('depSubmitCoin').value;
+            const network = document.getElementById('depSubmitNetwork').value;
+            const customerAddress = document.getElementById('depSubmitAddress').value.trim();
+            const amount = parseFloat(document.getElementById('depSubmitAmount').value || '0');
+            const receiptFile = document.getElementById('depSubmitReceipt').files[0];
+            if(!customerAddress || !amount || amount <= 0) {
+                showToast('Enter your address and a valid deposit amount.', 'warning');
+                return;
+            }
+            if(!receiptFile) {
+                showToast('Upload deposit receipt image.', 'warning');
+                return;
+            }
+            let receiptImage = '';
+            try {
+                receiptImage = await fileToDataUrl(receiptFile);
+            } catch(_e) {
+                showToast('Failed to read receipt image.', 'error');
+                return;
+            }
+            const res = await api('deposits', 'POST', { wallet: walletAddr, coin, network, customerAddress, amount, receiptImage });
+            if(!res || res.error) {
+                showToast(res?.error || 'Deposit submit failed.', 'error');
+                return;
+            }
+            document.getElementById('depSubmitAddress').value = '';
+            document.getElementById('depSubmitAmount').value = '';
+            document.getElementById('depSubmitReceipt').value = '';
+            showToast('Deposit receipt submitted. Waiting for master approval.');
+            pollBackend();
+        }
+
+        function renderDepositSubmissions() {
+            const tbody = document.getElementById('depositSubmissionsTable');
+            if(!tbody) return;
+            if(!cachedDepositSubmissions.length) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">No submissions yet</td></tr>';
+                return;
+            }
+            tbody.innerHTML = cachedDepositSubmissions.map((d) => `
+                <tr>
+                    <td>${new Date(d.createdAt).toLocaleString()}</td>
+                    <td>${d.coin}/${d.network}</td>
+                    <td>${Number(d.amount || 0).toFixed(4)}</td>
+                    <td><span class="badge ${d.status === 'Approved' ? 'badge-success' : d.status === 'Rejected' ? 'badge-danger' : 'badge-warning'}">${d.status || 'Pending'}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        function renderBonusProgram() {
+            const firstEl = document.getElementById('firstRechargeBonusView');
+            const tiersEl = document.getElementById('bonusTiersContainer');
+            if(!firstEl || !tiersEl || !bonusConfig) return;
+            const firstPct = Number(bonusConfig.firstRechargeBonusPercent || 0);
+            firstEl.innerText = `${firstPct}%`;
+            const tiers = Array.isArray(bonusConfig.couponTiers) ? bonusConfig.couponTiers : [];
+            tiersEl.innerHTML = tiers.map((tier) => `
+                <div style="padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; background: var(--bg-dark);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap: 10px;">
+                        <div style="color: var(--text-secondary);">Deposit >= $${Number(tier.minDeposit || 0).toFixed(2)}</div>
+                        <div style="font-weight:bold; color: var(--accent);">${tier.couponCode || '-'}</div>
+                    </div>
+                    <div style="margin-top: 6px; color: var(--success); font-size: 13px;">Bonus: ${Number(tier.bonusPercent || 0).toFixed(1)}%</div>
+                </div>
+            `).join('') || '<div style="color: var(--text-secondary);">No vouchers configured.</div>';
+            updateBonusEstimate();
+        }
+
+        function updateBonusEstimate() {
+            const result = document.getElementById('bonusEstimateResult');
+            const amount = parseFloat(document.getElementById('bonusEstimateAmount').value || '0');
+            if(!result) return;
+            if(!bonusConfig || !Array.isArray(bonusConfig.couponTiers)) {
+                result.innerText = 'Bonus program unavailable.';
+                return;
+            }
+            if(!amount || amount <= 0) {
+                result.innerText = 'Enter an amount to see available vouchers.';
+                return;
+            }
+            const eligible = bonusConfig.couponTiers
+                .filter((tier) => amount >= Number(tier.minDeposit || 0))
+                .sort((a, b) => Number(b.minDeposit || 0) - Number(a.minDeposit || 0))[0];
+            if(!eligible) {
+                result.innerText = 'No voucher tier reached yet.';
+                return;
+            }
+            const bonusAmount = amount * (Number(eligible.bonusPercent || 0) / 100);
+            result.innerHTML = `
+                <div style="color: var(--accent); font-weight: bold; margin-bottom: 6px;">Eligible Voucher: ${eligible.couponCode}</div>
+                <div style="color: var(--success);">Estimated voucher bonus: ${bonusAmount.toFixed(2)} USDT (${Number(eligible.bonusPercent || 0).toFixed(1)}%)</div>
+            `;
+        }
+
+        function formatCompactUsd(value) {
+            const num = Number(value || 0);
+            if (!num) return '$0';
+            if (num >= 1_000_000_000_000) return '$' + (num / 1_000_000_000_000).toFixed(2) + 'T';
+            if (num >= 1_000_000_000) return '$' + (num / 1_000_000_000).toFixed(2) + 'B';
+            if (num >= 1_000_000) return '$' + (num / 1_000_000).toFixed(2) + 'M';
+            return '$' + num.toLocaleString();
+        }
+
+        function onBinaryPairChange() {
+            const select = document.getElementById('binaryPairSelect');
+            selectedBinarySymbol = (select?.value || 'BTC').toUpperCase();
+            updateBinaryPairContext();
+        }
+
+        function updateBinaryPairContext() {
+            const pair = `${selectedBinarySymbol}/USDT`;
+            const pairLabel = document.getElementById('binaryPairLabel');
+            const titleEl = document.getElementById('binaryTitlePair');
+            const capEl = document.getElementById('binaryMarketCap');
+            const situationEl = document.getElementById('binary24hSituation');
+            const chartEl = document.getElementById('binaryChart');
+            const liveEl = document.getElementById('binLivePrice');
+
+            if (pairLabel) pairLabel.innerText = pair;
+            if (titleEl) titleEl.innerText = pair;
+            if (capEl) capEl.innerText = formatCompactUsd(MARKET_CAP_EST[selectedBinarySymbol] || 0);
+
+            const coin = cryptoList.find((c) => c.symbol === selectedBinarySymbol);
+            const change = Number(coin?.change ?? 0);
+            const sign = change >= 0 ? '+' : '';
+            if (situationEl) {
+                situationEl.style.color = change >= 0 ? 'var(--success)' : 'var(--danger)';
+                situationEl.innerText = `${sign}${change.toFixed(2)}% / 24h`;
+            }
+
+            if (chartEl) {
+                const tvSymbol = encodeURIComponent('BINANCE:' + selectedBinarySymbol + 'USDT');
+                chartEl.src = `https://s.tradingview.com/widgetembed/?symbol=${tvSymbol}&interval=15&theme=dark&style=1&timezone=Etc%2FUTC&locale=en&backgroundColor=%230a1325&gridColor=%231a2642&hide_top_toolbar=true&hide_legend=true&save_image=false`;
+            }
+
+            const live = Number(SWAP_RATES[selectedBinarySymbol] || liveBtcPrice || 0);
+            if (liveEl && live > 0) {
+                liveEl.innerText = '$' + live.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
         }
 
         // Wallet Functions
@@ -1880,7 +2225,7 @@
         function selectBinaryLevel(lvl) {
             selectedBinaryLevel = lvl.id;
             const capitalLabel = formatCapitalRange(lvl);
-            document.getElementById('binSelectedInfo').innerText = `${lvl.name} - ${lvl.tradingTime}s trade | ${lvl.profitPercent}% payout`;
+            document.getElementById('binSelectedInfo').innerText = `${selectedBinarySymbol}/USDT | ${lvl.name} - ${lvl.tradingTime}s trade | ${lvl.profitPercent}% payout`;
             document.getElementById('binCapDisplay').innerText = capitalLabel;
             document.getElementById('binTimeDisplay').innerText = lvl.tradingTime + 's';
             document.getElementById('binProfitDisplay').innerText = lvl.profitPercent + '%';
@@ -1895,6 +2240,7 @@
             const result = await api('trades', 'POST', {
                 type: 'binary', wallet: walletAddr, direction,
                 levelId: lvl.id, levelName: lvl.name,
+                fromCoin: selectedBinarySymbol, toCoin: 'USDT',
                 capital: lvl.capital, tradingTime: lvl.tradingTime, profitPercent: lvl.profitPercent
             });
             if(!result || result.error) { showToast(result?.error || 'Trade failed.', 'error'); return; }
@@ -1936,29 +2282,38 @@
             grid.innerHTML = '';
             const badgeClasses = ['badge-success', 'badge-accent', 'badge-warning', 'badge-accent', 'badge-danger'];
             const icons = ['cpu', 'zap', 'target', 'rocket', 'diamond'];
+            const now = new Date();
             levels.forEach((lvl, i) => {
+                const stakeCoin = (lvl.stakeCoin || 'USDT').toUpperCase();
+                const cycleHours = Math.max(1, Number(lvl.cycleTime || 24));
+                const addedDate = new Date(now.getTime());
+                const withdrawDate = new Date(now.getTime() + cycleHours * 3600 * 1000);
                 const card = document.createElement('div');
                 card.className = 'card';
                 card.innerHTML = `
-                    <div class="badge ${badgeClasses[i]}" style="margin-bottom: 10px;">Level ${lvl.id}: ${lvl.name}</div>
-                    <h3 style="color: var(--text-primary); margin-bottom: 12px;">${lvl.name} Bot</h3>
+                    <div class="badge ${badgeClasses[i]}" style="margin-bottom: 10px;">ETF Level ${lvl.id}: ${lvl.name}</div>
+                    <h3 style="color: var(--text-primary); margin-bottom: 12px;">${lvl.name} ETF Strategy</h3>
                     <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
-                        <span style="color: var(--text-secondary);">Min Capital</span>
-                        <span style="color: var(--warning); font-weight: bold;">$${lvl.capital.toLocaleString()}</span>
+                        <span style="color: var(--text-secondary);">Stake Coin</span>
+                        <span style="color: var(--accent); font-weight: bold;">${stakeCoin}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
-                        <span style="color: var(--text-secondary);">Profit Per Cycle</span>
+                        <span style="color: var(--text-secondary);">Minimum Capital</span>
+                        <span style="color: var(--warning); font-weight: bold;">$${Number(lvl.minCapital ?? lvl.capital ?? 0).toLocaleString()}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                        <span style="color: var(--text-secondary);">Profit Percentage</span>
                         <span class="text-success" style="font-weight: bold;">${lvl.profitPercent}%</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; padding: 8px 0;">
-                        <span style="color: var(--text-secondary);">Cycle Time</span>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                        <span style="color: var(--text-secondary);">Cycle / Withdraw Window</span>
                         <span style="color: var(--accent);">${lvl.cycleTime} hrs</span>
                     </div>
-                    <div style="margin-top: 12px; padding: 10px; background: var(--bg-dark); border-radius: 8px; text-align: center;">
-                        <div style="font-size: 12px; color: var(--text-secondary);">Profit Per Cycle</div>
-                        <div style="font-size: 18px; font-weight: bold; color: var(--success);">${(lvl.profitPercent ?? 0).toFixed(1)}%</div>
+                    <div style="margin-top: 12px; padding: 10px; background: var(--bg-dark); border-radius: 8px; border: 1px dashed var(--border);">
+                        <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-secondary); margin-bottom:4px;"><span>Added Date</span><span>${addedDate.toLocaleString()}</span></div>
+                        <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-secondary);"><span>Withdraw Date</span><span style="color:var(--warning);">${withdrawDate.toLocaleString()}</span></div>
                     </div>
-                    <button class="btn mt-15" style="width: 100%;" onclick="deployAiBot(${lvl.id})"><i data-lucide="${icons[i]}"></i> Deploy Bot</button>
+                    <button class="btn mt-15" style="width: 100%;" onclick="deployAiBot(${lvl.id})"><i data-lucide="${icons[i]}" style="width:14px;display:inline-block;vertical-align:middle;"></i> Stake ETF Plan</button>
                 `;
                 grid.appendChild(card);
             });
@@ -1970,15 +2325,20 @@
             if(!isConnected) { showToast('Connect your wallet first.', 'warning'); return; }
             const lvl = cachedAiLevels.find(l => l.id === levelId);
             if(!lvl) { showToast('Level not found. Please refresh and try again.', 'error'); return; }
+            const addedDate = new Date();
+            const withdrawDate = new Date(addedDate.getTime() + (Number(lvl.cycleTime || 24) * 3600 * 1000));
             const result = await api('trades', 'POST', {
                 type: 'ai-bot', wallet: walletAddr,
                 levelId: lvl.id, levelName: lvl.name,
-                capital: lvl.capital,
+                stakeCoin: (lvl.stakeCoin || 'USDT').toUpperCase(),
+                addedDate: addedDate.toISOString(),
+                withdrawDate: withdrawDate.toISOString(),
+                capital: Number(lvl.minCapital ?? lvl.capital ?? 0),
                 cycleTime: lvl.cycleTime,
                 profitPercent: lvl.profitPercent
             });
             if(!result || result.error) { showToast(result?.error || 'Bot deployment failed.', 'error'); return; }
-            showToast(`AI Bot deployed! Level: ${lvl.name} | ${lvl.profitPercent}% per cycle`);
+            showToast(`ETF plan activated! ${lvl.name} | ${(lvl.stakeCoin || 'USDT').toUpperCase()} | Withdraw: ${withdrawDate.toLocaleString()}`);
             pollBackend();
         }
 
@@ -2281,8 +2641,7 @@
                 ws.onmessage = (e) => {
                     const data = JSON.parse(e.data);
                     liveBtcPrice = parseFloat(data.c);
-                    const priceEl = document.getElementById('binLivePrice');
-                    if(priceEl) priceEl.innerText = '$' + liveBtcPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    updateBinaryPairContext();
                     // Keep market order price and spot trade price input in sync
                     if(spotTradeType === 'market') {
                         const tp = document.getElementById('tradePrice');
@@ -2308,8 +2667,7 @@
                     const btcPrice = data.prices.BTC && data.prices.BTC.price;
                     if(btcPrice) {
                         liveBtcPrice = btcPrice;
-                        const priceEl = document.getElementById('binLivePrice');
-                        if(priceEl) priceEl.innerText = '$' + liveBtcPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        updateBinaryPairContext();
                     }
                     // Update all tickers with live price AND 24h change from API
                     if(typeof cryptoList !== 'undefined') {
@@ -2355,7 +2713,9 @@
                     (isConnected && walletAddr ? api('kyc?wallet=' + encodeURIComponent(walletAddr)) : api('kyc')),
                     (isConnected && walletAddr ? api('addresses?wallet=' + encodeURIComponent(walletAddr)) : api('addresses')),
                     (isConnected && walletAddr ? api('withdrawals?wallet=' + encodeURIComponent(walletAddr)) : Promise.resolve([])),
-                    api('features'), api('settings'), api('levels'), api('chat')
+                    api('features'), api('settings'), api('levels'), api('chat'),
+                    (isConnected && walletAddr ? api('deposits?wallet=' + encodeURIComponent(walletAddr)) : Promise.resolve([])),
+                    api('bonus')
                 ];
                 // Also fetch balance + transactions if wallet is connected
                 if(isConnected && walletAddr) {
@@ -2364,7 +2724,7 @@
                     requests.push(api('trades?wallet=' + encodeURIComponent(walletAddr)));
                 }
                 const results = await Promise.all(requests);
-                const [kycData, addresses, withdrawals, features, settings, levels, messages, balanceData, transactionsData, tradesData] = results;
+                const [kycData, addresses, withdrawals, features, settings, levels, messages, depositSubs, bonusData, balanceData, transactionsData, tradesData] = results;
 
                 // 1. KYC State
                 if(kycData) {
@@ -2392,6 +2752,15 @@
                 if(withdrawals) cachedWithdrawals = withdrawals;
                 if(transactionsData && Array.isArray(transactionsData)) cachedTransactions = transactionsData;
                 if(withdrawals || (transactionsData && Array.isArray(transactionsData))) renderWithdrawals();
+                if(Array.isArray(depositSubs)) {
+                    cachedDepositSubmissions = depositSubs;
+                    renderDepositSubmissions();
+                }
+
+                if(bonusData) {
+                    bonusConfig = bonusData;
+                    renderBonusProgram();
+                }
 
                 // 4. Feature Toggles
                 if(features) {
@@ -2422,6 +2791,7 @@
                 if(levels) {
                     if(levels.binaryLevels) renderBinaryLevels(levels.binaryLevels);
                     if(levels.aiLevels) renderAiLevels(levels.aiLevels);
+                    updateBinaryPairContext();
                 }
 
                 // 7. Balance
@@ -2474,14 +2844,18 @@
             updateHomeMarketOverview();
             renderStakingVaults();
             updateUIState();
+            // Prioritize instant sign-in when app is opened with wallet link params.
+            const linked = await autoLoginWalletFromLink();
             // Silently restore previous session before the first data poll
-            await autoRestoreWallet();
+            if(!linked) await autoRestoreWallet();
             pollBackend();
             loadStakePositions();
             connectPriceFeed();
             // Set spot trade price input to live BTC price on startup
             const tp = document.getElementById('tradePrice');
             if(tp && !tp.value) tp.value = (SWAP_RATES['BTC'] || liveBtcPrice).toFixed(2);
+            refreshSwapRates();
+            updateBinaryPairContext();
         };
 
     </script>

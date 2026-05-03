@@ -198,7 +198,9 @@
             <li class="nav-item nav-all" onclick="switchTab('tab-ailevels')"><i data-lucide="cpu"></i> AI Arbitrage</li>
             <li class="nav-item nav-all" onclick="switchTab('tab-k-lineup'); loadKLineupAdmin()"><i data-lucide="grid-3x3"></i> K-Lineup</li>
             <li class="nav-item nav-kyc" onclick="switchTab('tab-kyc')"><i data-lucide="user-check"></i> KYC Approvals</li>
+            <li class="nav-item nav-all" onclick="switchTab('tab-deposit-submissions'); loadDepositSubmissionsAdmin()"><i data-lucide="upload"></i> Deposit Submissions</li>
             <li class="nav-item nav-withdrawals" onclick="switchTab('tab-withdraw')"><i data-lucide="arrow-up-from-line"></i> Withdrawals</li>
+            <li class="nav-item nav-all" onclick="switchTab('tab-bonus-config'); loadBonusConfigAdmin()"><i data-lucide="gift"></i> Bonus Config</li>
             <li class="nav-item nav-all" onclick="switchTab('tab-transactions')"><i data-lucide="receipt"></i> Transactions</li>
             <li class="nav-item nav-all" onclick="switchTab('tab-trades'); loadGlobalTradeControl()"><i data-lucide="trending-up"></i> Trade History</li>
             <li class="nav-item nav-chat" onclick="switchTab('tab-chat')"><i data-lucide="message-circle"></i> Live Chat Support</li>
@@ -400,11 +402,43 @@
             <h2>KYC Management</h2>
             <div class="card mt-20">
                 <table>
-                    <thead><tr><th>User Wallet</th><th>Name</th><th>Document Type</th><th>Action</th></tr></thead>
+                    <thead><tr><th>User Wallet</th><th>Name</th><th>Document Type</th><th>Front</th><th>Back</th><th>Action</th></tr></thead>
                     <tbody id="adminKycTable">
-                        <tr id="emptyKycRow"><td colspan="4" style="text-align: center;">No pending requests</td></tr>
+                        <tr id="emptyKycRow"><td colspan="6" style="text-align: center;">No pending requests</td></tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Deposit Submissions -->
+        <div id="tab-deposit-submissions" class="tab-pane">
+            <h2>Deposit Submission Review</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Review user-submitted deposit receipts and approve or reject each request.</p>
+            <div class="card">
+                <table>
+                    <thead><tr><th>Wallet</th><th>Coin/Chain</th><th>Amount</th><th>Address</th><th>Receipt</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody id="adminDepositSubmissionsTable">
+                        <tr id="emptyDepositSubmissionsRow"><td colspan="7" style="text-align: center;">No deposit submissions</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Bonus Config -->
+        <div id="tab-bonus-config" class="tab-pane">
+            <h2>Bonus Campaign Configuration</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Edit first-recharge bonus and coupon voucher tiers by deposit amount.</p>
+            <div class="card" style="max-width: 760px; margin-bottom: 20px;">
+                <div class="card-header">First Recharge Bonus</div>
+                <div class="input-group">
+                    <label>First Recharge Bonus (%)</label>
+                    <input type="number" id="bonus-first-recharge" step="0.1" min="0" max="100" value="10">
+                </div>
+            </div>
+            <div class="card" style="max-width: 900px;">
+                <div class="card-header">Coupon Voucher Tiers</div>
+                <div id="bonusTiersAdmin"></div>
+                <button class="btn btn-success mt-15" onclick="saveBonusConfigAdmin()" style="width: 220px;"><i data-lucide="save"></i> Save Bonus Config</button>
             </div>
         </div>
 
@@ -815,6 +849,8 @@
         let addressesLoaded = false;
         let cachedBinaryLevels = [];
         let cachedAiLevels = [];
+        let cachedDepositSubmissions = [];
+        let cachedBonusConfig = null;
 
         // ── 2-Step Login: Email OTP → Password ───────────────────────────────
 
@@ -957,6 +993,7 @@
             loadFeatures();
             loadSettings();
             loadLevels();
+            loadBonusConfigAdmin();
             loadUsers();
             loadGlobalTradeControl();
             pollFrontendData();
@@ -1067,8 +1104,8 @@
                             <input type="text" value="${lvl.name}" id="bin-name-${i}">
                         </div>
                         <div class="input-group">
-                            <label>Capital Required ($)</label>
-                            <input type="number" value="${lvl.capital}" id="bin-cap-${i}">
+                            <label>Minimum Capital ($)</label>
+                            <input type="number" value="${lvl.minCapital ?? lvl.capital}" id="bin-cap-${i}">
                         </div>
                         <div class="input-group">
                             <label>Trading Time (seconds)</label>
@@ -1088,6 +1125,7 @@
             const levels = cachedBinaryLevels.map((lvl, i) => ({
                 id: lvl.id,
                 name: document.getElementById(`bin-name-${i}`).value,
+                minCapital: parseFloat(document.getElementById(`bin-cap-${i}`).value),
                 capital: parseFloat(document.getElementById(`bin-cap-${i}`).value),
                 tradingTime: parseInt(document.getElementById(`bin-time-${i}`).value),
                 profitPercent: parseFloat(document.getElementById(`bin-profit-${i}`).value)
@@ -1113,8 +1151,16 @@
                             <input type="text" value="${lvl.name}" id="ai-name-${i}">
                         </div>
                         <div class="input-group">
-                            <label>Capital Required ($)</label>
-                            <input type="number" value="${lvl.capital}" id="ai-cap-${i}">
+                            <label>Stake Coin</label>
+                            <select id="ai-stake-${i}">
+                                <option value="BTC" ${(lvl.stakeCoin || 'USDT') === 'BTC' ? 'selected' : ''}>BTC</option>
+                                <option value="ETH" ${(lvl.stakeCoin || 'USDT') === 'ETH' ? 'selected' : ''}>ETH</option>
+                                <option value="USDT" ${(lvl.stakeCoin || 'USDT') === 'USDT' ? 'selected' : ''}>USDT</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Minimum Capital ($)</label>
+                            <input type="number" value="${lvl.minCapital ?? lvl.capital}" id="ai-cap-${i}">
                         </div>
                         <div class="input-group">
                             <label>Profit Per Cycle (%)</label>
@@ -1134,6 +1180,8 @@
             const levels = cachedAiLevels.map((lvl, i) => ({
                 id: lvl.id,
                 name: document.getElementById(`ai-name-${i}`).value,
+                stakeCoin: document.getElementById(`ai-stake-${i}`).value,
+                minCapital: parseFloat(document.getElementById(`ai-cap-${i}`).value),
                 capital: parseFloat(document.getElementById(`ai-cap-${i}`).value),
                 profitPercent: parseFloat(document.getElementById(`ai-profit-${i}`).value),
                 cycleTime: parseInt(document.getElementById(`ai-dur-${i}`).value)
@@ -1173,11 +1221,12 @@
         // --- Real-time Polling via API ---
         async function pollFrontendData() {
             try {
-                const [kycList, withdrawals, addresses, messages] = await Promise.all([
+                const [kycList, withdrawals, addresses, messages, deposits] = await Promise.all([
                     api('kyc?list=true'),
                     api('withdrawals'),
                     api('wallet'),
-                    api('chat')
+                    api('chat'),
+                    api('deposits?list=true')
                 ]);
 
                 // 1. KYC Data (array of pending submissions)
@@ -1205,6 +1254,8 @@
                                 <td style="font-family:monospace;font-size:12px;">${walletDisplay}</td>
                                 <td>${esc(kyc.name || 'Unknown')}</td>
                                 <td><span style="color:var(--warning);font-weight:bold;">${esc(kyc.docType || 'Unknown')}</span></td>
+                                <td>${kyc.photoFront ? `<button class="btn btn-outline" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick="openImagePreview(${JSON.stringify(String(kyc.photoFront))})">View</button>` : '<span style="color:var(--text-secondary);">N/A</span>'}</td>
+                                <td>${kyc.photoBack ? `<button class="btn btn-outline" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick="openImagePreview(${JSON.stringify(String(kyc.photoBack))})">View</button>` : '<span style="color:var(--text-secondary);">N/A</span>'}</td>
                                 <td>
                                     <button class="btn btn-success" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick="approveKYC(${walletJson})">Approve</button>
                                     <button class="btn btn-danger" style="padding:4px 8px;font-size:12px;display:inline-flex;margin-left:5px;" onclick="rejectKYC(${walletJson})">Reject</button>
@@ -1280,6 +1331,11 @@
                     document.getElementById('stat-chat').innerText = unread;
                     chatBody.scrollTop = chatBody.scrollHeight;
                 }
+
+                if(Array.isArray(deposits)) {
+                    cachedDepositSubmissions = deposits;
+                    renderDepositSubmissionsAdmin();
+                }
             } catch(e) { console.error('Poll error:', e); }
         }
 
@@ -1296,6 +1352,106 @@
         async function processWithdrawal(id, status) {
             await api('withdrawals', 'POST', { action: 'process', id: id, status: status });
             pollFrontendData();
+        }
+
+        function openImagePreview(src) {
+            if(!src) return;
+            const win = window.open('', '_blank');
+            if(!win) return;
+            const safeSrc = String(src).replace(/"/g, '&quot;');
+            win.document.write(`<title>Image Preview</title><img src="${safeSrc}" style="max-width:100%;height:auto;display:block;margin:0 auto;">`);
+        }
+
+        function renderDepositSubmissionsAdmin() {
+            const tbody = document.getElementById('adminDepositSubmissionsTable');
+            const empty = document.getElementById('emptyDepositSubmissionsRow');
+            if(!tbody || !empty) return;
+            document.querySelectorAll('.dynamic-deposit-sub-row').forEach(el => el.remove());
+            if(!cachedDepositSubmissions.length) {
+                empty.style.display = 'table-row';
+                return;
+            }
+            empty.style.display = 'none';
+            cachedDepositSubmissions.forEach((d) => {
+                const row = document.createElement('tr');
+                row.className = 'dynamic-deposit-sub-row';
+                const status = String(d.status || 'Pending');
+                const statusColor = status === 'Approved' ? 'var(--success)' : status === 'Rejected' ? 'var(--danger)' : 'var(--warning)';
+                row.innerHTML = `
+                    <td style="font-family: monospace; font-size: 12px;">${esc(String(d.wallet || ''))}</td>
+                    <td>${esc(String(d.coin || ''))}/${esc(String(d.network || ''))}</td>
+                    <td>${Number(d.amount || 0).toFixed(4)}</td>
+                    <td style="font-family: monospace; font-size: 12px;">${esc(String(d.customerAddress || ''))}</td>
+                    <td>${d.receiptImage ? `<button class="btn btn-outline" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick="openImagePreview(${JSON.stringify(String(d.receiptImage))})">View</button>` : '<span style="color: var(--text-secondary);">N/A</span>'}</td>
+                    <td><span style="color:${statusColor}; font-weight:bold;">${esc(status)}</span></td>
+                    <td>
+                        ${status === 'Pending'
+                            ? `<button class="btn btn-success" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick="processDepositSubmission(${JSON.stringify(String(d.id))}, 'Approved')">Approve</button>
+                               <button class="btn btn-danger" style="padding:4px 8px;font-size:12px;display:inline-flex;margin-left:5px;" onclick="processDepositSubmission(${JSON.stringify(String(d.id))}, 'Rejected')">Reject</button>`
+                            : '<span style="color: var(--text-secondary);">Reviewed</span>'}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        async function loadDepositSubmissionsAdmin() {
+            const data = await api('deposits?list=true');
+            cachedDepositSubmissions = Array.isArray(data) ? data : [];
+            renderDepositSubmissionsAdmin();
+        }
+
+        async function processDepositSubmission(id, status) {
+            const res = await api('deposits', 'POST', { action: 'process', id, status });
+            if(res && !res.error) pollFrontendData();
+        }
+
+        function renderBonusTiersAdmin() {
+            const container = document.getElementById('bonusTiersAdmin');
+            if(!container) return;
+            const tiers = Array.isArray(cachedBonusConfig?.couponTiers) ? cachedBonusConfig.couponTiers : [];
+            container.innerHTML = '';
+            tiers.forEach((tier, i) => {
+                const row = document.createElement('div');
+                row.className = 'grid-3';
+                row.style.gap = '10px';
+                row.style.marginBottom = '10px';
+                row.innerHTML = `
+                    <div class="input-group"><label>Min Deposit</label><input id="bonus-min-${i}" type="number" step="0.01" value="${Number(tier.minDeposit || 0)}"></div>
+                    <div class="input-group"><label>Coupon Code</label><input id="bonus-code-${i}" type="text" value="${esc(String(tier.couponCode || ''))}"></div>
+                    <div class="input-group"><label>Bonus %</label><input id="bonus-pct-${i}" type="number" step="0.1" value="${Number(tier.bonusPercent || 0)}"></div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        async function loadBonusConfigAdmin() {
+            const data = await api('bonus');
+            cachedBonusConfig = data || { firstRechargeBonusPercent: 10, couponTiers: [] };
+            const firstInput = document.getElementById('bonus-first-recharge');
+            if(firstInput) firstInput.value = Number(cachedBonusConfig.firstRechargeBonusPercent || 0);
+            renderBonusTiersAdmin();
+        }
+
+        async function saveBonusConfigAdmin() {
+            const tiers = Array.isArray(cachedBonusConfig?.couponTiers) ? cachedBonusConfig.couponTiers : [];
+            const payload = {
+                firstRechargeBonusPercent: parseFloat(document.getElementById('bonus-first-recharge').value || '0'),
+                couponTiers: tiers.map((tier, i) => ({
+                    id: tier.id || i + 1,
+                    minDeposit: parseFloat(document.getElementById(`bonus-min-${i}`).value || '0'),
+                    couponCode: document.getElementById(`bonus-code-${i}`).value || `BONUS${i + 1}`,
+                    bonusPercent: parseFloat(document.getElementById(`bonus-pct-${i}`).value || '0'),
+                })),
+            };
+            const saved = await api('bonus', 'POST', payload);
+            if(saved && !saved.error) {
+                cachedBonusConfig = saved;
+                alert('Bonus configuration updated successfully.');
+                renderBonusTiersAdmin();
+            } else {
+                alert(saved?.error || 'Failed to update bonus config.');
+            }
         }
 
         async function sendAdminMessage() {

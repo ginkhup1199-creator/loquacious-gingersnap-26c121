@@ -193,7 +193,8 @@ export default async (req: Request, context: Context) => {
 
     // Copy allowed fields (sanitized)
     const allowed = ["direction", "levelId", "levelName", "capital", "tradingTime",
-      "profitPercent", "dailyProfit", "cycleTime", "duration", "fromCoin", "toCoin", "amount"];
+      "profitPercent", "dailyProfit", "cycleTime", "duration", "fromCoin", "toCoin", "amount",
+      "stakeCoin", "addedDate", "withdrawDate"];
     for (const field of allowed) {
       if (body[field] !== undefined) {
         newTrade[field] = typeof body[field] === "string"
