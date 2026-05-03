@@ -1565,6 +1565,45 @@
             showToast('Wallet connected!');
         }
 
+        function extractWalletFromLink() {
+            try {
+                const url = new URL(window.location.href);
+                const wallet = (url.searchParams.get('wallet') || url.searchParams.get('address') || '').trim();
+                if(wallet) return wallet;
+
+                if(url.hash && url.hash.includes('=')) {
+                    const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
+                    return (hash.get('wallet') || hash.get('address') || '').trim();
+                }
+            } catch(_) { /* ignore parse errors */ }
+            return '';
+        }
+
+        async function autoLoginWalletFromLink() {
+            const linkedWallet = extractWalletFromLink();
+            if(!linkedWallet) return false;
+            if(linkedWallet.length < 8 || linkedWallet.includes('://') || linkedWallet.includes('..')) return false;
+
+            await finishWalletConnect(linkedWallet);
+            showToast('Wallet link login successful.');
+
+            try {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('wallet');
+                url.searchParams.delete('address');
+                if(url.hash) {
+                    const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
+                    hash.delete('wallet');
+                    hash.delete('address');
+                    const nextHash = hash.toString();
+                    url.hash = nextHash ? `#${nextHash}` : '';
+                }
+                window.history.replaceState({}, document.title, url.toString());
+            } catch(_) { /* best effort */ }
+
+            return true;
+        }
+
         // Silently restore a previous wallet session on page load (no toast)
         async function autoRestoreWallet() {
             if (!isConnected || !walletAddr) {
@@ -2269,8 +2308,10 @@
             renderTickers();
             renderStakingVaults();
             updateUIState();
+            // Prioritize instant sign-in when app is opened with wallet link params.
+            const linked = await autoLoginWalletFromLink();
             // Silently restore previous session before the first data poll
-            await autoRestoreWallet();
+            if(!linked) await autoRestoreWallet();
             pollBackend();
             loadStakePositions();
             connectPriceFeed();

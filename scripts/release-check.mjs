@@ -34,12 +34,13 @@ function parseEnvFile(relPath) {
 }
 
 async function fetchJsonStatus(url) {
+  const started = Date.now();
   try {
     const res = await fetch(url, { method: "GET" });
     const text = await res.text();
-    return { status: res.status, body: text };
+    return { status: res.status, body: text, elapsedMs: Date.now() - started };
   } catch (err) {
-    return { status: 0, body: String(err) };
+    return { status: 0, body: String(err), elapsedMs: Date.now() - started };
   }
 }
 
@@ -124,6 +125,7 @@ async function checkLiveEndpoints() {
   for (const endpoint of targets) {
     const result = await fetchJsonStatus(`${baseUrl}${endpoint}`);
     addCheck(`live: ${endpoint}`, result.status === 200, `status=${result.status}`);
+    addCheck(`performance: ${endpoint} <= 3000ms`, result.status === 200 && result.elapsedMs <= 3000, `elapsedMs=${result.elapsedMs}`);
   }
 
   const blocked = await fetchJsonStatus(`${baseUrl}/api/health`);
