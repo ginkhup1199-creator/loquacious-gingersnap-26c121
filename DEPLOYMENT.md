@@ -60,12 +60,14 @@ In Netlify dashboard: **Site Settings → Environment Variables**
 | `ADMIN_EMAIL` | `your-admin@gmail.com` | Email to receive OTP codes |
 | `GMAIL_USER` | `your-sender@gmail.com` | Gmail address that sends OTPs |
 | `GMAIL_APP_PASSWORD` | `<16-char app password>` | Gmail App Password, not your login password |
+| `APP_VERSION` | `1.1.0` | Exposed via `/api/v2/health` for release tracking |
 | `NODE_ENV` | `production` | Optional |
 
 - [ ] `ADMIN_TOKEN` is set
 - [ ] `ADMIN_EMAIL` is set
 - [ ] `GMAIL_USER` is set
 - [ ] `GMAIL_APP_PASSWORD` is set
+- [ ] `APP_VERSION=1.1.0` is set
 - [ ] `NODE_ENV=production` is set
 
 ### 6. Deploy
@@ -90,10 +92,10 @@ git push origin main
 ```bash
 # Verify the health endpoint responds correctly
 curl https://your-site.netlify.app/api/v2/health
-# Expected: { "status": "ok", "timestamp": "...", "version": "1.0.0" }
+# Expected: { "status": "ok", "apiVersion": "v2", "timestamp": "...", "version": "1.1.0" }
 ```
 
-- [ ] `/api/v2/health` returns `{ "status": "ok" }`
+- [ ] `/api/v2/health` returns release `version: "1.1.0"`
 
 ### 8. Authentication Flow
 

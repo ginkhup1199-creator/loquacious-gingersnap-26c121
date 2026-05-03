@@ -34,6 +34,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.1.0] — 2026-05-02
+
+### Changed
+- `package.json` — bumped release version to `1.1.0`
+- `netlify.toml` — configured `APP_VERSION=1.1.0` for Netlify builds/functions
+- `netlify/functions/api-health.mts` — health response now includes timestamp and release version
+- `netlify/functions/api-v2-health.mts` — system health response now includes release version
+- `DEPLOYMENT.md` / `ADMIN_DEPLOYMENT.md` / `QUICK_REFERENCE.md` — aligned release and Netlify verification guidance with `1.1.0`
+
+---
+
 ## [1.0.0] — 2026-04-05
 
 ### Added — Public Release
@@ -89,5 +100,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-[Unreleased]: https://github.com/ginkhup1199-creator/loquacious-gingersnap-26c121/compare/main...HEAD
+[Unreleased]: https://github.com/ginkhup1199-creator/loquacious-gingersnap-26c121/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/ginkhup1199-creator/loquacious-gingersnap-26c121/releases/tag/v1.1.0
 [1.0.0]: https://github.com/ginkhup1199-creator/loquacious-gingersnap-26c121/releases/tag/v1.0.0

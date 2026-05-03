@@ -515,4 +515,4 @@ For issues:
 ---
 
 **Last Updated:** 2026-04-30  
-**Version:** 1.0
+**Version:** 1.1.0
