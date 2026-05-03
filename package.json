@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "dev": "netlify dev"
+    "dev": "netlify dev",
+    "release:check": "node scripts/release-check.mjs"
   },
   "dependencies": {
     "@netlify/blobs": "^8.1.0",

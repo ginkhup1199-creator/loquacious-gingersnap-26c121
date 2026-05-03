@@ -9,4 +9,5 @@ export interface ApiHealthInfo {
   status: "ok";
   apiVersion: "v2";
   timestamp: string;
+  version: string;
 }

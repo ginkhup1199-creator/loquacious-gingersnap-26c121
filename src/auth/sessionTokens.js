@@ -18,7 +18,7 @@ const crypto = require("crypto");
 // For production, replace with a persistent store (e.g., Netlify KV, Redis).
 const activeSessions = new Map();
 
-const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const SESSION_TTL_MS = Number(process.env.SESSION_TTL_MS || 60 * 60 * 1000); // default 1 hour
 const TOKEN_TTL_MS = 5 * 60 * 1000; // 5 minutes for one-time tokens
 
 /**

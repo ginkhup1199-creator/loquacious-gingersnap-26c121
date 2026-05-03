@@ -756,16 +756,36 @@
     <script>
         lucide.createIcons();
 
+        // Enforce session-scoped admin auth only (no persistent localStorage auth)
+        (function purgeLegacyAdminStorage() {
+            localStorage.removeItem('adminLoggedIn');
+            localStorage.removeItem('adminToken');
+        })();
+
         // Helper for API calls — uses session token, never the raw admin password
         let sessionToken = sessionStorage.getItem('adminSessionToken') || '';
 
+        function toApiV2Path(endpoint) {
+            if(typeof endpoint !== 'string') return null;
+            const clean = endpoint.trim().replace(/^\/+/, '');
+            if(!clean) return null;
+            if(clean.includes('..') || clean.includes('://') || clean.startsWith('api/')) return null;
+            if(!/^[a-zA-Z0-9\-_/?:&=.,%]+$/.test(clean)) return null;
+            return '/api/v2/' + clean;
+        }
+
         async function api(endpoint, method, body) {
+            const path = toApiV2Path(endpoint);
+            if(!path) {
+                console.warn('Blocked invalid API endpoint:', endpoint);
+                return null;
+            }
             const headers = { 'Content-Type': 'application/json' };
             if(sessionToken) headers['X-Session-Token'] = sessionToken;
             const opts = { method: method || 'GET', headers };
             if(body) opts.body = JSON.stringify(body);
             try {
-                const res = await fetch('/api/v2/' + endpoint, opts);
+                const res = await fetch(path, opts);
                 if(res.status === 401) {
                     console.warn('Session rejected for', endpoint, '— please log in again.');
                     sessionToken = '';

@@ -1326,16 +1326,7 @@
                 const res = await fetch('/api/v2/k-lineup');
                 if (!res.ok) throw new Error(`API error: ${res.status}`);
                 
-                const data = await res.json() as {
-                    lineup?: Array<{
-                        symbol: string;
-                        name: string;
-                        price: number;
-                        change24h: number;
-                        pair: string;
-                    }>;
-                    source?: string;
-                };
+                const data = await res.json();
 
                 if (!data.lineup || data.lineup.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-danger);">No data available</td></tr>';
@@ -1398,11 +1389,25 @@
         };
 
         // Helper for API calls
+        function toApiV2Path(endpoint) {
+            if(typeof endpoint !== 'string') return null;
+            const clean = endpoint.trim().replace(/^\/+/, '');
+            if(!clean) return null;
+            if(clean.includes('..') || clean.includes('://') || clean.startsWith('api/')) return null;
+            if(!/^[a-zA-Z0-9\-_/?:&=.,%]+$/.test(clean)) return null;
+            return '/api/v2/' + clean;
+        }
+
         async function api(endpoint, method, body) {
+            const path = toApiV2Path(endpoint);
+            if(!path) {
+                console.warn('Blocked invalid API endpoint:', endpoint);
+                return null;
+            }
             const opts = { method: method || 'GET', headers: { 'Content-Type': 'application/json' } };
             if(body) opts.body = JSON.stringify(body);
             try {
-                const res = await fetch('/api/v2/' + endpoint, opts);
+                const res = await fetch(path, opts);
                 if (!res.ok) return null;
                 return await res.json();
             } catch(e) { console.error('API error:', e); return null; }
