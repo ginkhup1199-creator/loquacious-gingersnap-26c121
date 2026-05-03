@@ -8,19 +8,15 @@ import { secureJson } from "../lib/security.js";
 export default async (req: Request) => {
   const url = new URL(req.url);
 
-  if (url.pathname.startsWith("/api/v2/")) {
-    return secureJson({ error: "Not found" }, 404);
-  }
-
   return secureJson(
     {
-      error: "Unsupported API version. Use /api/v2/*",
+      error: "Deprecated API version. Use /api/v2/*",
       apiVersion: "v2",
     },
-    410,
+    426,
   );
 };
 
 export const config: Config = {
-  path: "/api/*",
+  path: "/api/v1/*",
 };

@@ -106,7 +106,7 @@ function checkBackendRoutes() {
     const m = src.match(/path:\s*"([^"]+)"/);
     if (!m) continue;
     const route = m[1];
-    const allowed = route.startsWith("/api/v2/") || (file === "api-block.mts" && route === "/api/*");
+    const allowed = route.startsWith("/api/v2/") || (file === "api-block.mts" && route === "/api/v1/*");
     if (!allowed) bad.push(`${file}:${route}`);
   }
 
