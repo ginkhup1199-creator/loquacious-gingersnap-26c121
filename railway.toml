@@ -2,13 +2,10 @@
 # https://docs.railway.app/reference/config-as-code
 
 [build]
-# Use the default Node.js build process
-builder = "nixpacks"
 buildCommand = "npm install"
 
 [deploy]
-# Start command – Netlify CLI serves functions locally on Railway
-startCommand = "npx netlify-cli functions:serve --port $PORT --offline"
+startCommand = "npm run"
 healthcheckPath = "/api/v2/health"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
