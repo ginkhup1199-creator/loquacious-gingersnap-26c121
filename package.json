@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "test": "node --test",
     "dev": "netlify dev",
     "release:check": "node scripts/release-check.mjs"
   },
