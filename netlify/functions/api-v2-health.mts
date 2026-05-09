@@ -7,7 +7,7 @@ export default async (_req: Request) => {
     status: "ok",
     apiVersion: "v2",
     timestamp: new Date().toISOString(),
-    version: process.env.APP_VERSION ?? "1.1.0",
+    version: process.env.APP_VERSION ?? "1.4.0",
   };
 
   return secureJson(payload, 200, false);

@@ -64,7 +64,7 @@ Optional variables (uncomment in `.env.production.example`):
 |----------|---------|-------------|
 | `RATE_LIMIT_MAX` | `30` | Max requests per IP per window |
 | `RATE_LIMIT_WINDOW_MS` | `60000` | Rate limit window in ms |
-| `APP_VERSION` | `1.1.0` | Shown in `/api/v2/health` |
+| `APP_VERSION` | `1.4.0` | Shown in `/api/v2/health` |
 
 ---
 
@@ -179,7 +179,7 @@ Use this as the `ADMIN_BACKEND_URL` in your frontend configuration if needed.
 BASE=https://your-site.netlify.app   # or your Railway URL
 
 curl $BASE/api/v2/health
-# Expected: { "status": "ok", "apiVersion": "v2", "timestamp": "...", "version": "1.1.0" }
+# Expected: { "status": "ok", "apiVersion": "v2", "timestamp": "...", "version": "1.4.0" }
 ```
 
 ### Admin Login Flow
