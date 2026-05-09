@@ -2,7 +2,7 @@
   publish = "."
 
   [build.environment]
-    APP_VERSION = "1.1.0"
+    APP_VERSION = "1.4.0"
 
 [functions]
   directory = "netlify/functions"

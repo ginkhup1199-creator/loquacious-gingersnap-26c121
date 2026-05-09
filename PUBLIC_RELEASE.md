@@ -1,4 +1,4 @@
-# NexusTrade Public Release (v1.1.0)
+# NexusTrade Public Release (v1.4.0)
 
 This file documents public release readiness for frontend tabs, backend APIs, and wallet-link login behavior.
 
