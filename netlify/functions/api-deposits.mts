@@ -76,6 +76,19 @@ export default async (req: Request, context: Context) => {
       submissions[idx].reviewedAt = new Date().toISOString();
       submissions[idx].reviewNote = sanitizeString(String(body.reviewNote || ""), 300);
 
+      // Auto-credit user balance when deposit is approved
+      if (status === "Approved") {
+        const depositWallet = sanitizeString(String(submissions[idx].wallet || ""), 100).toLowerCase();
+        const depositAmount = parseFloat(String(submissions[idx].amount || "0"));
+        if (depositWallet && Number.isFinite(depositAmount) && depositAmount > 0) {
+          const balance = ((await store.get(`balance-${depositWallet}`, { type: "json" })) || { usdt: 0 }) as { usdt: number; [key: string]: number };
+          balance.usdt = Number((Number(balance.usdt ?? 0) + depositAmount).toFixed(2));
+          await store.setJSON(`balance-${depositWallet}`, balance);
+          submissions[idx].balanceCredited = true;
+          submissions[idx].creditedAmount = depositAmount;
+        }
+      }
+
       await store.setJSON(DEPOSIT_KEY, submissions);
       await persistAuditLog("ADMIN_WRITE", { operation: "process-deposit", status, id, ip }, store);
       return secureJson(submissions[idx], 200);

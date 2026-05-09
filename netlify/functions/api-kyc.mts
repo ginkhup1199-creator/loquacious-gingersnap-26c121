@@ -12,7 +12,7 @@ import {
 } from "../lib/security.js";
 import { parseJsonObject } from "../lib/validation.js";
 
-const ALLOWED_STATES = ["pending", "approved", "unverified"] as const;
+const ALLOWED_STATES = ["pending", "approved", "unverified", "rejected"] as const;
 const MAX_IMAGE_FIELD_LENGTH = 1_500_000;
 
 function sanitizeImageField(value: unknown): string {
@@ -86,8 +86,8 @@ export default async (req: Request, context: Context) => {
     const photoFront = sanitizeImageField(body.photoFront);
     const photoBack = sanitizeImageField(body.photoBack);
 
-    // Admin-only: approve or reset KYC
-    if (state === "approved" || state === "unverified") {
+    // Admin-only: approve, reject, or reset KYC
+    if (state === "approved" || state === "unverified" || state === "rejected") {
       const sessionResult = await validateAnyAdminSession(req, store);
       if (!sessionResult.valid || !hasPermission(sessionResult, "kyc")) {
         auditLog("AUTH_FAILURE", { operation: "update-kyc", reason: sessionResult.reason, ip });
@@ -98,7 +98,9 @@ export default async (req: Request, context: Context) => {
         ? ((await store.get(`kyc-${wallet}`, { type: "json" })) as Record<string, unknown> | null)
         : ((await store.get("kyc", { type: "json" })) as Record<string, unknown> | null);
 
-      const kycData = {
+      const rejectionReason = sanitizeString(String(body.rejectionReason ?? ""), 500);
+
+      const kycData: Record<string, unknown> = {
         state,
         name: name || String(existing?.name || ""),
         docType: docType || String(existing?.docType || ""),
@@ -108,19 +110,27 @@ export default async (req: Request, context: Context) => {
         updatedAt: new Date().toISOString(),
       };
 
+      if (state === "rejected") {
+        kycData.rejectionReason = rejectionReason || "Rejected by admin";
+        kycData.rejectedAt = new Date().toISOString();
+      }
+      if (state === "approved") {
+        kycData.approvedAt = new Date().toISOString();
+      }
+
       if (wallet) {
         await store.setJSON(`kyc-${wallet}`, kycData);
-        // Remove from the pending list regardless of new state
         const pendingList = ((await store.get("kyc-pending", { type: "json" })) || []) as string[];
         const filtered = pendingList.filter((w) => w !== wallet);
         await store.setJSON("kyc-pending", filtered);
       }
-      // Also keep the global record updated for backwards compatibility
       await store.setJSON("kyc", kycData);
 
       await persistAuditLog("ADMIN_WRITE", {
         operation: "update-kyc", state,
-        wallet: wallet ? `${wallet.slice(0, 8)}…` : "(none)", ip,
+        wallet: wallet ? `${wallet.slice(0, 8)}…` : "(none)",
+        ...(state === "rejected" ? { rejectionReason } : {}),
+        ip,
       }, store);
 
       return secureJson(kycData);

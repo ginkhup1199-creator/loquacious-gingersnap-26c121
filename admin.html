@@ -235,6 +235,10 @@
                     <div style="font-size: 28px; font-weight: bold; color: var(--danger);" id="stat-withdraw">0</div>
                 </div>
                 <div class="card">
+                    <div style="color: var(--text-secondary); font-size: 14px;">Pending Deposits</div>
+                    <div style="font-size: 28px; font-weight: bold; color: var(--warning);" id="stat-deposits">0</div>
+                </div>
+                <div class="card">
                     <div style="color: var(--text-secondary); font-size: 14px;">Unread Messages</div>
                     <div style="font-size: 28px; font-weight: bold; color: var(--accent);" id="stat-chat">0</div>
                 </div>
@@ -400,11 +404,16 @@
         <!-- KYC Approvals -->
         <div id="tab-kyc" class="tab-pane">
             <h2>KYC Management</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Review user identity verification submissions. Approve or reject with a reason.</p>
             <div class="card mt-20">
+                <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>KYC Submissions</span>
+                    <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="pollFrontendData()"><i data-lucide="refresh-cw"></i> Refresh</button>
+                </div>
                 <table>
-                    <thead><tr><th>User Wallet</th><th>Name</th><th>Document Type</th><th>Front</th><th>Back</th><th>Action</th></tr></thead>
+                    <thead><tr><th>User Wallet</th><th>Name</th><th>Document Type</th><th>Submitted</th><th>Front</th><th>Back</th><th>Status</th><th>Action</th></tr></thead>
                     <tbody id="adminKycTable">
-                        <tr id="emptyKycRow"><td colspan="6" style="text-align: center;">No pending requests</td></tr>
+                        <tr id="emptyKycRow"><td colspan="8" style="text-align: center;">No pending requests</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -413,12 +422,16 @@
         <!-- Deposit Submissions -->
         <div id="tab-deposit-submissions" class="tab-pane">
             <h2>Deposit Submission Review</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 20px;">Review user-submitted deposit receipts and approve or reject each request.</p>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Review user-submitted deposit receipts. Approving a deposit will automatically credit the user's USDT balance.</p>
             <div class="card">
+                <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>Deposit Submissions</span>
+                    <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="loadDepositSubmissionsAdmin()"><i data-lucide="refresh-cw"></i> Refresh</button>
+                </div>
                 <table>
-                    <thead><tr><th>Wallet</th><th>Coin/Chain</th><th>Amount</th><th>Address</th><th>Receipt</th><th>Status</th><th>Action</th></tr></thead>
+                    <thead><tr><th>Wallet</th><th>Coin/Chain</th><th>Amount</th><th>Address</th><th>Date</th><th>Receipt</th><th>Status</th><th>Action</th></tr></thead>
                     <tbody id="adminDepositSubmissionsTable">
-                        <tr id="emptyDepositSubmissionsRow"><td colspan="7" style="text-align: center;">No deposit submissions</td></tr>
+                        <tr id="emptyDepositSubmissionsRow"><td colspan="8" style="text-align: center;">No deposit submissions</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -445,11 +458,16 @@
         <!-- Withdrawals -->
         <div id="tab-withdraw" class="tab-pane">
             <h2>Withdrawal Requests</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Review and process user withdrawal requests. Rejecting a withdrawal refunds the user's balance automatically.</p>
             <div class="card mt-20">
+                <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>Withdrawal Requests</span>
+                    <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="pollFrontendData()"><i data-lucide="refresh-cw"></i> Refresh</button>
+                </div>
                 <table>
-                    <thead><tr><th>Coin</th><th>Network</th><th>Amount</th><th>Destination</th><th>Action</th></tr></thead>
+                    <thead><tr><th>Wallet</th><th>Coin</th><th>Network</th><th>Amount</th><th>Destination</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
                     <tbody id="adminWithdrawTable">
-                        <tr id="emptyWithdrawRow"><td colspan="5" style="text-align: center;">No pending withdrawals</td></tr>
+                        <tr id="emptyWithdrawRow"><td colspan="8" style="text-align: center;">No pending withdrawals</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1250,15 +1268,19 @@
                                 ? esc(kyc.wallet.slice(0,8) + '...' + kyc.wallet.slice(-4))
                                 : kyc.wallet ? esc(kyc.wallet) : '<span style="color:var(--text-secondary);">Unknown</span>';
                             const walletJson = JSON.stringify(kyc.wallet || '');
+                            const nameJson = JSON.stringify(kyc.name || 'Unknown');
+                            const submittedDate = kyc.submittedAt ? new Date(kyc.submittedAt).toLocaleString() : 'N/A';
                             row.innerHTML = `
                                 <td style="font-family:monospace;font-size:12px;">${walletDisplay}</td>
                                 <td>${esc(kyc.name || 'Unknown')}</td>
                                 <td><span style="color:var(--warning);font-weight:bold;">${esc(kyc.docType || 'Unknown')}</span></td>
+                                <td style="font-size:12px;color:var(--text-secondary);">${esc(submittedDate)}</td>
                                 <td>${kyc.photoFront ? `<button class="btn btn-outline" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick="openImagePreview(${JSON.stringify(String(kyc.photoFront))})">View</button>` : '<span style="color:var(--text-secondary);">N/A</span>'}</td>
                                 <td>${kyc.photoBack ? `<button class="btn btn-outline" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick="openImagePreview(${JSON.stringify(String(kyc.photoBack))})">View</button>` : '<span style="color:var(--text-secondary);">N/A</span>'}</td>
+                                <td><span style="background:var(--warning-bg);color:var(--warning);padding:3px 8px;border-radius:4px;font-size:12px;font-weight:bold;">Pending</span></td>
                                 <td>
-                                    <button class="btn btn-success" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick="approveKYC(${walletJson})">Approve</button>
-                                    <button class="btn btn-danger" style="padding:4px 8px;font-size:12px;display:inline-flex;margin-left:5px;" onclick="rejectKYC(${walletJson})">Reject</button>
+                                    <button class="btn btn-success" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick="approveKYC(${walletJson}, ${nameJson})">Approve</button>
+                                    <button class="btn btn-danger" style="padding:4px 8px;font-size:12px;display:inline-flex;margin-left:5px;" onclick="rejectKYC(${walletJson}, ${nameJson})">Reject</button>
                                 </td>
                             `;
                             kycTable.appendChild(row);
@@ -1271,7 +1293,6 @@
                     const withdrawTable = document.getElementById('adminWithdrawTable');
                     const emptyWithdraw = document.getElementById('emptyWithdrawRow');
 
-                    // Only count truly pending withdrawals in the stat
                     const pendingCount = withdrawals.filter(w => w.status === 'Pending').length;
                     document.getElementById('stat-withdraw').innerText = pendingCount;
 
@@ -1284,15 +1305,23 @@
                             const row = document.createElement('tr');
                             row.className = 'dynamic-withdraw-row';
                             const statusColor = w.status === 'Completed' ? 'var(--success)' : w.status === 'Rejected' ? 'var(--danger)' : 'var(--warning)';
+                            const statusBg = w.status === 'Completed' ? 'var(--success-bg)' : w.status === 'Rejected' ? 'var(--danger-bg)' : 'var(--warning-bg)';
+                            const walletDisplay = w.wallet && w.wallet.length >= 12
+                                ? esc(w.wallet.slice(0,6) + '...' + w.wallet.slice(-4))
+                                : esc(w.wallet || 'Unknown');
+                            const dateDisplay = w.date ? esc(w.date) : 'N/A';
                             const actionHtml = w.status === 'Pending'
                                 ? `<button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; display: inline-flex;" onclick="processWithdrawal(${JSON.stringify(String(w.id))}, 'Completed')">Approve</button>
                                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; display: inline-flex; margin-left: 5px;" onclick="processWithdrawal(${JSON.stringify(String(w.id))}, 'Rejected')">Reject</button>`
-                                : `<span style="color:${statusColor};font-weight:bold;">${esc(w.status)}</span>`;
+                                : `<span style="color:var(--text-secondary);font-size:12px;">Processed</span>`;
                             row.innerHTML = `
+                                <td style="font-family:monospace;font-size:12px;">${walletDisplay}</td>
                                 <td>${esc(w.coin)}</td>
                                 <td>${esc(w.network)}</td>
-                                <td>${Number(w.amount).toLocaleString()}</td>
+                                <td style="font-weight:bold;">$${Number(w.amount).toLocaleString()}</td>
                                 <td style="font-family: monospace; font-size: 12px;">${esc(w.address)}</td>
+                                <td style="font-size:12px;color:var(--text-secondary);">${dateDisplay}</td>
+                                <td><span style="background:${statusBg};color:${statusColor};padding:3px 8px;border-radius:4px;font-size:12px;font-weight:bold;">${esc(w.status)}</span></td>
                                 <td>${actionHtml}</td>
                             `;
                             withdrawTable.appendChild(row);
@@ -1334,22 +1363,31 @@
 
                 if(Array.isArray(deposits)) {
                     cachedDepositSubmissions = deposits;
+                    const pendingDeposits = deposits.filter(d => String(d.status || 'Pending') === 'Pending').length;
+                    document.getElementById('stat-deposits').innerText = pendingDeposits;
                     renderDepositSubmissionsAdmin();
                 }
             } catch(e) { console.error('Poll error:', e); }
         }
 
         // Actions
-        async function approveKYC(wallet) {
+        async function approveKYC(wallet, name) {
+            if(!confirm(`Approve KYC for ${name || 'this user'}?\n\nWallet: ${wallet || 'Unknown'}\n\nThis will mark their identity as verified.`)) return;
             await api('kyc', 'POST', { state: 'approved', name: '', docType: '', wallet: wallet || '' });
             pollFrontendData();
         }
-        async function rejectKYC(wallet) {
-            await api('kyc', 'POST', { state: 'unverified', name: '', docType: '', wallet: wallet || '' });
+        async function rejectKYC(wallet, name) {
+            const reason = prompt(`Reject KYC for ${name || 'this user'}?\n\nEnter rejection reason (required):`, 'Document unclear or invalid');
+            if(reason === null) return;
+            if(!reason.trim()) { alert('Rejection reason is required.'); return; }
+            await api('kyc', 'POST', { state: 'rejected', name: '', docType: '', wallet: wallet || '', rejectionReason: reason.trim() });
             pollFrontendData();
         }
 
         async function processWithdrawal(id, status) {
+            const actionLabel = status === 'Completed' ? 'APPROVE' : 'REJECT';
+            const balanceNote = status === 'Rejected' ? '\n\nThe withdrawal amount will be refunded to the user\'s balance.' : '';
+            if(!confirm(`${actionLabel} this withdrawal?${balanceNote}\n\nThis action cannot be undone.`)) return;
             await api('withdrawals', 'POST', { action: 'process', id: id, status: status });
             pollFrontendData();
         }
@@ -1377,18 +1415,26 @@
                 row.className = 'dynamic-deposit-sub-row';
                 const status = String(d.status || 'Pending');
                 const statusColor = status === 'Approved' ? 'var(--success)' : status === 'Rejected' ? 'var(--danger)' : 'var(--warning)';
+                const statusBg = status === 'Approved' ? 'var(--success-bg)' : status === 'Rejected' ? 'var(--danger-bg)' : 'var(--warning-bg)';
+                const walletDisplay = d.wallet && String(d.wallet).length >= 12
+                    ? esc(String(d.wallet).slice(0,6) + '...' + String(d.wallet).slice(-4))
+                    : esc(String(d.wallet || ''));
+                const dateDisplay = d.createdAt ? new Date(d.createdAt).toLocaleString() : 'N/A';
+                const creditNote = d.balanceCredited ? `<div style="font-size:11px;color:var(--success);margin-top:2px;">+$${Number(d.creditedAmount||0).toFixed(2)} credited</div>` : '';
+                const reviewNote = d.reviewNote ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">${esc(d.reviewNote)}</div>` : '';
                 row.innerHTML = `
-                    <td style="font-family: monospace; font-size: 12px;">${esc(String(d.wallet || ''))}</td>
+                    <td style="font-family: monospace; font-size: 12px;">${walletDisplay}</td>
                     <td>${esc(String(d.coin || ''))}/${esc(String(d.network || ''))}</td>
-                    <td>${Number(d.amount || 0).toFixed(4)}</td>
+                    <td style="font-weight:bold;">$${Number(d.amount || 0).toFixed(2)}</td>
                     <td style="font-family: monospace; font-size: 12px;">${esc(String(d.customerAddress || ''))}</td>
+                    <td style="font-size:12px;color:var(--text-secondary);">${esc(dateDisplay)}</td>
                     <td>${d.receiptImage ? `<button class="btn btn-outline" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick="openImagePreview(${JSON.stringify(String(d.receiptImage))})">View</button>` : '<span style="color: var(--text-secondary);">N/A</span>'}</td>
-                    <td><span style="color:${statusColor}; font-weight:bold;">${esc(status)}</span></td>
+                    <td><span style="background:${statusBg};color:${statusColor};padding:3px 8px;border-radius:4px;font-size:12px;font-weight:bold;">${esc(status)}</span>${creditNote}${reviewNote}</td>
                     <td>
                         ${status === 'Pending'
                             ? `<button class="btn btn-success" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick="processDepositSubmission(${JSON.stringify(String(d.id))}, 'Approved')">Approve</button>
                                <button class="btn btn-danger" style="padding:4px 8px;font-size:12px;display:inline-flex;margin-left:5px;" onclick="processDepositSubmission(${JSON.stringify(String(d.id))}, 'Rejected')">Reject</button>`
-                            : '<span style="color: var(--text-secondary);">Reviewed</span>'}
+                            : '<span style="color: var(--text-secondary); font-size:12px;">Reviewed</span>'}
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -1402,7 +1448,17 @@
         }
 
         async function processDepositSubmission(id, status) {
-            const res = await api('deposits', 'POST', { action: 'process', id, status });
+            const actionLabel = status === 'Approved' ? 'APPROVE' : 'REJECT';
+            const creditNote = status === 'Approved' ? '\n\nThe deposit amount will be automatically credited to the user\'s USDT balance.' : '';
+            let reviewNote = '';
+            if(status === 'Rejected') {
+                reviewNote = prompt(`${actionLabel} this deposit submission?\n\nEnter a review note / rejection reason:`, 'Deposit receipt invalid or unclear');
+                if(reviewNote === null) return;
+            } else {
+                if(!confirm(`${actionLabel} this deposit?${creditNote}\n\nThis action cannot be undone.`)) return;
+                reviewNote = '';
+            }
+            const res = await api('deposits', 'POST', { action: 'process', id, status, reviewNote: reviewNote || '' });
             if(res && !res.error) pollFrontendData();
         }
 
