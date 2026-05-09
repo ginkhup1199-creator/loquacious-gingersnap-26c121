@@ -770,7 +770,7 @@
                         <button id="tradeTypeMarketBtn" style="flex: 1; padding: 8px; background: transparent; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 4px;" onclick="setTradeType('market')">Market</button>
                     </div>
                     <div class="input-group"><label>Price (USDT)</label><input type="number" id="tradePrice" placeholder="Enter price"></div>
-                    <div class="input-group"><label>Amount (BTC)</label><input type="number" id="tradeAmount" placeholder="0.00" step="0.0001"></div>
+                    <div class="input-group"><label>Amount (USDT)</label><input type="number" id="tradeAmount" placeholder="0.00" step="0.01" min="0"></div>
                     <div class="grid-2" style="gap: 10px;">
                         <button class="btn btn-success" id="spotBuyBtn" onclick="placeSpotOrder('buy')">Buy BTC</button>
                         <button class="btn btn-danger" id="spotSellBtn" onclick="placeSpotOrder('sell')">Sell BTC</button>
@@ -871,6 +871,16 @@
                         <span>Capital: <b style="color: var(--warning);" id="binCapDisplay">--</b></span>
                         <span>Time: <b style="color: var(--accent);" id="binTimeDisplay">--</b></span>
                         <span>Profit: <b style="color: var(--success);" id="binProfitDisplay">--</b></span>
+                    </div>
+                    <div class="input-group" style="margin-bottom: 15px; text-align: left;">
+                        <label style="font-size: 13px; color: var(--text-secondary);">Amount (USDT)</label>
+                        <input type="number" id="binaryAmount" placeholder="0.00" step="0.01" min="0" style="width: 100%; box-sizing: border-box;">
+                    </div>
+                    <!-- Countdown banner — shown while a trade is active -->
+                    <div id="binCountdownBanner" style="display: none; margin-bottom: 15px; padding: 14px 10px; border-radius: 10px; background: var(--bg-dark); border: 1px solid var(--border);">
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;" id="binCountdownLabel">Trade in progress</div>
+                        <div style="font-size: 42px; font-weight: bold; color: var(--accent); letter-spacing: 2px;" id="binCountdownDisplay">--</div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">seconds remaining</div>
                     </div>
                     <div class="grid-2">
                         <button class="btn btn-success" style="padding: 15px; font-size: 16px;" onclick="placeBinaryTrade('CALL')"><i data-lucide="trending-up"></i> CALL</button>
@@ -2237,14 +2247,19 @@
             if(!isConnected) { showToast('Connect your wallet first.', 'warning'); return; }
             const lvl = cachedBinaryLevels.find(l => l.id === selectedBinaryLevel);
             if(!lvl) { showToast('Level not found. Please refresh and try again.', 'error'); return; }
+            const binaryAmountInput = document.getElementById('binaryAmount');
+            const binaryAmountVal = parseFloat(binaryAmountInput ? binaryAmountInput.value : '');
+            if(isNaN(binaryAmountVal) || binaryAmountVal <= 0) { showToast('Enter a valid USDT amount.', 'warning'); return; }
             const result = await api('trades', 'POST', {
                 type: 'binary', wallet: walletAddr, direction,
                 levelId: lvl.id, levelName: lvl.name,
                 fromCoin: selectedBinarySymbol, toCoin: 'USDT',
+                amount: binaryAmountVal,
                 capital: lvl.capital, tradingTime: lvl.tradingTime, profitPercent: lvl.profitPercent
             });
             if(!result || result.error) { showToast(result?.error || 'Trade failed.', 'error'); return; }
             showToast(`${direction} trade placed! Trade #${result.id} — ${lvl.tradingTime}s timer started.`);
+            if(binaryAmountInput) binaryAmountInput.value = '';
 
             // Wall-clock-anchored countdown — uses the server-assigned trade ID (Unix ms) as the start timestamp
             const tradeStartMs = Number(result.id);
@@ -2253,14 +2268,25 @@
             const binaryCard = document.getElementById('binaryTradeCard');
             const callBtn = document.querySelector('#binaryTradeCard .btn-success');
             const putBtn = document.querySelector('#binaryTradeCard .btn-danger');
+            const countdownBanner = document.getElementById('binCountdownBanner');
+            const countdownDisplay = document.getElementById('binCountdownDisplay');
+            const countdownLabel = document.getElementById('binCountdownLabel');
             if(callBtn) { callBtn.disabled = true; callBtn.style.opacity = '0.5'; }
             if(putBtn) { putBtn.disabled = true; putBtn.style.opacity = '0.5'; }
             if(binaryCard) binaryCard.style.outline = `2px solid ${direction === 'CALL' ? 'var(--success)' : 'var(--danger)'}`;
+            if(countdownBanner) countdownBanner.style.display = 'block';
+            if(countdownLabel) countdownLabel.innerText = `${direction} trade in progress`;
+            if(countdownBanner) countdownBanner.style.borderColor = direction === 'CALL' ? 'var(--success)' : 'var(--danger)';
 
             const getRemaining = () => Math.max(0, tradingTimeSec - Math.floor((Date.now() - tradeStartMs) / 1000));
+            const updateCountdown = (rem) => {
+                if(timeDisplay) timeDisplay.innerText = rem + 's';
+                if(countdownDisplay) countdownDisplay.innerText = rem;
+            };
+            updateCountdown(getRemaining());
             const countdownInterval = setInterval(() => {
                 const rem = getRemaining();
-                if(timeDisplay) timeDisplay.innerText = rem + 's';
+                updateCountdown(rem);
                 if(rem <= 0) clearInterval(countdownInterval);
             }, 1000);
 
@@ -2420,6 +2446,9 @@
             const binaryCard = document.getElementById('binaryTradeCard');
             const callBtn = document.querySelector('#binaryTradeCard .btn-success');
             const putBtn = document.querySelector('#binaryTradeCard .btn-danger');
+            const countdownBanner = document.getElementById('binCountdownBanner');
+            const countdownDisplay = document.getElementById('binCountdownDisplay');
+            const countdownLabel = document.getElementById('binCountdownLabel');
 
             // Show the trade state in the binary card
             const selInfo = document.getElementById('binSelectedInfo');
@@ -2428,9 +2457,12 @@
             if(callBtn) { callBtn.disabled = true; callBtn.style.opacity = '0.5'; }
             if(putBtn) { putBtn.disabled = true; putBtn.style.opacity = '0.5'; }
             if(binaryCard) binaryCard.style.outline = `2px solid ${trade.direction === 'CALL' ? 'var(--success)' : 'var(--danger)'}`;
+            if(countdownBanner) { countdownBanner.style.display = 'block'; countdownBanner.style.borderColor = trade.direction === 'CALL' ? 'var(--success)' : 'var(--danger)'; }
+            if(countdownLabel) countdownLabel.innerText = `${trade.direction} trade in progress`;
 
             const remaining = getRemaining();
             if(timeDisplay) timeDisplay.innerText = remaining + 's';
+            if(countdownDisplay) countdownDisplay.innerText = remaining;
 
             if(remaining <= 0) {
                 // Timer already expired; resolve immediately
@@ -2441,6 +2473,7 @@
             const interval = setInterval(() => {
                 const rem = getRemaining();
                 if(timeDisplay) timeDisplay.innerText = rem + 's';
+                if(countdownDisplay) countdownDisplay.innerText = rem;
                 if(rem <= 0) clearInterval(interval);
             }, 1000);
 
@@ -2455,6 +2488,8 @@
             if(putBtn) { putBtn.disabled = false; putBtn.style.opacity = ''; }
             if(binaryCard) binaryCard.style.outline = '';
             if(timeDisplay) timeDisplay.innerText = tradingTimeSec + 's';
+            const countdownBanner = document.getElementById('binCountdownBanner');
+            if(countdownBanner) countdownBanner.style.display = 'none';
             const outcome = await api('trades', 'POST', { type: 'binary-result', wallet: walletAddr, tradeId: trade.id });
             if(!outcome || outcome.error) {
                 showToast(`Trade #${trade.id}: Error resolving outcome`, 'error');
@@ -2606,7 +2641,7 @@
             });
             if(!result || result.error) { showToast(result?.error || 'Order failed.', 'error'); return; }
             document.getElementById('tradeAmount').value = '';
-            showToast(`${direction.toUpperCase()} order placed! ${amount} ${currentSpotPair} @ $${price.toLocaleString()}`, direction === 'buy' ? null : 'warning');
+            showToast(`${direction.toUpperCase()} order placed! ${amount} USDT of ${currentSpotPair} @ $${price.toLocaleString()}`, direction === 'buy' ? null : 'warning');
             pollBackend();
         }
 
