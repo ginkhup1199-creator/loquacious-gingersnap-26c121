@@ -1592,12 +1592,12 @@
             const current = await api(`balances?wallet=${encodeURIComponent(wallet)}`);
             if(current && current.error) { alert('Error: ' + current.error); return; }
 
-            const currentUsdt = current && !current.error ? parseFloat(current.usdt || 0) : 0;
-            const newUsdt = parseFloat((currentUsdt + amount).toFixed(2));
+            const currentUsdt = parseFloat(current?.usdt || 0) || 0;
+            const newUsdt = Math.round((currentUsdt + amount) * 100) / 100;
             const result = await api('balances', 'POST', { wallet, usdt: newUsdt });
             if(result && result.error) { alert('Error: ' + result.error); return; }
 
-            document.getElementById('bal-usdt').value = String(newUsdt);
+            document.getElementById('bal-usdt').value = newUsdt;
             document.getElementById('bal-credit-amount').value = '';
             alert(`Points granted!\nUID/Wallet: ${wallet}\nAdded: ${amount.toFixed(2)}\nNew Balance: ${newUsdt.toFixed(2)} USDT`);
         }
