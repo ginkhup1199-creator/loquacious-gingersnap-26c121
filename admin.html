@@ -1029,7 +1029,8 @@
                 el.checked = permissions.includes(el.value);
             });
             document.getElementById('subAdminCreateResult').style.display = 'none';
-            document.getElementById('tab-master').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            document.getElementById('tab-master').scrollIntoView({ behavior: reducedMotion ? 'instant' : 'smooth', block: 'start' });
             lucide.createIcons();
         }
 
