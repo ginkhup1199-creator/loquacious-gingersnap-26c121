@@ -210,7 +210,8 @@
             <li class="nav-item nav-all" onclick="switchTab('tab-deposit-addresses'); loadDepositAddressesAdmin()"><i data-lucide="map-pin"></i> Deposit Addresses</li>
             <li class="nav-item nav-all" onclick="switchTab('tab-auditlogs'); loadAuditLogs()"><i data-lucide="shield-check"></i> Audit Logs</li>
             <li class="nav-item nav-master" onclick="switchTab('tab-backup'); loadBackupInfo()"><i data-lucide="database"></i> Backup & Restore</li>
-            <li class="nav-item nav-master" onclick="switchTab('tab-master'); loadAdminAccounts();" style="margin-top: 40px; color: var(--warning);"><i data-lucide="key"></i> Master Account</li>
+            <li class="nav-item nav-master" onclick="switchTab('tab-create-admin')" style="margin-top: 40px; color: var(--warning);"><i data-lucide="user-plus"></i> Create Admin</li>
+            <li class="nav-item nav-master" onclick="switchTab('tab-master'); loadAdminAccounts();" style="color: var(--warning);"><i data-lucide="key"></i> Manage Admins</li>
             <li class="nav-item" onclick="logout()" style="color: var(--danger);"><i data-lucide="log-out"></i> Logout</li>
         </ul>
     </aside>
@@ -780,43 +781,44 @@
             </div>
         </div>
 
+        <div id="tab-create-admin" class="tab-pane">
+            <h2 style="color: var(--warning);">Create Admin</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Create a new admin account and assign permissions for what the new admin can access.</p>
+
+            <div class="card" style="max-width: 700px;">
+                <div class="card-header">New Admin Account</div>
+                <div class="input-group"><label>Username</label><input type="text" id="sub-username" placeholder="e.g. support_agent"></div>
+                <div class="input-group"><label>Password</label><input type="password" id="sub-password" placeholder="Min 8 characters (leave blank to auto-generate)"></div>
+                <div class="input-group">
+                    <label>Permissions</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="kyc" class="sub-perm"> KYC</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="withdrawals" class="sub-perm"> Withdrawals</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="chat" class="sub-perm"> Chat</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="settings" class="sub-perm"> Settings</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="users" class="sub-perm"> Users</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="trades" class="sub-perm"> Trades</label>
+                    </div>
+                </div>
+                <button class="btn btn-success" style="width:100%;margin-top:10px;" onclick="createSubAdmin()"><i data-lucide="user-plus"></i> Create Admin</button>
+                <div id="subAdminCreateResult" style="margin-top:10px;font-size:13px;display:none;padding:10px;border-radius:6px;word-break:break-all;"></div>
+            </div>
+        </div>
+
         <div id="tab-master" class="tab-pane">
-            <h2 style="color: var(--warning);">Master Account — Sub-Admin Management</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 20px;">Only the master account can create or revoke sub-admin accounts. Sub-admin credentials are managed here for reference — only the master account can log in to this dashboard.</p>
+            <h2 style="color: var(--warning);">Manage Admins</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Review and revoke existing admin accounts.</p>
 
-            <div class="grid-2" style="margin-bottom: 20px;">
-                <!-- Create sub-admin -->
-                <div class="card">
-                    <div class="card-header">Create Sub-Admin</div>
-                    <div class="input-group"><label>Username</label><input type="text" id="sub-username" placeholder="e.g. support_agent"></div>
-                    <div class="input-group"><label>Password</label><input type="password" id="sub-password" placeholder="Min 8 characters (leave blank to auto-generate)"></div>
-                    <div class="input-group">
-                        <label>Permissions</label>
-                        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
-                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="kyc" class="sub-perm"> KYC</label>
-                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="withdrawals" class="sub-perm"> Withdrawals</label>
-                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="chat" class="sub-perm"> Chat</label>
-                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="settings" class="sub-perm"> Settings</label>
-                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="users" class="sub-perm"> Users</label>
-                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="trades" class="sub-perm"> Trades</label>
-                        </div>
-                    </div>
-                    <button class="btn btn-success" style="width:100%;margin-top:10px;" onclick="createSubAdmin()"><i data-lucide="user-plus"></i> Create Sub-Admin</button>
-                    <div id="subAdminCreateResult" style="margin-top:10px;font-size:13px;display:none;padding:10px;border-radius:6px;word-break:break-all;"></div>
+            <div class="card">
+                <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>Active Sub-Admins</span>
+                    <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="loadAdminAccounts()"><i data-lucide="refresh-cw"></i> Refresh</button>
                 </div>
-
-                <!-- Sub-admin list -->
-                <div class="card">
-                    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-                        <span>Active Sub-Admins</span>
-                        <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="loadAdminAccounts()"><i data-lucide="refresh-cw"></i> Refresh</button>
-                    </div>
-                    <div id="subAdminListEmpty" style="color:var(--text-secondary);font-size:13px;padding:12px 0;">No sub-admins created yet.</div>
-                    <table id="subAdminTable" style="display:none;">
-                        <thead><tr><th>Username</th><th>Permissions</th><th>Created</th><th>Action</th></tr></thead>
-                        <tbody id="subAdminTableBody"></tbody>
-                    </table>
-                </div>
+                <div id="subAdminListEmpty" style="color:var(--text-secondary);font-size:13px;padding:12px 0;">No sub-admins created yet.</div>
+                <table id="subAdminTable" style="display:none;">
+                    <thead><tr><th>Username</th><th>Permissions</th><th>Created</th><th>Action</th></tr></thead>
+                    <tbody id="subAdminTableBody"></tbody>
+                </table>
             </div>
         </div>
 
