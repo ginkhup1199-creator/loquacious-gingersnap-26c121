@@ -123,6 +123,34 @@ export default async (req: Request, context: Context) => {
       }, 201);
     }
 
+    if (action === "update") {
+      const rawUsername = sanitizeString(String(body.username ?? ""), 50).toLowerCase();
+      if (!rawUsername) {
+        return secureJson({ error: "Username is required" }, 400);
+      }
+
+      const rawPerms: string[] = Array.isArray(body.permissions) ? body.permissions as string[] : [];
+      const permissions = rawPerms.filter((p) => typeof p === "string" && ALLOWED_PERMISSIONS.includes(p));
+
+      const accounts = ((await store.get(ACCOUNTS_KEY, { type: "json" })) ?? []) as SubAdminAccount[];
+      const idx = accounts.findIndex((a) => a.username === rawUsername);
+      if (idx === -1) {
+        return secureJson({ error: `Sub-admin '${rawUsername}' not found` }, 404);
+      }
+
+      accounts[idx].permissions = permissions;
+      await store.setJSON(ACCOUNTS_KEY, accounts);
+
+      await persistAuditLog("ADMIN_WRITE", { operation: "update-subadmin-permissions", username: rawUsername, permissions, ip }, store);
+
+      return secureJson({
+        success: true,
+        username: rawUsername,
+        permissions,
+        message: `Permissions updated for '${rawUsername}'.`,
+      });
+    }
+
     if (action === "revoke") {
       const rawUsername = sanitizeString(String(body.username ?? ""), 50).toLowerCase();
       if (!rawUsername) {
@@ -146,7 +174,7 @@ export default async (req: Request, context: Context) => {
       return secureJson({ success: true, message: `Sub-admin '${rawUsername}' revoked.` });
     }
 
-    return secureJson({ error: "Invalid action. Use 'create' or 'revoke'." }, 400);
+    return secureJson({ error: "Invalid action. Use 'create', 'update', or 'revoke'." }, 400);
   }
 
   return new Response("Method not allowed", { status: 405 });
