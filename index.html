@@ -2763,7 +2763,8 @@
 
                 // 1. KYC State
                 if(kycData) {
-                    currentKycState = kycData.state || 'unverified';
+                    const rawKycState = kycData.state || 'unverified';
+                    currentKycState = rawKycState === 'rejected' ? 'unverified' : rawKycState;
                     document.getElementById('kycStatusUnverified').style.display = currentKycState === 'unverified' ? 'block' : 'none';
                     document.getElementById('kycStatusPending').style.display = (currentKycState === 'pending' || currentKycState === 'submitted') ? 'block' : 'none';
                     document.getElementById('kycStatusApproved').style.display = currentKycState === 'approved' ? 'block' : 'none';
