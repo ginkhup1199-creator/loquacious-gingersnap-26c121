@@ -1587,7 +1587,7 @@
             const wallet = document.getElementById('bal-wallet').value.trim();
             const amount = parseFloat(document.getElementById('bal-credit-amount').value || '0');
             if(!wallet) { alert('Please enter wallet address or find by UID first.'); return; }
-            if(!Number.isFinite(amount) || amount <= 0) { alert('Please enter a positive points amount.'); return; }
+            if(!Number.isFinite(amount) || amount <= 0) { alert('Please enter a positive USDT amount.'); return; }
 
             const current = await api(`balances?wallet=${encodeURIComponent(wallet)}`);
             if(current && current.error) { alert('Error: ' + current.error); return; }
