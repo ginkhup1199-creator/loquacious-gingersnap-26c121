@@ -627,7 +627,7 @@
         <!-- Master Account -->
         <div id="tab-balances" class="tab-pane">
             <h2 style="color: var(--accent);">User Balance Management</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 20px;">Credit, debit, or freely grant points (USDT balance) to any user by UID. Changes take effect immediately.</p>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Credit, debit, or freely grant points (USDT balance) to any user wallet. You can look up wallets by UID first. Changes take effect immediately.</p>
             <div class="card" style="max-width: 500px; margin-bottom: 20px;">
                 <div class="card-header">Set User Balance</div>
                 <div style="display: flex; gap: 10px; align-items: flex-end; margin-bottom: 12px;">
@@ -1592,14 +1592,14 @@
             const current = await api(`balances?wallet=${encodeURIComponent(wallet)}`);
             if(current && current.error) { alert('Error: ' + current.error); return; }
 
-            const currentUsdt = parseFloat(current?.usdt || 0) || 0;
+            const currentUsdt = parseFloat(current?.usdt ?? 0);
             const newUsdt = Math.round((currentUsdt + amount) * 100) / 100;
             const result = await api('balances', 'POST', { wallet, usdt: newUsdt });
             if(result && result.error) { alert('Error: ' + result.error); return; }
 
             document.getElementById('bal-usdt').value = newUsdt;
             document.getElementById('bal-credit-amount').value = '';
-            alert(`Points granted!\nUID/Wallet: ${wallet}\nAdded: ${amount.toFixed(2)}\nNew Balance: ${newUsdt.toFixed(2)} USDT`);
+            alert(`Points granted!\nWallet: ${wallet}\nAdded: ${amount.toFixed(2)}\nNew Balance: ${newUsdt.toFixed(2)} USDT`);
         }
 
         async function checkUserBalance() {
