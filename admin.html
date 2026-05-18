@@ -992,7 +992,7 @@
                     <td><strong>${esc(a.username)}</strong></td>
                     <td style="font-size:12px;">${(a.permissions || []).map(p => `<span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 6px;margin:1px;display:inline-block;">${esc(p)}</span>`).join(' ') || '<span style="color:var(--text-secondary)">none</span>'}</td>
                     <td style="font-size:12px;color:var(--text-secondary);">${a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—'}</td>
-                    <td><button class="btn btn-danger" style="padding:3px 8px;font-size:11px;" onclick="revokeSubAdmin(${JSON.stringify(esc(a.username))})"><i data-lucide="trash-2"></i> Revoke</button></td>
+                    <td><button class="btn btn-danger" style="padding:3px 8px;font-size:11px;" onclick='revokeSubAdmin(${JSON.stringify(esc(a.username))})'><i data-lucide="trash-2"></i> Revoke</button></td>
                 </tr>`).join('');
             lucide.createIcons();
         }
@@ -1277,12 +1277,12 @@
                                 <td>${esc(kyc.name || 'Unknown')}</td>
                                 <td><span style="color:var(--warning);font-weight:bold;">${esc(kyc.docType || 'Unknown')}</span></td>
                                 <td style="font-size:12px;color:var(--text-secondary);">${esc(submittedDate)}</td>
-                                <td>${kyc.photoFront ? `<button class="btn btn-outline" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick="openImagePreview(${JSON.stringify(String(kyc.photoFront))})">View</button>` : '<span style="color:var(--text-secondary);">N/A</span>'}</td>
-                                <td>${kyc.photoBack ? `<button class="btn btn-outline" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick="openImagePreview(${JSON.stringify(String(kyc.photoBack))})">View</button>` : '<span style="color:var(--text-secondary);">N/A</span>'}</td>
+                                <td>${kyc.photoFront ? `<button class="btn btn-outline" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick='openImagePreview(${JSON.stringify(String(kyc.photoFront))})'>View</button>` : '<span style="color:var(--text-secondary);">N/A</span>'}</td>
+                                <td>${kyc.photoBack ? `<button class="btn btn-outline" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick='openImagePreview(${JSON.stringify(String(kyc.photoBack))})'>View</button>` : '<span style="color:var(--text-secondary);">N/A</span>'}</td>
                                 <td><span style="background:var(--warning-bg);color:var(--warning);padding:3px 8px;border-radius:4px;font-size:12px;font-weight:bold;">Pending</span></td>
                                 <td>
-                                    <button class="btn btn-success" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick="approveKYC(${walletJson}, ${nameJson})">Approve</button>
-                                    <button class="btn btn-danger" style="padding:4px 8px;font-size:12px;display:inline-flex;margin-left:5px;" onclick="rejectKYC(${walletJson}, ${nameJson})">Reject</button>
+                                    <button class="btn btn-success" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick='approveKYC(${walletJson}, ${nameJson})'>Approve</button>
+                                    <button class="btn btn-danger" style="padding:4px 8px;font-size:12px;display:inline-flex;margin-left:5px;" onclick='rejectKYC(${walletJson}, ${nameJson})'>Reject</button>
                                 </td>
                             `;
                             kycTable.appendChild(row);
@@ -1313,8 +1313,8 @@
                                 : esc(w.wallet || 'Unknown');
                             const dateDisplay = w.date ? esc(w.date) : 'N/A';
                             const actionHtml = w.status === 'Pending'
-                                ? `<button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; display: inline-flex;" onclick="processWithdrawal(${JSON.stringify(String(w.id))}, 'Completed')">Approve</button>
-                                   <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; display: inline-flex; margin-left: 5px;" onclick="processWithdrawal(${JSON.stringify(String(w.id))}, 'Rejected')">Reject</button>`
+                                ? `<button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; display: inline-flex;" onclick='processWithdrawal(${JSON.stringify(String(w.id))}, "Completed")'>Approve</button>
+                                   <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; display: inline-flex; margin-left: 5px;" onclick='processWithdrawal(${JSON.stringify(String(w.id))}, "Rejected")'>Reject</button>`
                                 : `<span style="color:var(--text-secondary);font-size:12px;">Processed</span>`;
                             row.innerHTML = `
                                 <td style="font-family:monospace;font-size:12px;">${walletDisplay}</td>
@@ -1430,12 +1430,12 @@
                     <td style="font-weight:bold;">$${Number(d.amount || 0).toFixed(2)}</td>
                     <td style="font-family: monospace; font-size: 12px;">${esc(String(d.customerAddress || ''))}</td>
                     <td style="font-size:12px;color:var(--text-secondary);">${esc(dateDisplay)}</td>
-                    <td>${d.receiptImage ? `<button class="btn btn-outline" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick="openImagePreview(${JSON.stringify(String(d.receiptImage))})">View</button>` : '<span style="color: var(--text-secondary);">N/A</span>'}</td>
+                    <td>${d.receiptImage ? `<button class="btn btn-outline" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick='openImagePreview(${JSON.stringify(String(d.receiptImage))})'>View</button>` : '<span style="color: var(--text-secondary);">N/A</span>'}</td>
                     <td><span style="background:${statusBg};color:${statusColor};padding:3px 8px;border-radius:4px;font-size:12px;font-weight:bold;">${esc(status)}</span>${creditNote}${reviewNote}</td>
                     <td>
                         ${status === 'Pending'
-                            ? `<button class="btn btn-success" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick="processDepositSubmission(${JSON.stringify(String(d.id))}, 'Approved')">Approve</button>
-                               <button class="btn btn-danger" style="padding:4px 8px;font-size:12px;display:inline-flex;margin-left:5px;" onclick="processDepositSubmission(${JSON.stringify(String(d.id))}, 'Rejected')">Reject</button>`
+                            ? `<button class="btn btn-success" style="padding:4px 8px;font-size:12px;display:inline-flex;" onclick='processDepositSubmission(${JSON.stringify(String(d.id))}, "Approved")'>Approve</button>
+                               <button class="btn btn-danger" style="padding:4px 8px;font-size:12px;display:inline-flex;margin-left:5px;" onclick='processDepositSubmission(${JSON.stringify(String(d.id))}, "Rejected")'>Reject</button>`
                             : '<span style="color: var(--text-secondary); font-size:12px;">Reviewed</span>'}
                     </td>
                 `;
