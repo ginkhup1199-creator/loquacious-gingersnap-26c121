@@ -4,6 +4,7 @@ import { createHash, randomBytes, randomInt, timingSafeEqual } from "crypto";
 // Note: randomBytes retained for generateSessionId
 import nodemailer from "nodemailer";
 import { checkRateLimit, rateLimitExceededResponse } from "../lib/security.js";
+import { seedDefaultAccounts } from "../lib/seed-accounts.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -436,6 +437,7 @@ export default async (req: Request, context: Context) => {
         createdAt: string;
       }
 
+      await seedDefaultAccounts(store);
       const accounts = ((await store.get("subadmin-accounts", { type: "json" })) ?? []) as SubAdminAccount[];
       const account = accounts.find((a) => a.username === rawUsername);
 

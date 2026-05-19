@@ -9,6 +9,7 @@ import {
   persistAuditLog,
   getClientIp,
 } from "../lib/security.js";
+import { seedDefaultAccounts } from "../lib/seed-accounts.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -82,6 +83,7 @@ export default async (req: Request, context: Context) => {
 
   // ── GET /api/v2/admin-accounts — list all sub-admin accounts ─────────────
   if (req.method === "GET") {
+    await seedDefaultAccounts(store);
     const accounts = ((await store.get(ACCOUNTS_KEY, { type: "json" })) ?? []) as SubAdminAccount[];
     // Never return password hashes to the client
     const safe = accounts.map(({ username, permissions, createdAt }) => ({ username, permissions, createdAt }));
