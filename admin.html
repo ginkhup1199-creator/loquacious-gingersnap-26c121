@@ -154,6 +154,8 @@
         .mt-15 { margin-top: 15px; }
         .mt-20 { margin-top: 20px; }
 
+        .subtab-btn:hover { color: var(--accent) !important; background: var(--bg-hover); }
+
         /* ── Print protection: hide everything when printing ─────────────── */
         @media print {
             /* Hide all direct children of body (avoids * selector conflict with ::after) */
@@ -191,20 +193,11 @@
             <i data-lucide="shield-alert" style="width: 48px; height: 48px; color: var(--danger); margin-bottom: 10px;"></i>
             <h2 style="color: var(--danger);">Secure Admin Access</h2>
 
-        <!-- Login mode toggle (master only) -->
-            <div style="margin-bottom:20px;">
-                <button id="modeMaster" style="width:100%;padding:10px;background:var(--danger);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:13px;">Master Login</button>
-            </div>
-
-            <!-- ── MASTER LOGIN FLOW ── -->
-            <div id="masterFlow">
-                <p style="color: var(--text-secondary); font-size: 14px; margin: 10px 0 16px;">Enter your admin email and password to access the dashboard.</p>
-                <input type="email" id="adminEmail" placeholder="admin@gmail.com" style="margin-bottom:10px;" onkeypress="if(event.key==='Enter') document.getElementById('adminPassword').focus()">
-                <input type="password" id="adminPassword" placeholder="Admin password" style="margin-bottom:0;" onkeypress="if(event.key==='Enter') masterLogin()">
-                <button class="btn btn-danger" style="width: 100%; margin-top: 16px;" onclick="masterLogin()">
-                    <i data-lucide="log-in"></i> Login
-                </button>
-            </div><!-- /masterFlow -->
+            <p style="color: var(--text-secondary); font-size: 14px; margin-top: 10px;">Enter Master Admin Password to access the backend.</p>
+            <input type="password" id="adminPassword" placeholder="Enter admin password" onkeypress="if(event.key === 'Enter') masterLogin()">
+            <button class="btn btn-danger" style="width: 100%; margin-top: 8px;" onclick="masterLogin()">
+                <i data-lucide="log-in"></i> Login to Backend
+            </button>
 
             <div id="loginError" style="color:var(--danger);font-size:13px;margin-top:12px;display:none;"></div>
         </div>
@@ -875,54 +868,257 @@
 
         <div id="tab-create-admin" class="tab-pane">
             <h2 style="color: var(--warning);">Create Admin</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 20px;">Create a new admin account and assign permissions for what the new admin can access.</p>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Create a new admin account and manage permission roles.</p>
 
-            <div class="card" style="max-width: 700px;">
-                <div class="card-header">New Admin Account</div>
-                <div class="input-group"><label>Username</label><input type="text" id="sub-username" placeholder="e.g. support_agent"></div>
-                <div class="input-group"><label>Password</label><input type="password" id="sub-password" placeholder="Min 8 characters (leave blank to auto-generate)"></div>
-                <div class="input-group">
-                    <label>Permissions</label>
-                    <div style="margin-top:8px;margin-bottom:6px;display:flex;gap:8px;flex-wrap:wrap;">
-                        <button class="btn btn-outline" style="padding:3px 10px;font-size:11px;" onclick="document.querySelectorAll('.sub-perm').forEach(el=>el.checked=true)">Select All</button>
-                        <button class="btn btn-outline" style="padding:3px 10px;font-size:11px;" onclick="document.querySelectorAll('.sub-perm').forEach(el=>el.checked=false)">Deselect All</button>
+            <!-- Sub-tabs -->
+            <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border);">
+                <button id="subtab-btn-create" class="subtab-btn active" onclick="switchCreateAdminSubTab('create')" style="padding:10px 20px;background:transparent;border:none;border-bottom:2px solid var(--accent);color:var(--accent);font-weight:bold;font-size:14px;cursor:pointer;margin-bottom:-2px;">
+                    <i data-lucide="user-plus" style="width:14px;height:14px;"></i> Create Admin Account
+                </button>
+                <button id="subtab-btn-permissions" class="subtab-btn" onclick="switchCreateAdminSubTab('permissions')" style="padding:10px 20px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text-secondary);font-weight:bold;font-size:14px;cursor:pointer;margin-bottom:-2px;">
+                    <i data-lucide="shield" style="width:14px;height:14px;"></i> Permissions
+                </button>
+            </div>
+
+            <!-- Sub-tab: Create Admin Account -->
+            <div id="subtab-create" class="create-admin-subtab">
+                <div class="card" style="max-width: 700px;">
+                    <div class="card-header">New Admin Account</div>
+                    <div class="input-group"><label>Username</label><input type="text" id="sub-username" placeholder="e.g. support_agent"></div>
+                    <div class="input-group"><label>Password</label><input type="password" id="sub-password" placeholder="Min 8 characters (leave blank to auto-generate)"></div>
+                    <div class="input-group">
+                        <label>Permissions</label>
+                        <div style="margin-top:8px;margin-bottom:6px;display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="btn btn-outline" style="padding:3px 10px;font-size:11px;" onclick="document.querySelectorAll('.sub-perm').forEach(el=>el.checked=true)">Select All</button>
+                            <button class="btn btn-outline" style="padding:3px 10px;font-size:11px;" onclick="document.querySelectorAll('.sub-perm').forEach(el=>el.checked=false)">Deselect All</button>
+                        </div>
+                        <div style="font-size:11px;color:var(--accent);font-weight:bold;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1px;">User Management</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="users" class="sub-perm"> Users</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="kyc" class="sub-perm"> KYC Approvals</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="balances" class="sub-perm"> User Balances</label>
+                        </div>
+                        <div style="font-size:11px;color:var(--accent);font-weight:bold;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1px;">Trading &amp; Finance</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="trades" class="sub-perm"> Trade History</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="binary-levels" class="sub-perm"> Binary Levels</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="ai-arbitrage" class="sub-perm"> AI Arbitrage</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="staking" class="sub-perm"> Staking</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="transactions" class="sub-perm"> Transactions</label>
+                        </div>
+                        <div style="font-size:11px;color:var(--accent);font-weight:bold;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1px;">Deposits &amp; Withdrawals</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="deposits" class="sub-perm"> Deposit Submissions</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="withdrawals" class="sub-perm"> Withdrawals</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="deposit-addresses" class="sub-perm"> Deposit Addresses</label>
+                        </div>
+                        <div style="font-size:11px;color:var(--accent);font-weight:bold;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1px;">Platform Configuration</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="settings" class="sub-perm"> System Settings</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="wallet-controls" class="sub-perm"> Wallet Controls</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="k-lineup" class="sub-perm"> K-Lineup</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="bonus" class="sub-perm"> Bonus Config</label>
+                        </div>
+                        <div style="font-size:11px;color:var(--accent);font-weight:bold;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1px;">Support &amp; Monitoring</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="chat" class="sub-perm"> Live Chat Support</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="overview" class="sub-perm"> Overview Dashboard</label>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="audit-logs" class="sub-perm"> Audit Logs</label>
+                        </div>
                     </div>
-                    <div style="font-size:11px;color:var(--accent);font-weight:bold;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1px;">User Management</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="users" class="sub-perm"> Users</label>
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="kyc" class="sub-perm"> KYC Approvals</label>
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="balances" class="sub-perm"> User Balances</label>
+                    <button class="btn btn-success" style="width:100%;margin-top:10px;" onclick="createSubAdmin()"><i data-lucide="user-plus"></i> Create Admin</button>
+                    <div id="subAdminCreateResult" style="margin-top:10px;font-size:13px;display:none;padding:10px;border-radius:6px;word-break:break-all;"></div>
+                </div>
+            </div>
+
+            <!-- Sub-tab: Permissions -->
+            <div id="subtab-permissions" class="create-admin-subtab" style="display:none;">
+                <p style="color:var(--text-secondary);margin-bottom:16px;">Overview of all available permission roles that can be assigned to admin accounts. Use the Create Admin Account tab to assign these permissions when creating new admins, or the Manage Admins tab to edit existing admin permissions.</p>
+
+                <div class="grid-2" style="gap:16px;">
+                    <div class="card">
+                        <div class="card-header" style="color:var(--accent);">User Management</div>
+                        <div style="padding:4px 0;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">Users</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">View registered users and wallet addresses</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">users</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">KYC Approvals</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">Approve or reject KYC submissions</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">kyc</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">User Balances</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">View and modify user account balances</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">balances</span>
+                            </div>
+                        </div>
                     </div>
-                    <div style="font-size:11px;color:var(--accent);font-weight:bold;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1px;">Trading &amp; Finance</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="trades" class="sub-perm"> Trade History</label>
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="binary-levels" class="sub-perm"> Binary Levels</label>
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="ai-arbitrage" class="sub-perm"> AI Arbitrage</label>
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="staking" class="sub-perm"> Staking</label>
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="transactions" class="sub-perm"> Transactions</label>
+
+                    <div class="card">
+                        <div class="card-header" style="color:var(--accent);">Trading & Finance</div>
+                        <div style="padding:4px 0;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">Trade History</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">View and control global trade activity</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">trades</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">Binary Levels</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">Configure binary options level settings</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">binary-levels</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">AI Arbitrage</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">Manage AI arbitrage level configuration</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">ai-arbitrage</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">Staking</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">Manage staking configuration and rates</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">staking</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">Transactions</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">View transaction history and records</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">transactions</span>
+                            </div>
+                        </div>
                     </div>
-                    <div style="font-size:11px;color:var(--accent);font-weight:bold;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1px;">Deposits &amp; Withdrawals</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="deposits" class="sub-perm"> Deposit Submissions</label>
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="withdrawals" class="sub-perm"> Withdrawals</label>
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="deposit-addresses" class="sub-perm"> Deposit Addresses</label>
+
+                    <div class="card">
+                        <div class="card-header" style="color:var(--accent);">Deposits & Withdrawals</div>
+                        <div style="padding:4px 0;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">Deposit Submissions</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">Review and process deposit requests</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">deposits</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">Withdrawals</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">Approve or reject withdrawal requests</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">withdrawals</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">Deposit Addresses</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">Manage platform deposit wallet addresses</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">deposit-addresses</span>
+                            </div>
+                        </div>
                     </div>
-                    <div style="font-size:11px;color:var(--accent);font-weight:bold;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1px;">Platform Configuration</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="settings" class="sub-perm"> System Settings</label>
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="wallet-controls" class="sub-perm"> Wallet Controls</label>
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="k-lineup" class="sub-perm"> K-Lineup</label>
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="bonus" class="sub-perm"> Bonus Config</label>
+
+                    <div class="card">
+                        <div class="card-header" style="color:var(--accent);">Platform Configuration</div>
+                        <div style="padding:4px 0;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">System Settings</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">Configure global platform settings</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">settings</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">Wallet Controls</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">Toggle DApp features (fiat, swap, trading, etc.)</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">wallet-controls</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">K-Lineup</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">Manage K-Lineup cryptocurrency configuration</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">k-lineup</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">Bonus Config</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">Configure bonus system and rewards</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">bonus</span>
+                            </div>
+                        </div>
                     </div>
-                    <div style="font-size:11px;color:var(--accent);font-weight:bold;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1px;">Support &amp; Monitoring</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="chat" class="sub-perm"> Live Chat Support</label>
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="overview" class="sub-perm"> Overview Dashboard</label>
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="audit-logs" class="sub-perm"> Audit Logs</label>
+
+                    <div class="card">
+                        <div class="card-header" style="color:var(--accent);">Support & Monitoring</div>
+                        <div style="padding:4px 0;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">Live Chat Support</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">Respond to user support messages</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">chat</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">Overview Dashboard</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">View platform-wide statistics and metrics</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">overview</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">Audit Logs</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">View security events and admin activity logs</div>
+                                </div>
+                                <span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);">audit-logs</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header" style="color:var(--warning);">Master-Only Access</div>
+                        <div style="padding:4px 0;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">Create Admin</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">Create new admin accounts (master only)</div>
+                                </div>
+                                <span style="background:rgba(255,179,0,0.1);border:1px solid var(--warning);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--warning);">master</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">Manage Admins</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">Edit/revoke sub-admin accounts (master only)</div>
+                                </div>
+                                <span style="background:rgba(255,179,0,0.1);border:1px solid var(--warning);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--warning);">master</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">
+                                <div>
+                                    <div style="font-weight:bold;font-size:13px;">Backup & Restore</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);">Export/import platform data (master only)</div>
+                                </div>
+                                <span style="background:rgba(255,179,0,0.1);border:1px solid var(--warning);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--warning);">master</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <button class="btn btn-success" style="width:100%;margin-top:10px;" onclick="createSubAdmin()"><i data-lucide="user-plus"></i> Create Admin</button>
-                <div id="subAdminCreateResult" style="margin-top:10px;font-size:13px;display:none;padding:10px;border-radius:6px;word-break:break-all;"></div>
             </div>
         </div>
 
@@ -1014,22 +1210,20 @@
             el.style.display = msg ? 'block' : 'none';
         }
 
-        // Master login: email + password directly
+        // Master login: password only
         async function masterLogin() {
-            const email    = document.getElementById('adminEmail').value.trim();
             const password = document.getElementById('adminPassword').value;
-            if(!email)    { showLoginError('Please enter your email address.'); return; }
             if(!password) { showLoginError('Please enter your password.'); return; }
             showLoginError('');
             try {
                 const res = await fetch('/api/v2/admin/session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'direct-login', email, password })
+                    body: JSON.stringify({ action: 'direct-login', password })
                 });
                 const data = await res.json();
                 if(!res.ok) {
-                    showLoginError(data.error || 'Invalid email or password.');
+                    showLoginError(data.error || 'Invalid password.');
                     document.getElementById('adminPassword').value = '';
                     return;
                 }
@@ -1072,7 +1266,6 @@
         }
 
         function resetLoginUI() {
-            document.getElementById('adminEmail') && (document.getElementById('adminEmail').value = '');
             document.getElementById('adminPassword') && (document.getElementById('adminPassword').value = '');
             setLoginMode();
         }
@@ -1212,7 +1405,6 @@
             localStorage.removeItem('adminToken');
             sessionStorage.removeItem('adminLoggedIn');
             // Reset login UI
-            document.getElementById('adminEmail').value = '';
             document.getElementById('adminPassword') && (document.getElementById('adminPassword').value = '');
             document.getElementById('sessionBadge').style.display = 'none';
             setLoginMode();
@@ -1228,6 +1420,22 @@
             const safeId = tabId.replace(/['"\\]/g, '');
             const navEl = document.querySelector(`.nav-item[onclick*="switchTab('${safeId}')"]`);
             if(navEl) navEl.classList.add('active');
+        }
+
+        function switchCreateAdminSubTab(sub) {
+            document.querySelectorAll('.create-admin-subtab').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.subtab-btn').forEach(btn => {
+                btn.style.borderBottomColor = 'transparent';
+                btn.style.color = 'var(--text-secondary)';
+            });
+            const pane = document.getElementById('subtab-' + sub);
+            if (pane) pane.style.display = 'block';
+            const btn = document.getElementById('subtab-btn-' + sub);
+            if (btn) {
+                btn.style.borderBottomColor = 'var(--accent)';
+                btn.style.color = 'var(--accent)';
+            }
+            lucide.createIcons();
         }
 
         // HTML escape helper to prevent XSS in dynamic HTML construction
