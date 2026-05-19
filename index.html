@@ -829,7 +829,12 @@
         <!-- TAB: Binary Options -->
         <div id="tab-binary" class="tab-pane">
             <h2 style="margin-bottom: 15px; color: var(--accent);">Binary Options Trading</h2>
-            <div class="overlay-lock overlay-disabled" id="binaryPanel">
+            <div style="display:flex;gap:0;margin-bottom:18px;border-bottom:2px solid var(--border);">
+                <button class="binary-sub-tab active" onclick="switchBinarySubTab('trade')" id="binSubTabTrade" style="padding:10px 22px;background:none;border:none;color:var(--accent);font-weight:bold;font-size:14px;cursor:pointer;border-bottom:2px solid var(--accent);margin-bottom:-2px;">Trade</button>
+                <button class="binary-sub-tab" onclick="switchBinarySubTab('history')" id="binSubTabHistory" style="padding:10px 22px;background:none;border:none;color:var(--text-secondary);font-weight:bold;font-size:14px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;">History</button>
+            </div>
+            <div id="binarySubTrade" class="overlay-lock overlay-disabled" data-panel-id="binaryPanel">
+                <div id="binaryPanel">
                 <div class="card" style="margin-bottom: 16px;">
                     <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap: wrap; margin-bottom: 10px;">
                         <div style="font-size: 13px; color: var(--text-secondary);">Pair Selector + K-Lineup + Market Cap Situation</div>
@@ -887,6 +892,31 @@
                         <button class="btn btn-danger" style="padding: 15px; font-size: 16px;" onclick="placeBinaryTrade('PUT')"><i data-lucide="trending-down"></i> PUT</button>
                     </div>
                 </div>
+                </div>
+            </div>
+            <div id="binarySubHistory" style="display:none;">
+                <div class="card">
+                    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <span>Binary Trade History</span>
+                        <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="renderBinaryHistory()"><i data-lucide="refresh-cw"></i> Refresh</button>
+                    </div>
+                    <div id="binaryHistoryEmpty" style="color:var(--text-secondary);font-size:13px;padding:20px 0;text-align:center;">No binary trades yet. Place a trade to see your history here.</div>
+                    <div style="overflow-x:auto;">
+                        <table id="binaryHistoryTable" style="display:none;width:100%;">
+                            <thead><tr>
+                                <th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text-secondary);">Date</th>
+                                <th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text-secondary);">Pair</th>
+                                <th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text-secondary);">Direction</th>
+                                <th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text-secondary);">Amount</th>
+                                <th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text-secondary);">Level</th>
+                                <th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text-secondary);">Profit %</th>
+                                <th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text-secondary);">Result</th>
+                                <th style="text-align:left;padding:8px 10px;font-size:12px;color:var(--text-secondary);">P/L</th>
+                            </tr></thead>
+                            <tbody id="binaryHistoryBody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -894,6 +924,11 @@
         <div id="tab-ai" class="tab-pane">
             <h2 style="margin-bottom: 6px; color: var(--accent);">AI Arbitrage ETF Workflow</h2>
             <div style="margin-bottom: 15px; color: var(--text-secondary); font-size: 13px;">5 levels plan, staking coin visibility (BTC/ETH/USDT), added date, withdraw date, profit % and minimum capital.</div>
+            <div id="aiBalanceWarning" style="display:none;margin-bottom:18px;padding:14px 18px;border-radius:10px;background:rgba(255,23,68,0.08);border:1px solid var(--danger);text-align:center;">
+                <div style="font-size:14px;font-weight:bold;color:var(--danger);margin-bottom:4px;"><i data-lucide="alert-triangle" style="width:16px;display:inline-block;vertical-align:middle;"></i> Insufficient Balance</div>
+                <div style="font-size:13px;color:var(--text-secondary);">Your account balance is not enough to use AI Arbitrage. Please deposit funds to unlock these features.</div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">Current balance: <b id="aiBalanceDisplay" style="color:var(--warning);">$0.00</b> | Minimum required: <b id="aiMinRequiredDisplay" style="color:var(--accent);">--</b></div>
+            </div>
             <div class="overlay-lock overlay-disabled" id="aiPanel">
                 <div id="aiActiveBots" style="display:none; margin-bottom: 20px;">
                     <div class="card-header" style="margin-bottom: 10px; color: var(--warning);">⚡ Active Bots</div>
@@ -1447,6 +1482,9 @@
                 // Refresh the live BTC price display immediately
                 const priceEl = document.getElementById('binLivePrice');
                 if(priceEl && liveBtcPrice) priceEl.innerText = '$' + liveBtcPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                // Refresh history if history sub-tab is visible
+                const histPane = document.getElementById('binarySubHistory');
+                if(histPane && histPane.style.display !== 'none') renderBinaryHistory();
             }
         }
 
@@ -1551,9 +1589,11 @@
         let cachedAiLevels = [];
         let cachedDepositSubmissions = [];
         let bonusConfig = null;
+        let cachedTradesData = [];
         let walletAddr = localStorage.getItem('walletAddr') || '';
         let stakingPositions = [];
         let selectedBinarySymbol = 'BTC';
+        let currentUserUsdtBalance = 0;
 
         const MARKET_CAP_EST = {
             BTC: 1800000000000,
@@ -2232,6 +2272,71 @@
             updateHomeMarketOverview();
         }
 
+        function switchBinarySubTab(which) {
+            const tradePane = document.getElementById('binarySubTrade');
+            const historyPane = document.getElementById('binarySubHistory');
+            const tabTrade = document.getElementById('binSubTabTrade');
+            const tabHistory = document.getElementById('binSubTabHistory');
+            if (which === 'history') {
+                tradePane.style.display = 'none';
+                historyPane.style.display = 'block';
+                tabTrade.style.color = 'var(--text-secondary)';
+                tabTrade.style.borderBottomColor = 'transparent';
+                tabHistory.style.color = 'var(--accent)';
+                tabHistory.style.borderBottomColor = 'var(--accent)';
+                renderBinaryHistory();
+            } else {
+                tradePane.style.display = '';
+                historyPane.style.display = 'none';
+                tabTrade.style.color = 'var(--accent)';
+                tabTrade.style.borderBottomColor = 'var(--accent)';
+                tabHistory.style.color = 'var(--text-secondary)';
+                tabHistory.style.borderBottomColor = 'transparent';
+            }
+        }
+
+        function renderBinaryHistory() {
+            const trades = cachedTradesData.filter(t => t.type === 'binary');
+            const emptyEl = document.getElementById('binaryHistoryEmpty');
+            const table = document.getElementById('binaryHistoryTable');
+            const tbody = document.getElementById('binaryHistoryBody');
+            if (!trades.length) {
+                if (emptyEl) emptyEl.style.display = 'block';
+                if (table) table.style.display = 'none';
+                return;
+            }
+            if (emptyEl) emptyEl.style.display = 'none';
+            if (table) table.style.display = 'table';
+            const sorted = trades.slice().sort((a, b) => Number(b.id) - Number(a.id));
+            tbody.innerHTML = sorted.map(t => {
+                const date = new Date(Number(t.id)).toLocaleString();
+                const pair = (t.fromCoin || 'BTC') + '/USDT';
+                const dir = t.direction || '—';
+                const dirColor = dir === 'CALL' ? 'var(--success)' : dir === 'PUT' ? 'var(--danger)' : 'var(--text-secondary)';
+                const amt = Number(t.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const lvl = t.levelName || ('Level ' + (t.levelId || '?'));
+                const profit = (t.profitPercent || '—') + (t.profitPercent ? '%' : '');
+                const status = t.status || '—';
+                let resultLabel = status;
+                let resultColor = 'var(--warning)';
+                let pl = '—';
+                if (status === 'won') { resultLabel = 'Won'; resultColor = 'var(--success)'; pl = '+$' + (Number(t.amount || 0) * (Number(t.profitPercent || 0) / 100)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+                else if (status === 'lost') { resultLabel = 'Lost'; resultColor = 'var(--danger)'; pl = '-$' + Number(t.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+                else if (status === 'active') { resultLabel = 'Active'; resultColor = 'var(--accent)'; }
+                return `<tr>
+                    <td style="padding:8px 10px;font-size:12px;color:var(--text-secondary);">${date}</td>
+                    <td style="padding:8px 10px;font-size:13px;font-weight:bold;color:var(--text-primary);">${pair}</td>
+                    <td style="padding:8px 10px;"><span style="color:${dirColor};font-weight:bold;">${dir}</span></td>
+                    <td style="padding:8px 10px;color:var(--text-primary);">$${amt}</td>
+                    <td style="padding:8px 10px;font-size:12px;color:var(--text-secondary);">${lvl}</td>
+                    <td style="padding:8px 10px;color:var(--success);">${profit}</td>
+                    <td style="padding:8px 10px;"><span style="color:${resultColor};font-weight:bold;font-size:12px;">${resultLabel}</span></td>
+                    <td style="padding:8px 10px;font-weight:bold;color:${resultColor};">${pl}</td>
+                </tr>`;
+            }).join('');
+            lucide.createIcons();
+        }
+
         function selectBinaryLevel(lvl) {
             selectedBinaryLevel = lvl.id;
             const capitalLabel = formatCapitalRange(lvl);
@@ -2309,13 +2414,32 @@
             const badgeClasses = ['badge-success', 'badge-accent', 'badge-warning', 'badge-accent', 'badge-danger'];
             const icons = ['cpu', 'zap', 'target', 'rocket', 'diamond'];
             const now = new Date();
+
+            const minCapitalAll = levels.length ? Math.min(...levels.map(l => Number(l.minCapital ?? l.capital ?? 0))) : 0;
+            const balanceTooLow = currentUserUsdtBalance < minCapitalAll && minCapitalAll > 0;
+            const warningEl = document.getElementById('aiBalanceWarning');
+            const balDisp = document.getElementById('aiBalanceDisplay');
+            const minDisp = document.getElementById('aiMinRequiredDisplay');
+            if (warningEl) {
+                warningEl.style.display = balanceTooLow ? 'block' : 'none';
+                if (balDisp) balDisp.innerText = '$' + currentUserUsdtBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                if (minDisp) minDisp.innerText = '$' + minCapitalAll.toLocaleString();
+            }
+
             levels.forEach((lvl, i) => {
                 const stakeCoin = (lvl.stakeCoin || 'USDT').toUpperCase();
                 const cycleHours = Math.max(1, Number(lvl.cycleTime || 24));
                 const addedDate = new Date(now.getTime());
                 const withdrawDate = new Date(now.getTime() + cycleHours * 3600 * 1000);
+                const levelMin = Number(lvl.minCapital ?? lvl.capital ?? 0);
+                const canAfford = currentUserUsdtBalance >= levelMin;
                 const card = document.createElement('div');
                 card.className = 'card';
+                if (!canAfford) {
+                    card.style.opacity = '0.45';
+                    card.style.pointerEvents = 'none';
+                    card.style.filter = 'grayscale(0.5)';
+                }
                 card.innerHTML = `
                     <div class="badge ${badgeClasses[i]}" style="margin-bottom: 10px;">ETF Level ${lvl.id}: ${lvl.name}</div>
                     <h3 style="color: var(--text-primary); margin-bottom: 12px;">${lvl.name} ETF Strategy</h3>
@@ -2339,7 +2463,10 @@
                         <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-secondary); margin-bottom:4px;"><span>Added Date</span><span>${addedDate.toLocaleString()}</span></div>
                         <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-secondary);"><span>Withdraw Date</span><span style="color:var(--warning);">${withdrawDate.toLocaleString()}</span></div>
                     </div>
-                    <button class="btn mt-15" style="width: 100%;" onclick="deployAiBot(${lvl.id})"><i data-lucide="${icons[i]}" style="width:14px;display:inline-block;vertical-align:middle;"></i> Stake ETF Plan</button>
+                    ${canAfford
+                        ? `<button class="btn mt-15" style="width: 100%;" onclick="deployAiBot(${lvl.id})"><i data-lucide="${icons[i]}" style="width:14px;display:inline-block;vertical-align:middle;"></i> Stake ETF Plan</button>`
+                        : `<button class="btn mt-15" style="width: 100%;opacity:0.5;cursor:not-allowed;" disabled><i data-lucide="lock" style="width:14px;display:inline-block;vertical-align:middle;"></i> Balance Too Low</button>`
+                    }
                 `;
                 grid.appendChild(card);
             });
@@ -2833,6 +2960,7 @@
                 // 7. Balance
                 if(balanceData && !balanceData.error) {
                     const usdt = parseFloat(balanceData.usdt || 0);
+                    currentUserUsdtBalance = usdt;
                     const fmt = usdt.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                     const totalEl = document.getElementById('walletTotalBalance');
                     if(totalEl) totalEl.innerHTML = `$${fmt} <span style="font-size:16px;color:var(--accent);font-weight:normal;">USD</span>`;
@@ -2845,6 +2973,7 @@
                     if(usdtBal) usdtBal.innerText = fmt;
                     const usdtUsd = document.getElementById('assetUsd-USDT');
                     if(usdtUsd) usdtUsd.innerText = '$' + fmt;
+                    if(cachedAiLevels.length) renderAiLevels(cachedAiLevels);
                 }
 
                 // 8. Chat messages (update if chat is open)
@@ -2855,6 +2984,7 @@
 
                 // 9. Active trades — resume binary countdown + render active AI bots
                 if(Array.isArray(tradesData)) {
+                    cachedTradesData = tradesData;
                     renderActiveBots(tradesData);
                     // Resume binary countdown if there's an active binary trade not yet being timed
                     const activeBinary = tradesData.find(t => t.type === 'binary' && t.status === 'active');

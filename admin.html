@@ -791,13 +791,42 @@
                 <div class="input-group"><label>Password</label><input type="password" id="sub-password" placeholder="Min 8 characters (leave blank to auto-generate)"></div>
                 <div class="input-group">
                     <label>Permissions</label>
-                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="kyc" class="sub-perm"> KYC</label>
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="withdrawals" class="sub-perm"> Withdrawals</label>
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="chat" class="sub-perm"> Chat</label>
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="settings" class="sub-perm"> Settings</label>
+                    <div style="margin-top:8px;margin-bottom:6px;display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn btn-outline" style="padding:3px 10px;font-size:11px;" onclick="document.querySelectorAll('.sub-perm').forEach(el=>el.checked=true)">Select All</button>
+                        <button class="btn btn-outline" style="padding:3px 10px;font-size:11px;" onclick="document.querySelectorAll('.sub-perm').forEach(el=>el.checked=false)">Deselect All</button>
+                    </div>
+                    <div style="font-size:11px;color:var(--accent);font-weight:bold;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1px;">User Management</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
                         <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="users" class="sub-perm"> Users</label>
-                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="trades" class="sub-perm"> Trades</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="kyc" class="sub-perm"> KYC Approvals</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="balances" class="sub-perm"> User Balances</label>
+                    </div>
+                    <div style="font-size:11px;color:var(--accent);font-weight:bold;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1px;">Trading &amp; Finance</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="trades" class="sub-perm"> Trade History</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="binary-levels" class="sub-perm"> Binary Levels</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="ai-arbitrage" class="sub-perm"> AI Arbitrage</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="staking" class="sub-perm"> Staking</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="transactions" class="sub-perm"> Transactions</label>
+                    </div>
+                    <div style="font-size:11px;color:var(--accent);font-weight:bold;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1px;">Deposits &amp; Withdrawals</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="deposits" class="sub-perm"> Deposit Submissions</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="withdrawals" class="sub-perm"> Withdrawals</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="deposit-addresses" class="sub-perm"> Deposit Addresses</label>
+                    </div>
+                    <div style="font-size:11px;color:var(--accent);font-weight:bold;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1px;">Platform Configuration</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="settings" class="sub-perm"> System Settings</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="wallet-controls" class="sub-perm"> Wallet Controls</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="k-lineup" class="sub-perm"> K-Lineup</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="bonus" class="sub-perm"> Bonus Config</label>
+                    </div>
+                    <div style="font-size:11px;color:var(--accent);font-weight:bold;margin:10px 0 6px;text-transform:uppercase;letter-spacing:1px;">Support &amp; Monitoring</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="chat" class="sub-perm"> Live Chat Support</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="overview" class="sub-perm"> Overview Dashboard</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="audit-logs" class="sub-perm"> Audit Logs</label>
                     </div>
                 </div>
                 <button class="btn btn-success" style="width:100%;margin-top:10px;" onclick="createSubAdmin()"><i data-lucide="user-plus"></i> Create Admin</button>
@@ -807,7 +836,7 @@
 
         <div id="tab-master" class="tab-pane">
             <h2 style="color: var(--warning);">Manage Admins</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 20px;">Review and revoke existing admin accounts.</p>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Review, edit permissions, and revoke existing admin accounts.</p>
 
             <div class="card">
                 <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
@@ -816,9 +845,20 @@
                 </div>
                 <div id="subAdminListEmpty" style="color:var(--text-secondary);font-size:13px;padding:12px 0;">No sub-admins created yet.</div>
                 <table id="subAdminTable" style="display:none;">
-                    <thead><tr><th>Username</th><th>Permissions</th><th>Created</th><th>Action</th></tr></thead>
+                    <thead><tr><th>Username</th><th>Permissions</th><th>Created</th><th>Actions</th></tr></thead>
                     <tbody id="subAdminTableBody"></tbody>
                 </table>
+            </div>
+
+            <div id="editPermModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;">
+                <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;">
+                    <h3 style="color:var(--warning);margin-bottom:12px;">Edit Permissions — <span id="editPermUsername" style="color:var(--accent);"></span></h3>
+                    <div id="editPermChecks" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn btn-success" style="flex:1;" onclick="saveEditedPermissions()"><i data-lucide="check"></i> Save</button>
+                        <button class="btn btn-outline" style="flex:1;" onclick="closeEditPermModal()">Cancel</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -994,7 +1034,10 @@
                     <td><strong>${esc(a.username)}</strong></td>
                     <td style="font-size:12px;">${(a.permissions || []).map(p => `<span style="background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:4px;padding:2px 6px;margin:1px;display:inline-block;">${esc(p)}</span>`).join(' ') || '<span style="color:var(--text-secondary)">none</span>'}</td>
                     <td style="font-size:12px;color:var(--text-secondary);">${a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—'}</td>
-                    <td><button class="btn btn-danger" style="padding:3px 8px;font-size:11px;" data-username="${esc(a.username)}" onclick="revokeSubAdmin(this.dataset.username)"><i data-lucide="trash-2"></i> Revoke</button></td>
+                    <td style="white-space:nowrap;">
+                        <button class="btn btn-outline" style="padding:3px 8px;font-size:11px;margin-right:4px;" data-username="${esc(a.username)}" data-perms="${esc((a.permissions||[]).join(','))}" onclick="openEditPermModal(this.dataset.username,this.dataset.perms)"><i data-lucide="edit-3"></i> Edit</button>
+                        <button class="btn btn-danger" style="padding:3px 8px;font-size:11px;" data-username="${esc(a.username)}" onclick="revokeSubAdmin(this.dataset.username)"><i data-lucide="trash-2"></i> Revoke</button>
+                    </td>
                 </tr>`).join('');
             lucide.createIcons();
         }
@@ -1006,6 +1049,38 @@
                 alert(res?.error || 'Failed to revoke sub-admin.');
             } else {
                 alert(res.message || `Sub-admin '${username}' revoked.`);
+                loadAdminAccounts();
+            }
+        }
+
+        const ALL_PERMS = ['kyc','withdrawals','chat','settings','users','trades','binary-levels','ai-arbitrage','k-lineup','deposits','bonus','transactions','balances','staking','deposit-addresses','audit-logs','wallet-controls','overview'];
+        const PERM_LABELS = {kyc:'KYC Approvals',withdrawals:'Withdrawals',chat:'Live Chat',settings:'System Settings',users:'Users',trades:'Trade History','binary-levels':'Binary Levels','ai-arbitrage':'AI Arbitrage','k-lineup':'K-Lineup',deposits:'Deposit Submissions',bonus:'Bonus Config',transactions:'Transactions',balances:'User Balances',staking:'Staking','deposit-addresses':'Deposit Addresses','audit-logs':'Audit Logs','wallet-controls':'Wallet Controls',overview:'Overview Dashboard'};
+        let _editingUser = '';
+
+        function openEditPermModal(username, permsStr) {
+            _editingUser = username;
+            const current = permsStr ? permsStr.split(',') : [];
+            document.getElementById('editPermUsername').innerText = username;
+            const container = document.getElementById('editPermChecks');
+            container.innerHTML = ALL_PERMS.map(p => `<label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" value="${p}" class="edit-perm" ${current.includes(p)?'checked':''}> ${PERM_LABELS[p]||p}</label>`).join('');
+            const modal = document.getElementById('editPermModal');
+            modal.style.display = 'flex';
+        }
+
+        function closeEditPermModal() {
+            document.getElementById('editPermModal').style.display = 'none';
+            _editingUser = '';
+        }
+
+        async function saveEditedPermissions() {
+            if (!_editingUser) return;
+            const perms = Array.from(document.querySelectorAll('.edit-perm:checked')).map(el => el.value);
+            const res = await api('admin-accounts', 'POST', { action: 'update', username: _editingUser, permissions: perms });
+            if (!res || res.error) {
+                alert(res?.error || 'Failed to update permissions.');
+            } else {
+                alert(res.message || 'Permissions updated.');
+                closeEditPermModal();
                 loadAdminAccounts();
             }
         }
