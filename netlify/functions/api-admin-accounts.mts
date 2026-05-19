@@ -26,7 +26,26 @@ interface SubAdminAccount {
 // ---------------------------------------------------------------------------
 
 const ACCOUNTS_KEY = "subadmin-accounts";
-const ALLOWED_PERMISSIONS = ["kyc", "withdrawals", "chat", "settings", "users", "trades"];
+const ALLOWED_PERMISSIONS = [
+  "kyc",
+  "withdrawals",
+  "chat",
+  "settings",
+  "users",
+  "trades",
+  "binary-levels",
+  "ai-arbitrage",
+  "k-lineup",
+  "deposits",
+  "bonus",
+  "transactions",
+  "balances",
+  "staking",
+  "deposit-addresses",
+  "audit-logs",
+  "wallet-controls",
+  "overview",
+];
 
 function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
