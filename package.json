@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@netlify/blobs": "^8.1.0",
-    "@netlify/functions": "^3.0.0",
+    "@netlify/functions": "^5.2.2",
     "nodemailer": "^7.0.11"
   },
   "devDependencies": {
