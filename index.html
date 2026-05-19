@@ -785,7 +785,7 @@
             <div class="card overlay-lock overlay-disabled" id="swapPanel" style="max-width: 450px; margin: 0 auto;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
                     <span style="color: var(--text-secondary); font-size: 14px;">Pay</span>
-                    <span style="color: var(--text-secondary); font-size: 14px;">Balance: <span id="swapBalanceDisplay">0</span> USDT</span>
+                    <span style="color: var(--text-secondary); font-size: 14px;">Balance: <span id="swapFromBalDisplay">0</span> <span id="swapFromBalCoin">USDT</span></span>
                 </div>
                 <div style="display: flex; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 10px;">
                     <input type="number" id="swap-from-amount" placeholder="0.0" style="background: transparent; border: none; color: white; font-size: 24px; width: 100%; outline: none;" oninput="updateSwapEstimate()">
@@ -805,6 +805,9 @@
                 <div style="text-align: center; margin: 5px 0; color: var(--accent); cursor: pointer;" onclick="swapCoins()"><i data-lucide="arrow-up-down"></i></div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 10px; margin-top: 5px;">
                     <span style="color: var(--text-secondary); font-size: 14px;">Receive (Estimated)</span>
+                    <span style="color: var(--text-secondary); font-size: 14px;">Balance: <span id="swapToBalDisplay">0</span> <span id="swapToBalCoin">ETH</span></span>
+                </div>
+                <div style="display: flex; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 10px;">
                     <span style="color: var(--text-secondary); font-size: 12px;">Fee: 0.5%</span>
                 </div>
                 <div style="display: flex; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 15px;">
@@ -823,6 +826,10 @@
                     </select>
                 </div>
                 <button class="btn" style="width: 100%; padding: 15px; font-size: 16px;" onclick="executeSwap()"><i data-lucide="refresh-cw"></i> Swap Now</button>
+                <div id="swapHoldingsSummary" style="margin-top: 15px; padding: 12px; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; display: none;">
+                    <div style="color: var(--accent); font-size: 13px; font-weight: bold; margin-bottom: 8px;">Your Coin Holdings</div>
+                    <div id="swapHoldingsList" style="font-size: 13px; color: var(--text-secondary);"></div>
+                </div>
             </div>
         </div>
 
@@ -2144,6 +2151,7 @@
 
         // Swap Functions
         const SWAP_RATES = { USDT: 1, USDC: 1, ETH: 1800, BTC: 94000, BNB: 600, SOL: 145 };
+        let userCoinHoldings = {};
 
         // refreshSwapRates() is provided for backward compat but now delegates to fetchMarketDataPrices()
         async function refreshSwapRates() {
@@ -2159,6 +2167,7 @@
             const estimated = fromAmt > 0 ? ((fromAmt * fromRate / toRate) * 0.995).toFixed(6) : '';
             const toEl = document.getElementById('swap-to-amount');
             if(toEl) toEl.value = estimated;
+            updateSwapCoinBalances();
         }
         function swapCoins() {
             const fromCoin = document.getElementById('swap-from-coin');
@@ -2169,6 +2178,46 @@
             toCoin.value = tmp;
             updateSwapEstimate();
         }
+        function getHoldingForCoin(coin) {
+            if(coin === 'USDT') return currentUserUsdtBalance || 0;
+            return (userCoinHoldings && userCoinHoldings[coin]) || 0;
+        }
+        function updateSwapCoinBalances() {
+            const fromCoin = document.getElementById('swap-from-coin')?.value || 'USDT';
+            const toCoin = document.getElementById('swap-to-coin')?.value || 'ETH';
+            const fromBal = getHoldingForCoin(fromCoin);
+            const toBal = getHoldingForCoin(toCoin);
+            const fromBalEl = document.getElementById('swapFromBalDisplay');
+            const fromCoinEl = document.getElementById('swapFromBalCoin');
+            const toBalEl = document.getElementById('swapToBalDisplay');
+            const toCoinEl = document.getElementById('swapToBalCoin');
+            if(fromBalEl) fromBalEl.innerText = fromBal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 6});
+            if(fromCoinEl) fromCoinEl.innerText = fromCoin;
+            if(toBalEl) toBalEl.innerText = toBal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 6});
+            if(toCoinEl) toCoinEl.innerText = toCoin;
+            renderSwapHoldings();
+        }
+        function renderSwapHoldings() {
+            const container = document.getElementById('swapHoldingsSummary');
+            const list = document.getElementById('swapHoldingsList');
+            if(!container || !list) return;
+            const entries = [];
+            if(currentUserUsdtBalance > 0) entries.push({coin: 'USDT', amount: currentUserUsdtBalance});
+            if(userCoinHoldings) {
+                Object.entries(userCoinHoldings).forEach(([coin, amount]) => {
+                    if(amount > 0) entries.push({coin, amount});
+                });
+            }
+            if(entries.length === 0) { container.style.display = 'none'; return; }
+            container.style.display = 'block';
+            list.innerHTML = entries.map(e => {
+                const usdVal = (e.amount * (SWAP_RATES[e.coin] || 1));
+                return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);">
+                    <span style="color:var(--text-primary);font-weight:500;">${e.coin}</span>
+                    <span>${Number(e.amount).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:6})} <span style="color:var(--accent);font-size:11px;">≈ $${usdVal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span></span>
+                </div>`;
+            }).join('');
+        }
         async function executeSwap() {
             if(!isConnected) { showToast('Connect your wallet first.', 'warning'); return; }
             const amount = parseFloat(document.getElementById('swap-from-amount')?.value);
@@ -2176,9 +2225,11 @@
             const toCoin = document.getElementById('swap-to-coin')?.value || 'ETH';
             if(!amount || amount <= 0) { showToast('Enter a valid amount.', 'warning'); return; }
             if(fromCoin === toCoin) { showToast('Select different coins to swap.', 'warning'); return; }
+            const fromBal = getHoldingForCoin(fromCoin);
+            if(amount > fromBal) { showToast(`Insufficient ${fromCoin} balance.`, 'error'); return; }
             const result = await api('trades', 'POST', { type: 'swap', wallet: walletAddr, fromCoin, toCoin, amount });
             if(!result || result.error) { showToast(result?.error || 'Swap failed.', 'error'); return; }
-            showToast(`Swap submitted! You receive ~${result.estimatedOut} ${toCoin}`);
+            showToast(`Swap complete! You received ~${result.estimatedOut} ${toCoin}`, 'success');
             document.getElementById('swap-from-amount').value = '';
             document.getElementById('swap-to-amount').value = '';
             pollBackend();
@@ -2962,18 +3013,36 @@
                 if(balanceData && !balanceData.error) {
                     const usdt = parseFloat(balanceData.usdt || 0);
                     currentUserUsdtBalance = usdt;
+                    userCoinHoldings = balanceData.holdings || {};
                     const fmt = usdt.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                     const totalEl = document.getElementById('walletTotalBalance');
-                    if(totalEl) totalEl.innerHTML = `$${fmt} <span style="font-size:16px;color:var(--accent);font-weight:normal;">USD</span>`;
+                    // Calculate total portfolio value including holdings
+                    let totalUsd = usdt;
+                    Object.entries(userCoinHoldings).forEach(([coin, amt]) => {
+                        totalUsd += (Number(amt) || 0) * (SWAP_RATES[coin] || 1);
+                    });
+                    const totalFmt = totalUsd.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    if(totalEl) totalEl.innerHTML = `$${totalFmt} <span style="font-size:16px;color:var(--accent);font-weight:normal;">USD</span>`;
                     const balanceEl = document.getElementById('walletBalance');
                     if(balanceEl) balanceEl.innerText = fmt + ' USDT';
-                    const swapBalEl = document.getElementById('swapBalanceDisplay');
-                    if(swapBalEl) swapBalEl.innerText = fmt;
                     // Update USDT asset row in wallet overview table
                     const usdtBal = document.getElementById('assetBal-USDT');
                     if(usdtBal) usdtBal.innerText = fmt;
                     const usdtUsd = document.getElementById('assetUsd-USDT');
                     if(usdtUsd) usdtUsd.innerText = '$' + fmt;
+                    // Update BTC and ETH asset rows from holdings
+                    const btcBal = document.getElementById('assetBal-BTC');
+                    const btcHeld = userCoinHoldings['BTC'] || 0;
+                    if(btcBal) btcBal.innerText = btcHeld > 0 ? Number(btcHeld).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 6}) : '—';
+                    const btcUsd = document.getElementById('assetUsd-BTC');
+                    if(btcUsd) btcUsd.innerText = btcHeld > 0 ? '$' + (btcHeld * (SWAP_RATES['BTC'] || 1)).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '$--';
+                    const ethBal = document.getElementById('assetBal-ETH');
+                    const ethHeld = userCoinHoldings['ETH'] || 0;
+                    if(ethBal) ethBal.innerText = ethHeld > 0 ? Number(ethHeld).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 6}) : '—';
+                    const ethUsd = document.getElementById('assetUsd-ETH');
+                    if(ethUsd) ethUsd.innerText = ethHeld > 0 ? '$' + (ethHeld * (SWAP_RATES['ETH'] || 1)).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '$--';
+                    // Update swap panel coin balances
+                    updateSwapCoinBalances();
                     if(cachedAiLevels.length) renderAiLevels(cachedAiLevels);
                 }
 

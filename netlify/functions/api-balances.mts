@@ -64,7 +64,8 @@ export default async (req: Request, context: Context) => {
 
     await persistAuditLog("ADMIN_WRITE", { operation: "update-balance", wallet: `${safeWallet.slice(0, 8)}…`, ip }, store);
 
-    const balance = { usdt: parsedUsdt };
+    const existing = ((await store.get(`balance-${safeWallet.toLowerCase()}`, { type: "json" })) || {}) as Record<string, unknown>;
+    const balance = { ...existing, usdt: parsedUsdt };
     await store.setJSON(`balance-${safeWallet.toLowerCase()}`, balance);
     return secureJson(balance);
   }
