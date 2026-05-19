@@ -203,7 +203,7 @@ export default async (req: Request, context: Context) => {
       }
     }
 
-    // Swap: calculate estimated output using live market rates
+    // Swap: calculate estimated output using live market rates, deduct from-coin, credit to-coin
     if (type === "swap") {
       const swapAmount = Number(body.amount);
       if (!Number.isFinite(swapAmount) || swapAmount <= 0) {
@@ -218,11 +218,42 @@ export default async (req: Request, context: Context) => {
       const fromRate = liveRates[fromCoin] || 1;
       const toRate = liveRates[toCoin] || 1;
       const feeMultiplier = 0.995; // 0.5% fee
+      const estimatedOut = parseFloat(((swapAmount * fromRate) / toRate * feeMultiplier).toFixed(6));
+
+      // Load balance and holdings
+      const balance = ((await store.get(`balance-${safeWallet}`, { type: "json" })) || { usdt: 0 }) as { usdt: number; holdings?: Record<string, number> };
+      if (!balance.holdings) balance.holdings = {};
+
+      // Check sufficient balance for from-coin
+      if (fromCoin === "USDT") {
+        if (balance.usdt < swapAmount) {
+          return secureJson({ error: "Insufficient USDT balance" }, 400);
+        }
+        balance.usdt = parseFloat((balance.usdt - swapAmount).toFixed(6));
+      } else {
+        const held = balance.holdings[fromCoin] || 0;
+        if (held < swapAmount) {
+          return secureJson({ error: `Insufficient ${fromCoin} balance` }, 400);
+        }
+        balance.holdings[fromCoin] = parseFloat((held - swapAmount).toFixed(6));
+        if (balance.holdings[fromCoin] <= 0) delete balance.holdings[fromCoin];
+      }
+
+      // Credit to-coin
+      if (toCoin === "USDT") {
+        balance.usdt = parseFloat((balance.usdt + estimatedOut).toFixed(6));
+      } else {
+        balance.holdings[toCoin] = parseFloat(((balance.holdings[toCoin] || 0) + estimatedOut).toFixed(6));
+      }
+
+      await store.setJSON(`balance-${safeWallet}`, balance);
+
       newTrade.fromCoin = fromCoin;
       newTrade.toCoin = toCoin;
       newTrade.amount = swapAmount;
-      newTrade.estimatedOut = ((swapAmount * fromRate) / toRate * feeMultiplier).toFixed(6);
+      newTrade.estimatedOut = estimatedOut.toString();
       newTrade.fee = (swapAmount * 0.005).toFixed(6);
+      newTrade.status = "completed";
     }
 
     trades.unshift(newTrade);
