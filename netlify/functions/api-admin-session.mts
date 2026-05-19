@@ -241,7 +241,7 @@ export default async (req: Request, context: Context) => {
     }
 
     const action = String(body.action ?? "");
-    // ── direct-login: email + password (no OTP) ─────────────────────────────────────────────────
+    // ── direct-login: password only (email optional for backwards compat) ──
     if (action === "direct-login") {
       const email    = String(body.email    ?? "").toLowerCase().trim();
       const password = String(body.password ?? "").trim();
@@ -257,17 +257,20 @@ export default async (req: Request, context: Context) => {
         );
       }
 
-      const MAX_EMAIL_LEN = 254;
-      const emailMatch = (() => {
-        try {
-          if (email.includes("\0")) return false;
-          const aBuf = Buffer.alloc(MAX_EMAIL_LEN);
-          const bBuf = Buffer.alloc(MAX_EMAIL_LEN);
-          Buffer.from(email).copy(aBuf);
-          Buffer.from(adminEmail).copy(bBuf);
-          return timingSafeEqual(aBuf, bBuf);
-        } catch { return false; }
-      })();
+      let emailMatch = true;
+      if (email) {
+        const MAX_EMAIL_LEN = 254;
+        emailMatch = (() => {
+          try {
+            if (email.includes("\0")) return false;
+            const aBuf = Buffer.alloc(MAX_EMAIL_LEN);
+            const bBuf = Buffer.alloc(MAX_EMAIL_LEN);
+            Buffer.from(email).copy(aBuf);
+            Buffer.from(adminEmail).copy(bBuf);
+            return timingSafeEqual(aBuf, bBuf);
+          } catch { return false; }
+        })();
+      }
 
       if (!emailMatch || !timingSafeTokenCompare(password, process.env.ADMIN_TOKEN!)) {
         const failure = await recordLoginFailure(store, loginGuardKey);
@@ -278,7 +281,7 @@ export default async (req: Request, context: Context) => {
             { status: 429, headers: { ...headers, "Retry-After": String(Math.ceil(LOGIN_LOCKOUT_MS / 1000)) } }
           );
         }
-        return Response.json({ error: "Invalid email or password." }, { status: 401, headers });
+        return Response.json({ error: "Invalid password." }, { status: 401, headers });
       }
 
       await clearLoginGuardState(store, loginGuardKey);
