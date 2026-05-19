@@ -2201,7 +2201,8 @@
             const input = document.getElementById('chatInput');
             const text = input.value.trim();
             if(!text) return;
-            await api('chat', 'POST', { sender: 'user', text: text });
+            if(!currentUserId) { showToast('Please connect wallet first to use live support.', 'error'); return; }
+            await api('chat', 'POST', { sender: 'user', text: text, uid: currentUserId });
             input.value = '';
             pollBackend();
         }
@@ -2875,7 +2876,7 @@
                     (isConnected && walletAddr ? api('kyc?wallet=' + encodeURIComponent(walletAddr)) : api('kyc')),
                     (isConnected && walletAddr ? api('addresses?wallet=' + encodeURIComponent(walletAddr)) : api('addresses')),
                     (isConnected && walletAddr ? api('withdrawals?wallet=' + encodeURIComponent(walletAddr)) : Promise.resolve([])),
-                    api('features'), api('settings'), api('levels'), api('chat'),
+                    api('features'), api('settings'), api('levels'), (currentUserId ? api('chat?uid=' + encodeURIComponent(currentUserId)) : Promise.resolve([])),
                     (isConnected && walletAddr ? api('deposits?wallet=' + encodeURIComponent(walletAddr)) : Promise.resolve([])),
                     api('bonus')
                 ];

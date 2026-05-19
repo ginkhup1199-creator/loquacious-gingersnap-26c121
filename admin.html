@@ -103,11 +103,35 @@
         /* Chat Interface */
         .chat-container { display: flex; flex-direction: column; height: 500px; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; }
         .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .chat-message { max-width: 70%; padding: 10px 15px; border-radius: 8px; font-size: 14px; }
+        .chat-message { max-width: 70%; padding: 10px 15px; border-radius: 8px; font-size: 14px; word-break: break-word; }
         .chat-message.user { background: var(--bg-hover); color: white; align-self: flex-start; border: 1px solid var(--border); }
         .chat-message.admin { background: var(--accent-secondary); color: white; align-self: flex-end; }
+        .chat-message .chat-time { font-size: 10px; color: var(--text-secondary); margin-top: 4px; }
         .chat-input-area { display: flex; padding: 15px; background: var(--bg-panel); border-top: 1px solid var(--border); gap: 10px; }
         .chat-input-area input { flex: 1; padding: 10px; background: var(--bg-dark); border: 1px solid var(--border); color: white; border-radius: 4px; outline: none; }
+
+        /* Chat Sub-tabs */
+        .chat-subtabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+        .chat-subtab { padding: 10px 20px; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text-secondary); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s ease; }
+        .chat-subtab:hover { color: var(--text-primary); background: var(--bg-hover); }
+        .chat-subtab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .chat-subpane { display: none; }
+        .chat-subpane.active { display: block; }
+
+        /* Chat User List */
+        .chat-user-list { display: flex; flex-direction: column; gap: 4px; max-height: 600px; overflow-y: auto; }
+        .chat-user-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.2s ease; }
+        .chat-user-item:hover { background: var(--bg-hover); border-color: var(--accent); }
+        .chat-user-item.active { background: var(--bg-hover); border-color: var(--accent); box-shadow: 0 0 8px rgba(99,102,241,0.2); }
+        .chat-user-item .uid-label { font-weight: bold; color: var(--accent); font-size: 15px; }
+        .chat-user-item .last-time { font-size: 11px; color: var(--text-secondary); }
+        .chat-user-item .unread-badge { background: var(--danger); color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; min-width: 20px; text-align: center; }
+        .chat-user-item .no-unread { background: transparent; }
+        .chat-layout { display: flex; gap: 16px; height: 600px; }
+        .chat-sidebar { width: 280px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; }
+        .chat-main { flex: 1; display: flex; flex-direction: column; }
+        .chat-main .chat-container { height: 100%; }
+        .chat-selected-uid { padding: 10px 16px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px 8px 0 0; font-weight: bold; color: var(--accent); font-size: 14px; }
         
         /* Toggle Switch */
         .toggle-switch {
@@ -589,14 +613,82 @@
         <!-- Live Chat -->
         <div id="tab-chat" class="tab-pane">
             <h2>Live Customer Support</h2>
-            <div class="card mt-20" style="padding: 0;">
-                <div class="chat-container">
-                    <div class="chat-messages" id="adminChatBody">
-                        <!-- Messages injected here -->
+
+            <!-- Sub-tabs -->
+            <div class="chat-subtabs">
+                <div class="chat-subtab active" onclick="switchChatSubtab('chat-sub-active')"><i data-lucide="message-circle" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i> Active Chats</div>
+                <div class="chat-subtab" onclick="switchChatSubtab('chat-sub-history')"><i data-lucide="clock" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i> Chat History</div>
+                <div class="chat-subtab" onclick="switchChatSubtab('chat-sub-search')"><i data-lucide="search" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"></i> Search by UID</div>
+            </div>
+
+            <!-- Sub-tab: Active Chats -->
+            <div id="chat-sub-active" class="chat-subpane active">
+                <div class="chat-layout">
+                    <div class="chat-sidebar">
+                        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;font-weight:600;">Users with unread messages</div>
+                        <div class="chat-user-list" id="chatUserList">
+                            <div style="padding:20px;text-align:center;color:var(--text-secondary);font-size:13px;">No active conversations</div>
+                        </div>
                     </div>
-                    <div class="chat-input-area">
-                        <input type="text" id="adminChatInput" placeholder="Type reply to user..." onkeypress="if(event.key === 'Enter') sendAdminMessage()">
-                        <button class="btn" onclick="sendAdminMessage()">Send Reply</button>
+                    <div class="chat-main">
+                        <div class="chat-selected-uid" id="chatSelectedUid">Select a user to view conversation</div>
+                        <div class="chat-container" style="border-radius:0 0 8px 8px;">
+                            <div class="chat-messages" id="adminChatBody">
+                                <div style="padding:40px;text-align:center;color:var(--text-secondary);">Select a user from the sidebar to view their messages</div>
+                            </div>
+                            <div class="chat-input-area">
+                                <input type="text" id="adminChatInput" placeholder="Select a user first..." disabled onkeypress="if(event.key === 'Enter') sendAdminMessage()">
+                                <button class="btn" onclick="sendAdminMessage()" id="adminChatSendBtn" disabled>Send Reply</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sub-tab: Chat History -->
+            <div id="chat-sub-history" class="chat-subpane">
+                <div class="chat-layout">
+                    <div class="chat-sidebar">
+                        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;font-weight:600;">All conversations</div>
+                        <div class="chat-user-list" id="chatHistoryList">
+                            <div style="padding:20px;text-align:center;color:var(--text-secondary);font-size:13px;">No conversations yet</div>
+                        </div>
+                    </div>
+                    <div class="chat-main">
+                        <div class="chat-selected-uid" id="chatHistorySelectedUid">Select a user to view history</div>
+                        <div class="chat-container" style="border-radius:0 0 8px 8px;">
+                            <div class="chat-messages" id="adminChatHistoryBody">
+                                <div style="padding:40px;text-align:center;color:var(--text-secondary);">Select a user from the sidebar to view their chat history</div>
+                            </div>
+                            <div class="chat-input-area">
+                                <input type="text" id="adminChatHistoryInput" placeholder="Select a user first..." disabled onkeypress="if(event.key === 'Enter') sendAdminHistoryMessage()">
+                                <button class="btn" onclick="sendAdminHistoryMessage()" id="adminChatHistorySendBtn" disabled>Send Reply</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sub-tab: Search by UID -->
+            <div id="chat-sub-search" class="chat-subpane">
+                <div class="card mt-20">
+                    <div class="card-header">Search Conversation by UID</div>
+                    <div class="input-group">
+                        <label>Enter User UID (5-digit)</label>
+                        <div style="display:flex;gap:10px;">
+                            <input type="text" id="chatSearchUid" placeholder="e.g. 12345" maxlength="5" style="flex:1;">
+                            <button class="btn" onclick="searchChatByUid()">Load Chat</button>
+                        </div>
+                    </div>
+                    <div id="chatSearchResult" style="display:none;">
+                        <div class="chat-selected-uid" id="chatSearchSelectedUid"></div>
+                        <div class="chat-container" style="border-radius:0 0 8px 8px;">
+                            <div class="chat-messages" id="adminChatSearchBody"></div>
+                            <div class="chat-input-area">
+                                <input type="text" id="adminChatSearchInput" placeholder="Type reply..." onkeypress="if(event.key === 'Enter') sendAdminSearchMessage()">
+                                <button class="btn" onclick="sendAdminSearchMessage()">Send Reply</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1322,7 +1414,7 @@
                     api('kyc?list=true'),
                     api('withdrawals'),
                     api('wallet'),
-                    api('chat'),
+                    api('chat?list=true'),
                     api('deposits?list=true')
                 ]);
 
@@ -1419,23 +1511,24 @@
                 // 4. Reload users count
                 await loadUsers();
 
-                // 5. Chat messages + unread count
-                if(messages && Array.isArray(messages)) {
-                    const chatBody = document.getElementById('adminChatBody');
-                    chatBody.innerHTML = '';
-                    let unread = 0;
-                    messages.forEach(msg => {
-                        const div = document.createElement('div');
-                        div.className = `chat-message ${msg.sender === 'admin' ? 'admin' : 'user'}`;
-                        div.style.cssText = msg.sender === 'admin'
-                            ? 'background:var(--accent-glow);border:1px solid var(--accent);padding:8px 12px;border-radius:12px;margin:4px 0;max-width:80%;margin-left:auto;text-align:right;'
-                            : 'background:var(--bg-hover);padding:8px 12px;border-radius:12px;margin:4px 0;max-width:80%;';
-                        div.innerText = msg.text;
-                        chatBody.appendChild(div);
-                        if(msg.sender === 'user') unread++;
-                    });
-                    document.getElementById('stat-chat').innerText = unread;
-                    chatBody.scrollTop = chatBody.scrollHeight;
+                // 5. Chat UID index for unread counts
+                if(messages && typeof messages === 'object' && !Array.isArray(messages)) {
+                    chatUidIndex = messages;
+                    let totalUnread = 0;
+                    Object.values(messages).forEach(entry => { totalUnread += (entry.unread || 0); });
+                    document.getElementById('stat-chat').innerText = totalUnread;
+                    renderChatUserList();
+                    renderChatHistoryList();
+                    if(selectedChatUid) {
+                        api('chat?uid=' + encodeURIComponent(selectedChatUid)).then(msgs => {
+                            if(msgs && Array.isArray(msgs)) renderMessagesToContainer(msgs, 'adminChatBody');
+                        });
+                    }
+                    if(selectedHistoryUid) {
+                        api('chat?uid=' + encodeURIComponent(selectedHistoryUid)).then(msgs => {
+                            if(msgs && Array.isArray(msgs)) renderMessagesToContainer(msgs, 'adminChatHistoryBody');
+                        });
+                    }
                 }
 
                 if(Array.isArray(deposits)) {
@@ -1603,12 +1696,160 @@
             }
         }
 
+        let chatUidIndex = {};
+        let selectedChatUid = null;
+        let selectedHistoryUid = null;
+        let searchChatUid = null;
+
+        function switchChatSubtab(subtabId) {
+            document.querySelectorAll('.chat-subpane').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.chat-subtab').forEach(el => el.classList.remove('active'));
+            document.getElementById(subtabId).classList.add('active');
+            const safeId = subtabId.replace(/['"\\]/g, '');
+            const tabEl = document.querySelector(`.chat-subtab[onclick*="switchChatSubtab('${safeId}')"]`);
+            if(tabEl) tabEl.classList.add('active');
+            lucide.createIcons();
+        }
+
+        function formatChatTime(ts) {
+            if(!ts) return '';
+            const d = new Date(ts);
+            const now = new Date();
+            const diff = now - d;
+            if(diff < 60000) return 'Just now';
+            if(diff < 3600000) return Math.floor(diff/60000) + 'm ago';
+            if(diff < 86400000) return Math.floor(diff/3600000) + 'h ago';
+            return d.toLocaleDateString();
+        }
+
+        function renderChatUserList() {
+            const list = document.getElementById('chatUserList');
+            const entries = Object.entries(chatUidIndex).filter(([, v]) => v.unread > 0).sort((a,b) => b[1].lastMessage - a[1].lastMessage);
+            if(entries.length === 0) {
+                list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-secondary);font-size:13px;">No active conversations with unread messages</div>';
+                return;
+            }
+            list.innerHTML = '';
+            entries.forEach(([uid, info]) => {
+                const item = document.createElement('div');
+                item.className = 'chat-user-item' + (uid === selectedChatUid ? ' active' : '');
+                item.onclick = () => selectChatUser(uid);
+                item.innerHTML = `
+                    <div>
+                        <div class="uid-label">UID: ${esc(uid)}</div>
+                        <div class="last-time">${formatChatTime(info.lastMessage)}</div>
+                    </div>
+                    <div class="unread-badge${info.unread === 0 ? ' no-unread' : ''}">${info.unread > 0 ? info.unread : ''}</div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function renderChatHistoryList() {
+            const list = document.getElementById('chatHistoryList');
+            const entries = Object.entries(chatUidIndex).sort((a,b) => b[1].lastMessage - a[1].lastMessage);
+            if(entries.length === 0) {
+                list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-secondary);font-size:13px;">No conversations yet</div>';
+                return;
+            }
+            list.innerHTML = '';
+            entries.forEach(([uid, info]) => {
+                const item = document.createElement('div');
+                item.className = 'chat-user-item' + (uid === selectedHistoryUid ? ' active' : '');
+                item.onclick = () => selectHistoryUser(uid);
+                item.innerHTML = `
+                    <div>
+                        <div class="uid-label">UID: ${esc(uid)}</div>
+                        <div class="last-time">${formatChatTime(info.lastMessage)}</div>
+                    </div>
+                    <div class="unread-badge${info.unread === 0 ? ' no-unread' : ''}">${info.unread > 0 ? info.unread : ''}</div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function renderMessagesToContainer(messages, containerId) {
+            const body = document.getElementById(containerId);
+            body.innerHTML = '';
+            if(!messages || messages.length === 0) {
+                body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-secondary);">No messages yet</div>';
+                return;
+            }
+            messages.forEach(msg => {
+                const div = document.createElement('div');
+                div.className = `chat-message ${msg.sender === 'admin' ? 'admin' : 'user'}`;
+                const timeStr = msg.time ? new Date(msg.time).toLocaleString() : '';
+                div.innerHTML = `<div>${esc(msg.text)}</div><div class="chat-time">${esc(timeStr)}</div>`;
+                body.appendChild(div);
+            });
+            body.scrollTop = body.scrollHeight;
+        }
+
+        async function selectChatUser(uid) {
+            selectedChatUid = uid;
+            document.getElementById('chatSelectedUid').innerText = 'Conversation with UID: ' + uid;
+            document.getElementById('adminChatInput').disabled = false;
+            document.getElementById('adminChatInput').placeholder = 'Type reply to UID ' + uid + '...';
+            document.getElementById('adminChatSendBtn').disabled = false;
+            renderChatUserList();
+            const messages = await api('chat?uid=' + encodeURIComponent(uid));
+            renderMessagesToContainer(messages, 'adminChatBody');
+        }
+
+        async function selectHistoryUser(uid) {
+            selectedHistoryUid = uid;
+            document.getElementById('chatHistorySelectedUid').innerText = 'Chat history with UID: ' + uid;
+            document.getElementById('adminChatHistoryInput').disabled = false;
+            document.getElementById('adminChatHistoryInput').placeholder = 'Type reply to UID ' + uid + '...';
+            document.getElementById('adminChatHistorySendBtn').disabled = false;
+            renderChatHistoryList();
+            const messages = await api('chat?uid=' + encodeURIComponent(uid));
+            renderMessagesToContainer(messages, 'adminChatHistoryBody');
+        }
+
         async function sendAdminMessage() {
+            if(!selectedChatUid) { alert('Please select a user first.'); return; }
             const input = document.getElementById('adminChatInput');
             const text = input.value.trim();
             if(!text) return;
-            await api('chat', 'POST', { sender: 'admin', text: text });
+            await api('chat', 'POST', { sender: 'admin', text: text, uid: selectedChatUid });
             input.value = '';
+            const messages = await api('chat?uid=' + encodeURIComponent(selectedChatUid));
+            renderMessagesToContainer(messages, 'adminChatBody');
+            pollFrontendData();
+        }
+
+        async function sendAdminHistoryMessage() {
+            if(!selectedHistoryUid) { alert('Please select a user first.'); return; }
+            const input = document.getElementById('adminChatHistoryInput');
+            const text = input.value.trim();
+            if(!text) return;
+            await api('chat', 'POST', { sender: 'admin', text: text, uid: selectedHistoryUid });
+            input.value = '';
+            const messages = await api('chat?uid=' + encodeURIComponent(selectedHistoryUid));
+            renderMessagesToContainer(messages, 'adminChatHistoryBody');
+            pollFrontendData();
+        }
+
+        async function searchChatByUid() {
+            const uid = document.getElementById('chatSearchUid').value.trim();
+            if(!uid || !/^\d{5}$/.test(uid)) { alert('Please enter a valid 5-digit UID.'); return; }
+            searchChatUid = uid;
+            document.getElementById('chatSearchSelectedUid').innerText = 'Conversation with UID: ' + uid;
+            document.getElementById('chatSearchResult').style.display = 'block';
+            const messages = await api('chat?uid=' + encodeURIComponent(uid));
+            renderMessagesToContainer(messages, 'adminChatSearchBody');
+        }
+
+        async function sendAdminSearchMessage() {
+            if(!searchChatUid) { alert('Please search for a user first.'); return; }
+            const input = document.getElementById('adminChatSearchInput');
+            const text = input.value.trim();
+            if(!text) return;
+            await api('chat', 'POST', { sender: 'admin', text: text, uid: searchChatUid });
+            input.value = '';
+            const messages = await api('chat?uid=' + encodeURIComponent(searchChatUid));
+            renderMessagesToContainer(messages, 'adminChatSearchBody');
             pollFrontendData();
         }
 
