@@ -725,7 +725,11 @@
                 <div id="wallet-history" class="wallet-sub-pane">
                     <div class="card table-responsive">
                         <div class="card-header">Transaction History</div>
-                        <table>
+                        <div id="wallet-history-empty" style="text-align:center;padding:30px 10px;color:var(--text-secondary);font-size:14px;display:none;">
+                            <i data-lucide="inbox" style="width:32px;height:32px;margin-bottom:8px;opacity:0.5;"></i>
+                            <div>No transactions yet. Approved deposits and withdrawals will appear here.</div>
+                        </div>
+                        <table id="wallet-history-table-wrapper">
                             <thead><tr><th>Type</th><th>Coin</th><th>Network</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead>
                             <tbody id="user-history-table">
                                 <!-- Dynamic rows injected here -->
@@ -2114,7 +2118,13 @@
 
         function renderWithdrawals() {
             const userTable = document.getElementById('user-history-table');
+            const emptyMsg = document.getElementById('wallet-history-empty');
+            const tableWrapper = document.getElementById('wallet-history-table-wrapper');
             document.querySelectorAll('.dynamic-withdraw-row').forEach(el => el.remove());
+
+            const hasData = cachedTransactions.length > 0 || cachedWithdrawals.length > 0;
+            if (emptyMsg) emptyMsg.style.display = hasData ? 'none' : 'block';
+            if (tableWrapper) tableWrapper.style.display = hasData ? 'table' : 'none';
 
             // Render admin-recorded transactions (deposits, credits, etc.)
             cachedTransactions.forEach(tx => {
@@ -2122,12 +2132,14 @@
                 const statusColor = tx.status === 'Completed' ? 'var(--success)' : tx.status === 'Failed' ? 'var(--danger)' : 'var(--warning)';
                 const amtColor = isDeposit ? 'var(--success)' : 'var(--warning)';
                 const amtSign = isDeposit ? '+' : '-';
+                const typeIcon = isDeposit ? 'arrow-down-to-line' : 'arrow-up-from-line';
+                const typeLabel = tx.type || 'tx';
                 const userRow = document.createElement('tr');
                 userRow.className = 'dynamic-withdraw-row';
                 userRow.innerHTML = `
-                    <td><span style="color:${amtColor};text-transform:capitalize;">${tx.type || 'tx'}</span></td>
+                    <td><span style="color:${amtColor};text-transform:capitalize;display:flex;align-items:center;gap:4px;"><i data-lucide="${typeIcon}" style="width:14px;height:14px;"></i> ${typeLabel}</span></td>
                     <td>${tx.coin || 'USDT'}</td><td>${tx.network || '-'}</td>
-                    <td style="color:${amtColor};">${amtSign}${Number(tx.amount).toLocaleString()}</td>
+                    <td style="color:${amtColor};font-weight:bold;">${amtSign}${Number(tx.amount).toLocaleString()}</td>
                     <td>${tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : '-'}</td>
                     <td><span style="color:${statusColor};font-weight:bold;font-size:12px;">${tx.status || '-'}</span></td>
                 `;
